@@ -3,11 +3,13 @@ import { View, Text, FlatList, PermissionsAndroid, Platform, ActivityIndicator }
 import { getAudioFiles, Song } from '../../modules/local-music';
 import SongListItem from '../components/SongListItem';
 import { useMusicPlayer } from '../audio/musicPlayer';
+import PlayerScreen from './PlayerScreen';
 
 const PistasScreen = () => {
   const [songs, setSongs] = useState<Song[]>([]);
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showPlayer, setShowPlayer] = useState(false);
   const { currentSong, playing, playSong, togglePlayPause } = useMusicPlayer();
 
   useEffect(() => {
@@ -56,6 +58,10 @@ const PistasScreen = () => {
     );
   }
 
+  if (showPlayer && currentSong) {
+    return <PlayerScreen onBack={() => setShowPlayer(false)} />;
+  }
+
   return (
     <View className="flex-1 bg-[#1d1d1f]">
       <FlatList
@@ -70,7 +76,10 @@ const PistasScreen = () => {
               item={item}
               isActive={isActive}
               isPlaying={isActive && playing}
-              onPress={() => playSong(songs, index)}
+              onPress={() => {
+                void playSong(songs, index);
+                setShowPlayer(true);
+              }}
               onTogglePlayPause={togglePlayPause}
             />
           );
