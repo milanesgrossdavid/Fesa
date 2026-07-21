@@ -2,11 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, PermissionsAndroid, Platform, ActivityIndicator } from 'react-native';
 import { getAudioFiles, Song } from '../../modules/local-music';
 import SongListItem from '../components/SongListItem';
+import { useMusicPlayer } from '../audio/musicPlayer';
 
 const PistasScreen = () => {
   const [songs, setSongs] = useState<Song[]>([]);
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [loading, setLoading] = useState(true);
+  const { currentSong, playing, playSong, togglePlayPause } = useMusicPlayer();
 
   useEffect(() => {
     const requestPermissionsAndLoadMusic = async () => {
@@ -60,7 +62,19 @@ const PistasScreen = () => {
         data={songs}
         keyExtractor={item => item.id}
         contentContainerStyle={{ paddingBottom: 20 }}
-        renderItem={({ item }) => <SongListItem item={item} />}
+        renderItem={({ item, index }) => {
+          const isActive = currentSong?.id === item.id;
+
+          return (
+            <SongListItem
+              item={item}
+              isActive={isActive}
+              isPlaying={isActive && playing}
+              onPress={() => playSong(songs, index)}
+              onTogglePlayPause={togglePlayPause}
+            />
+          );
+        }}
       />
     </View>
   );

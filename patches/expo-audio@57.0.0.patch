@@ -1,0 +1,646 @@
+diff --git a/node_modules/expo-audio/.bun-tag-144718d19ce51a97 b/.bun-tag-144718d19ce51a97
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/android/src/main/java/expo/modules/audio/AudioModule.kt b/android/src/main/java/expo/modules/audio/AudioModule.kt
+index 992239ba7631ce0c97c0b41c5fbf61cc842386fe..b7f72781612d263468f185cce3f9174c869e04a8 100644
+--- a/android/src/main/java/expo/modules/audio/AudioModule.kt
++++ b/android/src/main/java/expo/modules/audio/AudioModule.kt
+@@ -49,7 +49,19 @@ class AudioModule : Module() {
+   private lateinit var audioManager: AudioManager
+   private val context: Context
+     get() = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+-  private val httpClient = OkHttpClient()
++  // Route audio streaming through React Native's shared OkHttpClient, which the
++  // ssl-trust module patches with the app's custom SSLSocketFactory (self-signed
++  // TOFU trust + mTLS client cert). A bare OkHttpClient() uses the system default
++  // trust manager, so it can't reach self-signed / mutual-TLS servers. Reflection
++  // avoids a compile-time dependency on react-android; falls back to a plain
++  // client if RN's provider can't be reached.
++  private val httpClient: OkHttpClient = try {
++    Class.forName("com.facebook.react.modules.network.OkHttpClientProvider")
++      .getMethod("getOkHttpClient")
++      .invoke(null) as OkHttpClient
++  } catch (e: Exception) {
++    OkHttpClient()
++  }
+ 
+   private val players = ConcurrentHashMap<String, AudioPlayer>()
+   private val recorders = ConcurrentHashMap<String, AudioRecorder>()
+@@ -148,11 +160,11 @@ class AudioModule : Module() {
+     val result = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+       val requestType = interruptionMode?.let {
+         if (it == InterruptionMode.DO_NOT_MIX) {
+-          AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
++          AudioManager.AUDIOFOCUS_GAIN
+         } else {
+           AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
+         }
+-      } ?: AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
++      } ?: AudioManager.AUDIOFOCUS_GAIN
+       audioFocusRequest = AudioFocusRequest.Builder(requestType).run {
+         setAudioAttributes(
+           AudioAttributes.Builder()
+@@ -169,7 +181,7 @@ class AudioModule : Module() {
+     } else {
+       @Suppress("DEPRECATION")
+       val requestType = if (interruptionMode == InterruptionMode.DO_NOT_MIX) {
+-        AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
++        AudioManager.AUDIOFOCUS_GAIN
+       } else {
+         AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
+       }
+@@ -464,6 +476,12 @@ class AudioModule : Module() {
+         ref.setVolume(volume)
+       }
+ 
++      Property("audioSessionId") { player ->
++        runOnMain {
++          player.ref.audioSessionId
++        }
++      }
++
+       Function("play") { player: AudioPlayer ->
+         if (!audioEnabled) {
+           Log.e(TAG, "Audio has been disabled. Re-enable to start playing")
+diff --git a/android/src/main/java/expo/modules/audio/AudioPlayer.kt b/android/src/main/java/expo/modules/audio/AudioPlayer.kt
+index c76a9fd2a53743a691782e0f67d0d71401df58f6..a6e3e004abe1db6321506db60fec8d0a69ac2a96 100644
+--- a/android/src/main/java/expo/modules/audio/AudioPlayer.kt
++++ b/android/src/main/java/expo/modules/audio/AudioPlayer.kt
+@@ -24,6 +24,8 @@ import java.lang.ref.WeakReference
+ 
+ private const val PLAYBACK_STATUS_UPDATE = "playbackStatusUpdate"
+ private const val AUDIO_SAMPLE_UPDATE = "audioSampleUpdate"
++private const val REMOTE_PREVIOUS = "remotePrevious"
++private const val REMOTE_NEXT = "remoteNext"
+ private const val SEEK_JUMP_INTERVAL_MS: Long = 10_000
+ 
+ @UnstableApi
+@@ -37,6 +39,7 @@ class AudioPlayer(
+   player = ExoPlayer.Builder(context)
+     .setLooper(context.mainLooper)
+     .setAudioAttributes(AudioAttributes.DEFAULT, false)
++    .setWakeMode(C.WAKE_MODE_NETWORK)
+     .setSeekForwardIncrementMs(SEEK_JUMP_INTERVAL_MS)
+     .setSeekBackIncrementMs(SEEK_JUMP_INTERVAL_MS)
+     .apply {
+@@ -97,6 +100,14 @@ class AudioPlayer(
+     startUpdating()
+   }
+ 
++  fun emitRemotePrevious() {
++    emit(REMOTE_PREVIOUS)
++  }
++
++  fun emitRemoteNext() {
++    emit(REMOTE_NEXT)
++  }
++
+   fun setActiveForLockScreen(active: Boolean, metadata: Metadata? = null, options: AudioLockScreenOptions? = null) {
+     if (active) {
+       this.metadata = metadata
+diff --git a/android/src/main/java/expo/modules/audio/AudioPlaylist.kt b/android/src/main/java/expo/modules/audio/AudioPlaylist.kt
+index f3536d571535db7d6af57f568fce0d7c0b3fb674..8bd08ad7817d79da89bb7e09556d56bed0005ceb 100644
+--- a/android/src/main/java/expo/modules/audio/AudioPlaylist.kt
++++ b/android/src/main/java/expo/modules/audio/AudioPlaylist.kt
+@@ -2,6 +2,7 @@ package expo.modules.audio
+ 
+ import android.content.Context
+ import androidx.media3.common.AudioAttributes
++import androidx.media3.common.C
+ import androidx.media3.common.MediaItem
+ import androidx.media3.common.PlaybackException
+ import androidx.media3.common.Player
+@@ -25,6 +26,7 @@ class AudioPlaylist(
+   player = ExoPlayer.Builder(context)
+     .setLooper(context.mainLooper)
+     .setAudioAttributes(AudioAttributes.DEFAULT, false)
++    .setWakeMode(C.WAKE_MODE_NETWORK)
+     .setMediaSourceFactory(DefaultMediaSourceFactory(context).setDataSourceFactory(dataSourceFactory))
+     .build(),
+   appContext = appContext,
+diff --git a/android/src/main/java/expo/modules/audio/AudioRecords.kt b/android/src/main/java/expo/modules/audio/AudioRecords.kt
+index 86880d92fd5b6413e8596e1b2b8ae28f2981addd..771404a6488ac9bd2607f62a51687381d5095dc8 100644
+--- a/android/src/main/java/expo/modules/audio/AudioRecords.kt
++++ b/android/src/main/java/expo/modules/audio/AudioRecords.kt
+@@ -55,7 +55,8 @@ class Metadata(
+   @Field val title: String?,
+   @Field val artist: String?,
+   @Field val albumTitle: String?,
+-  @Field val artworkUrl: URL?
++  @Field val artworkUrl: URL?,
++  @Field val durationMs: Double? = null
+ ) : Record
+ 
+ enum class AndroidOutputFormat(val value: String) : Enumerable {
+@@ -110,7 +111,9 @@ enum class AndroidAudioEncoder(val value: String) : Enumerable {
+ class AudioLockScreenOptions(
+   @Field val showSeekForward: Boolean,
+   @Field val showSeekBackward: Boolean,
+-  @Field val isLiveStream: Boolean? = null
++  @Field val isLiveStream: Boolean? = null,
++  @Field val showSkipPrevious: Boolean = false,
++  @Field val showSkipNext: Boolean = false
+ ) : Record
+ 
+ enum class InterruptionMode(val value: String) : Enumerable {
+diff --git a/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt b/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
+index 196a5d57f887c2667a88543bd2f6a80044a044f2..e86eb0c16f14322e5a07143d98e2344f226c93d4 100644
+--- a/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
++++ b/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
+@@ -90,6 +90,8 @@ class AudioControlsService : MediaSessionService() {
+ 
+         ACTION_SEEK_FORWARD -> currentPlayerRef.seekTo(currentPlayerRef.currentPosition + SEEK_INTERVAL_MS)
+         ACTION_SEEK_BACKWARD -> currentPlayerRef.seekTo(currentPlayerRef.currentPosition - SEEK_INTERVAL_MS)
++        ACTION_SKIP_PREVIOUS -> currentPlayer?.emitRemotePrevious()
++        ACTION_SKIP_NEXT -> currentPlayer?.emitRemoteNext()
+       }
+     }
+ 
+@@ -192,6 +194,18 @@ class AudioControlsService : MediaSessionService() {
+       val compactViewIndices = mutableListOf<Int>()
+       var currentIndex = 0
+ 
++      if (currentOptions?.showSkipPrevious == true) {
++        builder.addAction(
++          NotificationCompat.Action(
++            androidx.media3.session.R.drawable.media3_icon_previous,
++            "Skip Previous",
++            buildActionPendingIntent(ACTION_SKIP_PREVIOUS)
++          )
++        )
++        compactViewIndices.add(currentIndex)
++        currentIndex++
++      }
++
+       if (currentOptions?.showSeekBackward == true) {
+         builder.addAction(
+           NotificationCompat.Action(
+@@ -227,6 +241,18 @@ class AudioControlsService : MediaSessionService() {
+           )
+         )
+         compactViewIndices.add(currentIndex)
++        currentIndex++
++      }
++
++      if (currentOptions?.showSkipNext == true) {
++        builder.addAction(
++          NotificationCompat.Action(
++            androidx.media3.session.R.drawable.media3_icon_next,
++            "Skip Next",
++            buildActionPendingIntent(ACTION_SKIP_NEXT)
++          )
++        )
++        compactViewIndices.add(currentIndex)
+       }
+ 
+       style.setShowActionsInCompactView(*compactViewIndices.toIntArray())
+@@ -240,14 +266,37 @@ class AudioControlsService : MediaSessionService() {
+     val session = mediaSession ?: return
+     val mediaButtons = mutableListOf<CommandButton>()
+ 
++    val showSkipPrevious = currentOptions?.showSkipPrevious == true
++    val showSkipNext = currentOptions?.showSkipNext == true
++    val showSeekBackward = currentOptions?.showSeekBackward == true
++    val showSeekForward = currentOptions?.showSeekForward == true
++
++    // Add skip previous button (primary back slot). Uses the standard player
++    // command so this button, the lock screen, Android Auto and hardware/Bluetooth
++    // media buttons all funnel through the same intercepted seekToPrevious path.
++    if (showSkipPrevious) {
++      mediaButtons.add(
++        CommandButton.Builder(CommandButton.ICON_PREVIOUS)
++          .setDisplayName("Skip Previous")
++          .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
++          .setSlots(CommandButton.SLOT_BACK, CommandButton.SLOT_OVERFLOW)
++          .build()
++      )
++    }
++
+     // Add seek backward button if enabled
+-    if (currentOptions?.showSeekBackward == true) {
++    if (showSeekBackward) {
++      val slot = if (showSkipPrevious) {
++        intArrayOf(CommandButton.SLOT_BACK_SECONDARY, CommandButton.SLOT_OVERFLOW)
++      } else {
++        intArrayOf(CommandButton.SLOT_BACK, CommandButton.SLOT_OVERFLOW)
++      }
+       mediaButtons.add(
+         CommandButton.Builder(CommandButton.ICON_SKIP_BACK_10)
+           .setDisplayName("Seek Backward")
+           .setEnabled(true)
+           .setSessionCommand(SessionCommand(ACTION_SEEK_BACKWARD, Bundle.EMPTY))
+-          .setSlots(CommandButton.SLOT_BACK)
++          .setSlots(*slot)
+           .build()
+       )
+     }
+@@ -263,13 +312,30 @@ class AudioControlsService : MediaSessionService() {
+     )
+ 
+     // Add seek forward button if enabled
+-    if (currentOptions?.showSeekForward == true) {
++    if (showSeekForward) {
++      val slot = if (showSkipNext) {
++        intArrayOf(CommandButton.SLOT_FORWARD_SECONDARY, CommandButton.SLOT_OVERFLOW)
++      } else {
++        intArrayOf(CommandButton.SLOT_FORWARD, CommandButton.SLOT_OVERFLOW)
++      }
+       mediaButtons.add(
+         CommandButton.Builder(CommandButton.ICON_SKIP_FORWARD_10)
+           .setDisplayName("Seek Forward")
+           .setEnabled(true)
+           .setSessionCommand(SessionCommand(ACTION_SEEK_FORWARD, Bundle.EMPTY))
+-          .setSlots(CommandButton.SLOT_FORWARD)
++          .setSlots(*slot)
++          .build()
++      )
++    }
++
++    // Add skip next button (primary forward slot). Standard player command, see
++    // the skip-previous button above.
++    if (showSkipNext) {
++      mediaButtons.add(
++        CommandButton.Builder(CommandButton.ICON_NEXT)
++          .setDisplayName("Skip Next")
++          .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
++          .setSlots(CommandButton.SLOT_FORWARD, CommandButton.SLOT_OVERFLOW)
+           .build()
+       )
+     }
+@@ -322,15 +388,51 @@ class AudioControlsService : MediaSessionService() {
+ 
+   private fun resolveSessionPlayer(player: AudioPlayer, options: AudioLockScreenOptions?): Player {
+     val isLive = options?.isLiveStream ?: player.isLive
+-    if (!isLive) {
+-      return player.ref
+-    }
+-
++    val showSkipPrevious = options?.showSkipPrevious == true
++    val showSkipNext = options?.showSkipNext == true
++
++    // The JS layer owns the queue and only ever loads a single MediaItem into the
++    // ExoPlayer, so ExoPlayer reports no next/previous item and the framework would
++    // drop hardware/Bluetooth skip presses. Advertise the navigation commands here
++    // and re-route the resulting seekToNext/Previous player calls (which is what
++    // Media3 maps KEYCODE_MEDIA_NEXT/PREVIOUS onto) back to the JS queue.
+     return object : ForwardingPlayer(player.ref) {
+       override fun getAvailableCommands(): Player.Commands {
+-        return super.getAvailableCommands().buildUpon()
+-          .remove(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
+-          .build()
++        val builder = super.getAvailableCommands().buildUpon()
++        if (isLive) {
++          builder.remove(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
++        }
++        if (showSkipPrevious) {
++          builder.add(Player.COMMAND_SEEK_TO_PREVIOUS)
++          builder.add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
++        }
++        if (showSkipNext) {
++          builder.add(Player.COMMAND_SEEK_TO_NEXT)
++          builder.add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
++        }
++        return builder.build()
++      }
++
++      override fun hasPreviousMediaItem(): Boolean =
++        if (showSkipPrevious) true else super.hasPreviousMediaItem()
++
++      override fun hasNextMediaItem(): Boolean =
++        if (showSkipNext) true else super.hasNextMediaItem()
++
++      override fun seekToPrevious() {
++        if (showSkipPrevious) player.emitRemotePrevious() else super.seekToPrevious()
++      }
++
++      override fun seekToPreviousMediaItem() {
++        if (showSkipPrevious) player.emitRemotePrevious() else super.seekToPreviousMediaItem()
++      }
++
++      override fun seekToNext() {
++        if (showSkipNext) player.emitRemoteNext() else super.seekToNext()
++      }
++
++      override fun seekToNextMediaItem() {
++        if (showSkipNext) player.emitRemoteNext() else super.seekToNextMediaItem()
+       }
+     }
+   }
+@@ -371,7 +473,12 @@ class AudioControlsService : MediaSessionService() {
+           updateMetadata(metadata)
+         }
+         val session = MediaSession.Builder(context, sessionPlayer)
+-          .setCallback(AudioMediaSessionCallback())
++          .setCallback(
++            AudioMediaSessionCallback(
++              onSkipPrevious = { currentPlayer?.emitRemotePrevious() },
++              onSkipNext = { currentPlayer?.emitRemoteNext() }
++            )
++          )
+           .build()
+ 
+         // Replace the basic media session with a session connected to our playback service.
+@@ -452,7 +559,12 @@ class AudioControlsService : MediaSessionService() {
+           updateMetadata(metadata)
+         }
+         val session = MediaSession.Builder(context, sessionPlayer)
+-          .setCallback(AudioMediaSessionCallback())
++          .setCallback(
++            AudioMediaSessionCallback(
++              onSkipPrevious = { currentPlayer?.emitRemotePrevious() },
++              onSkipNext = { currentPlayer?.emitRemoteNext() }
++            )
++          )
+           .build()
+ 
+         player.mediaSession.release()
+@@ -558,6 +670,8 @@ class AudioControlsService : MediaSessionService() {
+ 
+     const val ACTION_SEEK_FORWARD = "expo.modules.audio.action.SEEK_FORWARD"
+     const val ACTION_SEEK_BACKWARD = "expo.modules.audio.action.SEEK_BACKWARD"
++    const val ACTION_SKIP_PREVIOUS = "expo.modules.audio.action.SKIP_PREVIOUS"
++    const val ACTION_SKIP_NEXT = "expo.modules.audio.action.SKIP_NEXT"
+ 
+     const val SEEK_INTERVAL_MS = 10000L
+   }
+diff --git a/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt b/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt
+index 839aaef12d7699ea1a89037b31849775daa079f4..9f5420f76b164ecdadab86a3f7f19a734702242f 100644
+--- a/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt
++++ b/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt
+@@ -10,7 +10,10 @@ import androidx.media3.common.util.UnstableApi
+ import com.google.common.util.concurrent.ListenableFuture
+ 
+ @OptIn(UnstableApi::class)
+-class AudioMediaSessionCallback : MediaSession.Callback {
++class AudioMediaSessionCallback(
++  private val onSkipPrevious: () -> Unit = {},
++  private val onSkipNext: () -> Unit = {}
++) : MediaSession.Callback {
+   override fun onConnect(
+     session: MediaSession,
+     controller: MediaSession.ControllerInfo
+@@ -24,17 +27,21 @@ class AudioMediaSessionCallback : MediaSession.Callback {
+             .add(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
+             .add(Player.COMMAND_SEEK_FORWARD)
+             .add(Player.COMMAND_SEEK_BACK)
+-            // Remove track navigation commands
+-            .remove(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+-            .remove(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+-            .remove(Player.COMMAND_SEEK_TO_PREVIOUS)
+-            .remove(Player.COMMAND_SEEK_TO_NEXT)
++            // Advertise track navigation so hardware/Bluetooth media buttons
++            // (KEYCODE_MEDIA_NEXT/PREVIOUS) reach the session player, where the
++            // session player wrapper re-routes them to the JS-managed queue.
++            .add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
++            .add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
++            .add(Player.COMMAND_SEEK_TO_PREVIOUS)
++            .add(Player.COMMAND_SEEK_TO_NEXT)
+             .build()
+         )
+         .setAvailableSessionCommands(
+           MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
+             .add(SessionCommand(AudioControlsService.ACTION_SEEK_BACKWARD, Bundle.EMPTY))
+             .add(SessionCommand(AudioControlsService.ACTION_SEEK_FORWARD, Bundle.EMPTY))
++            .add(SessionCommand(AudioControlsService.ACTION_SKIP_PREVIOUS, Bundle.EMPTY))
++            .add(SessionCommand(AudioControlsService.ACTION_SKIP_NEXT, Bundle.EMPTY))
+             .build()
+         )
+         .build()
+@@ -56,6 +63,12 @@ class AudioMediaSessionCallback : MediaSession.Callback {
+       AudioControlsService.ACTION_SEEK_BACKWARD -> {
+         session.player.seekTo(session.player.currentPosition - AudioControlsService.SEEK_INTERVAL_MS)
+       }
++      AudioControlsService.ACTION_SKIP_PREVIOUS -> {
++        onSkipPrevious()
++      }
++      AudioControlsService.ACTION_SKIP_NEXT -> {
++        onSkipNext()
++      }
+     }
+     return super.onCustomCommand(session, controller, command, args)
+   }
+diff --git a/android/src/main/java/expo/modules/audio/service/MetadataInjectingPlayer.kt b/android/src/main/java/expo/modules/audio/service/MetadataInjectingPlayer.kt
+index 18203a364d17dcf3de95d22a20175308e3363889..0cbd9bb1ba694c92f02abdef6bef0db22d047161 100644
+--- a/android/src/main/java/expo/modules/audio/service/MetadataInjectingPlayer.kt
++++ b/android/src/main/java/expo/modules/audio/service/MetadataInjectingPlayer.kt
+@@ -45,6 +45,11 @@ internal class MetadataInjectingPlayer(
+       .setAlbumTitle(metadata?.albumTitle)
+       .setArtworkUri(metadata?.artworkUrl?.toString()?.toUri())
+       .setArtworkData(null, null)
++      // Carry the known track duration on the metadata so the media notification's
++      // duration is authoritative. Media3 uses MediaMetadata.durationMs for
++      // METADATA_KEY_DURATION when the player's live content duration is unknown
++      // (e.g. right after a gapless transition, before the next item buffers).
++      .setDurationMs(metadata?.durationMs?.toLong())
+       .build()
+   }
+ 
+diff --git a/build/Audio.types.d.ts b/build/Audio.types.d.ts
+index 25604783649fe9b64f6655172f08471a5efcbf45..da73354dac3220b01cb9af6ab10e3ddc2fe05edf 100644
+--- a/build/Audio.types.d.ts
++++ b/build/Audio.types.d.ts
+@@ -618,6 +618,7 @@ export type AudioMetadata = {
+     artist?: string;
+     albumTitle?: string;
+     artworkUrl?: string;
++    durationMs?: number;
+ };
+ /**
+  * Loop mode for audio playlist playback.
+diff --git a/build/AudioConstants.d.ts b/build/AudioConstants.d.ts
+index cfd92ad0ff5765254c4e6db974fe44bce34aad06..daef7384bcd7090cc200dd65d3812fc6e5774306 100644
+--- a/build/AudioConstants.d.ts
++++ b/build/AudioConstants.d.ts
+@@ -15,5 +15,13 @@ export type AudioLockScreenOptions = {
+      * and scrub bar, and disable seek controls.
+      */
+     isLiveStream?: boolean;
++    /**
++     * Whether the skip-to-previous-track button should be displayed on the lock screen.
++     */
++    showSkipPrevious?: boolean;
++    /**
++     * Whether the skip-to-next-track button should be displayed on the lock screen.
++     */
++    showSkipNext?: boolean;
+ };
+ //# sourceMappingURL=AudioConstants.d.ts.map
+\ No newline at end of file
+diff --git a/build/AudioModule.types.d.ts b/build/AudioModule.types.d.ts
+index f3ae4ee4044d86032cd5c6dbcfee6f905d1ce99f..ab86f9c70f583f693302f194a6b6ffb5e7567b28 100644
+--- a/build/AudioModule.types.d.ts
++++ b/build/AudioModule.types.d.ts
+@@ -92,6 +92,11 @@ export declare class AudioPlayer extends SharedObject<AudioEvents> {
+      * ```
+      */
+     volume: number;
++    /**
++     * Android-only. The ExoPlayer audio session id used by this player, suitable for the
++     * `android.media.action.DISPLAY_AUDIO_EFFECT_CONTROL_PANEL` intent. `0` on other platforms.
++     */
++    readonly audioSessionId: number;
+     /**
+      * The current playback rate of the audio. It accepts different values depending on the platform:
+      * - **Android**: `0.1` to `2.0`
+@@ -222,6 +227,10 @@ export type AudioEvents = {
+     playbackStatusUpdate(status: AudioStatus): void;
+     /** Fired when audio sampling is enabled and new sample data is available. */
+     audioSampleUpdate(data: AudioSample): void;
++    /** Fired when the user taps the skip-previous-track button on the lock screen / notification / headset. */
++    remotePrevious(): void;
++    /** Fired when the user taps the skip-next-track button on the lock screen / notification / headset. */
++    remoteNext(): void;
+ };
+ export declare class AudioRecorder extends SharedObject<RecordingEvents> {
+     /**
+diff --git a/ios/AudioPlayer.swift b/ios/AudioPlayer.swift
+index 074294321e872bb53c0b2d41044dac3c612f14f0..715e53980926c7b2e6c10041897aaf1b30f69da8 100644
+--- a/ios/AudioPlayer.swift
++++ b/ios/AudioPlayer.swift
+@@ -4,6 +4,18 @@ import Combine
+ private enum AudioConstants {
+   static let playbackStatus = "playbackStatusUpdate"
+   static let audioSample = "audioSampleUpdate"
++  static let remotePrevious = "remotePrevious"
++  static let remoteNext = "remoteNext"
++}
++
++extension AudioPlayer {
++  func emitRemotePrevious() {
++    self.emit(event: AudioConstants.remotePrevious, payload: [])
++  }
++
++  func emitRemoteNext() {
++    self.emit(event: AudioConstants.remoteNext, payload: [])
++  }
+ }
+ 
+ public class AudioPlayer: SharedRef<AVPlayer>, Playable {
+diff --git a/ios/AudioRecords.swift b/ios/AudioRecords.swift
+index 33db27c3b8fb40fa9db6659a0787c6b2b503d1ab..7999534bb8889646b5edc109f0846a5b36d201c5 100644
+--- a/ios/AudioRecords.swift
++++ b/ios/AudioRecords.swift
+@@ -70,6 +70,8 @@ struct LockScreenOptions: Record {
+   @Field var showSeekForward: Bool = false
+   @Field var showSeekBackward: Bool = false
+   @Field var isLiveStream: Bool? = false
++  @Field var showSkipPrevious: Bool = false
++  @Field var showSkipNext: Bool = false
+ }
+ 
+ enum BitRateStrategy: String, Enumerable {
+diff --git a/ios/MediaController.swift b/ios/MediaController.swift
+index e977f577cd2e16b194b56537ad76b423f40d2496..b069388f1b312ddaebeae171c14452701d4bf4c1 100644
+--- a/ios/MediaController.swift
++++ b/ios/MediaController.swift
+@@ -303,12 +303,30 @@ class MediaController {
+       return .success
+     }
+ 
++    remoteCommandCenter.previousTrackCommand.addTarget { [weak self] _ in
++      guard let player = self?.activePlayer else {
++        return .commandFailed
++      }
++      player.emitRemotePrevious()
++      return .success
++    }
++
++    remoteCommandCenter.nextTrackCommand.addTarget { [weak self] _ in
++      guard let player = self?.activePlayer else {
++        return .commandFailed
++      }
++      player.emitRemoteNext()
++      return .success
++    }
++
+     remoteCommandCenter.playCommand.isEnabled = true
+     remoteCommandCenter.pauseCommand.isEnabled = true
+     remoteCommandCenter.togglePlayPauseCommand.isEnabled = true
+     remoteCommandCenter.changePlaybackPositionCommand.isEnabled = !isLiveStream
+     remoteCommandCenter.skipForwardCommand.isEnabled = options?.showSeekForward ?? false
+     remoteCommandCenter.skipBackwardCommand.isEnabled = options?.showSeekBackward ?? false
++    remoteCommandCenter.previousTrackCommand.isEnabled = options?.showSkipPrevious ?? false
++    remoteCommandCenter.nextTrackCommand.isEnabled = options?.showSkipNext ?? false
+   }
+ 
+   private func disableRemoteCommands() {
+@@ -318,6 +336,8 @@ class MediaController {
+     remoteCommandCenter.changePlaybackPositionCommand.isEnabled = false
+     remoteCommandCenter.skipForwardCommand.isEnabled = false
+     remoteCommandCenter.skipBackwardCommand.isEnabled = false
++    remoteCommandCenter.previousTrackCommand.isEnabled = false
++    remoteCommandCenter.nextTrackCommand.isEnabled = false
+ 
+     // Remove event targets
+     remoteCommandCenter.playCommand.removeTarget(self)
+@@ -326,5 +346,7 @@ class MediaController {
+     remoteCommandCenter.changePlaybackPositionCommand.removeTarget(self)
+     remoteCommandCenter.skipForwardCommand.removeTarget(self)
+     remoteCommandCenter.skipBackwardCommand.removeTarget(self)
++    remoteCommandCenter.previousTrackCommand.removeTarget(self)
++    remoteCommandCenter.nextTrackCommand.removeTarget(self)
+   }
+ }
+diff --git a/src/Audio.types.ts b/src/Audio.types.ts
+index 906753fa4fcab4323c391bc71c77e7c9f39b7379..860a2f0a010f32ecd75fb81a959a1d2afa0169cb 100644
+--- a/src/Audio.types.ts
++++ b/src/Audio.types.ts
+@@ -664,6 +664,11 @@ export type AudioMetadata = {
+   artist?: string;
+   albumTitle?: string;
+   artworkUrl?: string;
++  /**
++   * Track duration in milliseconds. Used to set the media notification's
++   * duration when the player's live content duration isn't yet known.
++   */
++  durationMs?: number;
+ };
+ 
+ /**
+diff --git a/src/AudioConstants.ts b/src/AudioConstants.ts
+index dcc0452f7cae66b1bfaf77ed211416b092965bd9..779223ba2550809e621f4006c193beb29c7d15e5 100644
+--- a/src/AudioConstants.ts
++++ b/src/AudioConstants.ts
+@@ -16,4 +16,14 @@ export type AudioLockScreenOptions = {
+    * and scrub bar, and disable seek controls.
+    */
+   isLiveStream?: boolean;
++  /**
++   * Whether the skip-to-previous-track button should be displayed on the lock screen.
++   * When pressed, the player emits a `remotePrevious` event for the JS layer to handle.
++   */
++  showSkipPrevious?: boolean;
++  /**
++   * Whether the skip-to-next-track button should be displayed on the lock screen.
++   * When pressed, the player emits a `remoteNext` event for the JS layer to handle.
++   */
++  showSkipNext?: boolean;
+ };
+diff --git a/src/AudioModule.types.ts b/src/AudioModule.types.ts
+index 7e7537173d067fecef767a03dc0f1860c8aca7ac..961a189840b6ffea60d5a43325108c006de50c54 100644
+--- a/src/AudioModule.types.ts
++++ b/src/AudioModule.types.ts
+@@ -127,6 +127,12 @@ export declare class AudioPlayer extends SharedObject<AudioEvents> {
+    */
+   volume: number;
+ 
++  /**
++   * Android-only. The ExoPlayer audio session id used by this player, suitable for the
++   * `android.media.action.DISPLAY_AUDIO_EFFECT_CONTROL_PANEL` intent. `0` on other platforms.
++   */
++  readonly audioSessionId: number;
++
+   /**
+    * The current playback rate of the audio. It accepts different values depending on the platform:
+    * - **Android**: `0.1` to `2.0`
+@@ -280,6 +286,10 @@ export type AudioEvents = {
+   playbackStatusUpdate(status: AudioStatus): void;
+   /** Fired when audio sampling is enabled and new sample data is available. */
+   audioSampleUpdate(data: AudioSample): void;
++  /** Fired when the user taps the skip-previous-track button on the lock screen / notification / headset. */
++  remotePrevious(): void;
++  /** Fired when the user taps the skip-next-track button on the lock screen / notification / headset. */
++  remoteNext(): void;
+ };
+ 
+ export declare class AudioRecorder extends SharedObject<RecordingEvents> {

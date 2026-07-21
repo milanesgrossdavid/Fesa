@@ -11,6 +11,6 @@ export type Song = {
 
 const LocalMusic = requireNativeModule('LocalMusic');
 
-export async function getAudioFiles(): Promise {
+export async function getAudioFiles(): Promise<Song[]> {
   return await LocalMusic.getAudioFiles();
 }
