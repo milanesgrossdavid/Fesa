@@ -1,5 +1,6 @@
 package expo.modules.localmusic
 
+import android.net.Uri
 import android.provider.MediaStore
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -21,7 +22,8 @@ class LocalMusicModule : Module() {
         MediaStore.Audio.Media.ARTIST,
         MediaStore.Audio.Media.ALBUM,
         MediaStore.Audio.Media.DURATION,
-        MediaStore.Audio.Media.DATA
+        MediaStore.Audio.Media.DATA,
+        MediaStore.Audio.Media.ALBUM_ID
       )
       
       val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
@@ -39,8 +41,19 @@ class LocalMusicModule : Module() {
         val albumCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
         val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
         val dataCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+        val albumIdCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
 
         while (cursor.moveToNext()) {
+          val albumId = cursor.getLong(albumIdCol)
+          val artworkUri = if (albumId > 0) {
+            Uri.withAppendedPath(
+              Uri.parse("content://media/external/audio/albumart"),
+              albumId.toString()
+            ).toString()
+          } else {
+            null
+          }
+
           audioList.add(
             mapOf(
               "id" to cursor.getLong(idCol).toString(),
@@ -49,7 +62,8 @@ class LocalMusicModule : Module() {
               "artist" to (cursor.getString(artistCol) ?: "Artista Desconocido"),
               "album" to (cursor.getString(albumCol) ?: "Álbum Desconocido"),
               "duration" to cursor.getLong(durationCol),
-              "url" to cursor.getString(dataCol)
+              "url" to cursor.getString(dataCol),
+              "artwork" to artworkUri
             )
           )
         }

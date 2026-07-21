@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, View, Text } from 'react-native';
+import { Image, Pressable, View, Text } from 'react-native';
 import { Song } from '../../modules/local-music';
 import { formatDuration } from '../utils/time';
 
@@ -18,10 +18,20 @@ const SongListItem = ({ item, isActive = false, isPlaying = false, onPress, onTo
       onPress={onPress}
     >
       <Pressable
-        className={`w-12 h-12 rounded-lg mr-4 justify-center items-center ${isActive ? 'bg-[#b64400]' : 'bg-[#333333]'}`}
+        className={`w-12 h-12 rounded-lg mr-4 justify-center items-center overflow-hidden ${isActive ? 'bg-[#b64400]' : 'bg-[#333333]'}`}
         onPress={isActive ? onTogglePlayPause : onPress}
       >
-        <Text className={`text-2xl ${isActive ? 'text-white' : 'text-[#707070]'}`}>{isPlaying ? 'Ⅱ' : '♪'}</Text>
+        {item.artwork ? (
+          <Image source={{ uri: item.artwork }} className="h-full w-full rounded-lg" resizeMode="cover" />
+        ) : (
+          <Text className={`text-2xl ${isActive ? 'text-white' : 'text-[#707070]'}`}>♪</Text>
+        )}
+
+        {isPlaying ? (
+          <View className="absolute inset-0 items-center justify-center bg-black/45">
+            <Text className="text-2xl text-white">Ⅱ</Text>
+          </View>
+        ) : null}
       </Pressable>
       <View className="flex-1 pr-3">
         <Text className="text-base font-bold text-white mb-1" numberOfLines={1}>{item.title}</Text>

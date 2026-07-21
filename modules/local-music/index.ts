@@ -7,6 +7,7 @@ export type Song = {
   album: string;
   duration: number;
   url: string;
+  artwork?: string | null;
 };
 
 const LocalMusic = requireNativeModule('LocalMusic');

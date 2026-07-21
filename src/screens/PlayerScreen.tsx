@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
+import { Image, Modal, Pressable, Text, View } from 'react-native';
 import { useMusicPlayer } from '../audio/musicPlayer';
 import { formatDuration } from '../utils/time';
 
@@ -43,8 +43,12 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
       </Pressable>
 
       <View className="flex-1 items-center justify-center">
-        <View className="mb-10 h-64 w-64 items-center justify-center rounded-3xl bg-[#333333]">
-          <Text className="text-7xl text-[#b64400]">♪</Text>
+        <View className="mb-10 h-64 w-64 items-center justify-center overflow-hidden rounded-3xl bg-[#333333]">
+          {currentSong.artwork ? (
+            <Image source={{ uri: currentSong.artwork }} className="h-full w-full rounded-3xl" resizeMode="cover" />
+          ) : (
+            <Text className="text-7xl text-[#b64400]">♪</Text>
+          )}
         </View>
 
         <Text className="mb-2 text-center text-2xl font-bold text-white" numberOfLines={2}>
