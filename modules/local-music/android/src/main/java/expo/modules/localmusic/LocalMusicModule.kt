@@ -23,7 +23,9 @@ class LocalMusicModule : Module() {
         MediaStore.Audio.Media.ALBUM,
         MediaStore.Audio.Media.DURATION,
         MediaStore.Audio.Media.DATA,
-        MediaStore.Audio.Media.ALBUM_ID
+        MediaStore.Audio.Media.ALBUM_ID,
+        MediaStore.Audio.Media.DATE_ADDED,
+        MediaStore.Audio.Media.DATE_MODIFIED
       )
       
       val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
@@ -42,6 +44,8 @@ class LocalMusicModule : Module() {
         val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
         val dataCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
         val albumIdCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
+        val dateAddedCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
+        val dateModifiedCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
 
         while (cursor.moveToNext()) {
           val albumId = cursor.getLong(albumIdCol)
@@ -63,6 +67,8 @@ class LocalMusicModule : Module() {
               "album" to (cursor.getString(albumCol) ?: "Álbum Desconocido"),
               "duration" to cursor.getLong(durationCol),
               "url" to cursor.getString(dataCol),
+              "dateAdded" to cursor.getLong(dateAddedCol),
+              "dateModified" to cursor.getLong(dateModifiedCol),
               "artwork" to artworkUri
             )
           )

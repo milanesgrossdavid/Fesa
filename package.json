@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
+    "@expo/vector-icons": "^15.1.1",
     "@react-navigation/material-top-tabs": "^7.6.11",
     "@react-navigation/native": "^7.3.12",
     "babel-preset-expo": "^57.0.3",

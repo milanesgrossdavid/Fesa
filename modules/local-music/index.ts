@@ -7,6 +7,8 @@ export type Song = {
   album: string;
   duration: number;
   url: string;
+  dateAdded?: number;
+  dateModified?: number;
   artwork?: string | null;
 };
 
