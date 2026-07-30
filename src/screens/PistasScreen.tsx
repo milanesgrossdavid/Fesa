@@ -1,6 +1,6 @@
 import React from 'react';
-import MusicLibraryScreen from './MusicLibraryScreen';
+import TrackListLibraryScreen from './TrackListLibraryScreen';
 
-const PistasScreen = () => <MusicLibraryScreen mode="tracks" title="Pistas" />;
+const PistasScreen = () => <TrackListLibraryScreen mode="tracks" />;
 
 export default PistasScreen;

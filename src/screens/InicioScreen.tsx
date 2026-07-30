@@ -1,6 +1,6 @@
 import React from 'react';
-import MusicLibraryScreen from './MusicLibraryScreen';
+import HomeLibraryScreen from './HomeLibraryScreen';
 
-const InicioScreen = () => <MusicLibraryScreen mode="home" title="Inicio" />;
+const InicioScreen = () => <HomeLibraryScreen />;
 
 export default InicioScreen;

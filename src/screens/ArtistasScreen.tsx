@@ -1,6 +1,6 @@
 import React from 'react';
-import MusicLibraryScreen from './MusicLibraryScreen';
+import GroupedLibraryScreen from './GroupedLibraryScreen';
 
-const ArtistasScreen = () => <MusicLibraryScreen mode="artists" title="Artistas" />;
+const ArtistasScreen = () => <GroupedLibraryScreen mode="artists" title="Artistas" />;
 
 export default ArtistasScreen;

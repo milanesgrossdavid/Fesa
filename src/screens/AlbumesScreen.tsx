@@ -1,6 +1,6 @@
 import React from 'react';
-import MusicLibraryScreen from './MusicLibraryScreen';
+import GroupedLibraryScreen from './GroupedLibraryScreen';
 
-const AlbumesScreen = () => <MusicLibraryScreen mode="albums" title="Álbumes" />;
+const AlbumesScreen = () => <GroupedLibraryScreen mode="albums" title="Álbumes" />;
 
 export default AlbumesScreen;

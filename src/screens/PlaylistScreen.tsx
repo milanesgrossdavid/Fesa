@@ -1,6 +1,6 @@
 import React from 'react';
-import MusicLibraryScreen from './MusicLibraryScreen';
+import PlaylistLibraryScreen from './PlaylistLibraryScreen';
 
-const PlaylistScreen = () => <MusicLibraryScreen mode="playlists" title="Playlist" />;
+const PlaylistScreen = () => <PlaylistLibraryScreen />;
 
 export default PlaylistScreen;

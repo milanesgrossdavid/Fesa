@@ -14,13 +14,14 @@ const MiniPlayer = () => {
     currentIndex,
     currentSong,
     playing,
+    selectionModeActive,
     playSong,
     playPrevious,
     playNext,
     togglePlayPause,
   } = useMusicPlayer();
 
-  if (!currentSong) {
+  if (!currentSong || selectionModeActive) {
     return null;
   }
 

@@ -1,11 +1,21 @@
 package expo.modules.localmusic
 
+import android.app.PendingIntent
+import android.content.ContentUris
+import android.content.Intent
+import android.media.RingtoneManager
 import android.net.Uri
+import android.os.Build
 import android.provider.MediaStore
+import android.provider.Settings
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
 class LocalMusicModule : Module() {
+  private fun audioUri(songId: String): Uri {
+    return ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, songId.toLong())
+  }
+
   override fun definition() = ModuleDefinition {
     Name("LocalMusic")
 
@@ -75,6 +85,66 @@ class LocalMusicModule : Module() {
         }
       }
       return@AsyncFunction audioList
+    }
+
+    AsyncFunction("deleteAudioFile") { songId: String ->
+      val context = appContext.reactContext ?: return@AsyncFunction false
+      val activity = appContext.currentActivity ?: return@AsyncFunction false
+      val uri = audioUri(songId)
+
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        val pendingIntent: PendingIntent = MediaStore.createDeleteRequest(context.contentResolver, listOf(uri))
+        activity.startIntentSenderForResult(pendingIntent.intentSender, 4001, null, 0, 0, 0)
+        return@AsyncFunction true
+      }
+
+      return@AsyncFunction context.contentResolver.delete(uri, null, null) > 0
+    }
+
+    AsyncFunction("shareAudioFile") { songId: String ->
+      val context = appContext.reactContext ?: return@AsyncFunction
+      val activity = appContext.currentActivity ?: return@AsyncFunction
+      val uri = audioUri(songId)
+      val shareIntent = Intent(Intent.ACTION_SEND).apply {
+        type = "audio/*"
+        putExtra(Intent.EXTRA_STREAM, uri)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+      }
+
+      activity.startActivity(Intent.createChooser(shareIntent, "Compartir canción"))
+    }
+
+    AsyncFunction("setAudioAsTone") { songId: String, type: String ->
+      val context = appContext.reactContext ?: return@AsyncFunction false
+      val activity = appContext.currentActivity ?: return@AsyncFunction false
+      val uri = audioUri(songId)
+
+      if (type == "contact") {
+        val contactIntent = Intent(Intent.ACTION_ATTACH_DATA).apply {
+          setDataAndType(uri, "audio/*")
+          putExtra("mimeType", "audio/*")
+          addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        activity.startActivity(Intent.createChooser(contactIntent, "Definir tono de contacto"))
+        return@AsyncFunction true
+      }
+
+      if (!Settings.System.canWrite(context)) {
+        val settingsIntent = Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
+          data = Uri.parse("package:${context.packageName}")
+        }
+        activity.startActivity(settingsIntent)
+        return@AsyncFunction false
+      }
+
+      val ringtoneType = if (type == "alarm") {
+        RingtoneManager.TYPE_ALARM
+      } else {
+        RingtoneManager.TYPE_RINGTONE
+      }
+
+      RingtoneManager.setActualDefaultRingtoneUri(context, ringtoneType, uri)
+      return@AsyncFunction true
     }
   }
 }

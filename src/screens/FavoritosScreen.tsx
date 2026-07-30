@@ -1,6 +1,6 @@
 import React from 'react';
-import MusicLibraryScreen from './MusicLibraryScreen';
+import TrackListLibraryScreen from './TrackListLibraryScreen';
 
-const FavoritosScreen = () => <MusicLibraryScreen mode="favorites" title="Favoritos" />;
+const FavoritosScreen = () => <TrackListLibraryScreen mode="favorites" />;
 
 export default FavoritosScreen;

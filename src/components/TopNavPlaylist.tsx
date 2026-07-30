@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
-import { FilterIcon, SortAscIcon, SortDescIcon } from '../Icons';
+import React from 'react';
+import { Pressable, Text } from 'react-native';
+import TopNavSortFilter, { TrackSortDirection, TrackSortOption } from './TopNavSortFilter';
+import { PlusIcon } from '../Icons';
 
-export type TrackSortOption = 'name' | 'date' | 'artist' | 'albums';
-export type TrackSortDirection = 'asc' | 'desc';
+export type { TrackSortDirection, TrackSortOption };
 
 interface TopNavPlaylistProps {
   selectedSort: TrackSortOption;
   selectedDirection: TrackSortDirection;
   onSortChange: (option: TrackSortOption, direction: TrackSortDirection) => void;
+  onCreatePlaylist?: () => void;
 }
 
 const SORT_OPTIONS: { label: string; value: TrackSortOption }[] = [
@@ -20,55 +21,20 @@ const TopNavPlaylist = ({
   selectedSort,
   selectedDirection,
   onSortChange,
-}: TopNavPlaylistProps) => {
-  const [modalVisible, setModalVisible] = useState(false);
-  const selectedLabel = SORT_OPTIONS.find(option => option.value === selectedSort)?.label ?? 'Nombre';
-
-  const handleSelectSort = (option: TrackSortOption) => {
-    const nextDirection = option === selectedSort && selectedDirection === 'asc' ? 'desc' : 'asc';
-
-    onSortChange(option, nextDirection);
-    setModalVisible(false);
-  };
-
-  return (
-    <View className="bg-[#1d1d1f] px-5 py-4">
-      <Pressable className="flex-row items-center gap-2 self-start" onPress={() => setModalVisible(true)}>
-        <FilterIcon size={24} color="white" />
-        <Text className="text-white text-base font-bold">{selectedLabel}</Text>
+  onCreatePlaylist,
+}: TopNavPlaylistProps) => (
+  <TopNavSortFilter
+    selectedSort={selectedSort}
+    selectedDirection={selectedDirection}
+    onSortChange={onSortChange}
+    sortOptions={SORT_OPTIONS}
+    rightContent={onCreatePlaylist ? (
+      <Pressable className="rounded-full flex-row gap-1 items-center bg-[#f5f5f5] px-4 py-2" onPress={onCreatePlaylist}>
+        <Text className="text-lg font-bold text-black">Crear</Text>
+        <PlusIcon size={24} color='#000000'/>
       </Pressable>
-
-      <Modal transparent visible={modalVisible} animationType="fade" onRequestClose={() => setModalVisible(false)}>
-        <View className="flex-1 justify-center px-6">
-          <Pressable className="absolute inset-0 bg-black/60" onPress={() => setModalVisible(false)} />
-          <View className="overflow-hidden rounded-2xl bg-[#252525]">
-            {SORT_OPTIONS.map(option => {
-              const isSelected = option.value === selectedSort;
-
-              return (
-                <Pressable
-                  key={option.value}
-                  className="flex-row items-center justify-between px-5 py-4"
-                  onPress={() => handleSelectSort(option.value)}
-                >
-                  <Text className={`text-base font-bold ${isSelected ? 'text-[#b64400]' : 'text-white'}`}>
-                    {option.label}
-                  </Text>
-                  {isSelected ? (
-                    selectedDirection === 'desc' ? (
-                      <SortDescIcon size={18} color="#b64400" />
-                    ) : (
-                      <SortAscIcon size={18} color="#b64400" />
-                    )
-                  ) : null}
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-      </Modal>
-    </View>
-  );
-};
+    ) : null}
+  />
+);
 
 export default TopNavPlaylist;
