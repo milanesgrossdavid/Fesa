@@ -3,11 +3,9 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
-  Dimensions,
   Easing,
   FlatList,
   GestureResponderEvent,
-  Modal,
   PermissionsAndroid,
   Platform,
   Pressable,
@@ -19,17 +17,20 @@ import { useFocusEffect } from '@react-navigation/native';
 import { deleteAudioFile, getAudioFiles, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
 import { musicPlayer, useMusicPlayer } from '../audio/musicPlayer';
 import AddSongToPlaylistModal from '../components/AddSongToPlaylistModal';
+import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
 import CreatePlaylistModal from '../components/CreatePlaylistModal';
 import DefineAsModal from '../components/DefineAsModal';
+import LibraryGroupDetailModal from '../components/LibraryGroupDetailModal';
 import LibraryPlaylistCard from '../components/LibraryPlaylistCard';
 import LibraryPlaylistListItem from '../components/LibraryPlaylistListItem';
 import PlaylistActionModal from '../components/PlaylistActionModal';
 import PlaylistSongSelectorModal, { PlaylistSelectionTab } from '../components/PlaylistSongSelectorModal';
 import SelectedSongsActionBar from '../components/SelectedSongsActionBar';
+import SongDetailsModal from '../components/SongDetailsModal';
 import SongListItem from '../components/SongListItem';
 import TrackActionMenu from '../components/TrackActionMenu';
 import TopNavPlaylist, { TrackSortDirection, TrackSortOption } from '../components/TopNavPlaylist';
-import { formatDuration } from '../utils/time';
+import { MINI_PLAYER_BOTTOM_INSET, SELECTION_BAR_BOTTOM_INSET } from '../utils/layout';
 import PlayerScreen from './PlayerScreen';
 
 type SongGroup = {
@@ -58,7 +59,6 @@ const UNKNOWN_ALBUM = 'Álbum Desconocido';
 const UNKNOWN_ARTIST = 'Artista Desconocido';
 const UNKNOWN_FOLDER = 'Carpeta Desconocida';
 const CUSTOM_PLAYLISTS_STORAGE_KEY = '@fesa:custom-playlists';
-const SCREEN_HEIGHT = Dimensions.get('window').height;
 const MOST_PLAYED_HOME_LIMIT = 7;
 
 const normalizeValue = (value: string | null | undefined, fallback: string) => {
@@ -136,6 +136,9 @@ const PlaylistLibraryScreen = () => {
   const [addToPlaylistSong, setAddToPlaylistSong] = useState<Song | null>(null);
   const [addToPlaylistVisible, setAddToPlaylistVisible] = useState(false);
   const [defineAsSong, setDefineAsSong] = useState<Song | null>(null);
+  const [detailsSong, setDetailsSong] = useState<Song | null>(null);
+  const [bulkDeleteVisible, setBulkDeleteVisible] = useState(false);
+  const [playlistBulkDeleteVisible, setPlaylistBulkDeleteVisible] = useState(false);
   const [selectedSongIds, setSelectedSongIds] = useState<string[]>([]);
   const [mostPlayedSongs, setMostPlayedSongs] = useState<Song[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<SongGroup | null>(null);
@@ -251,14 +254,14 @@ const PlaylistLibraryScreen = () => {
       {
         id: 'default-recently-added',
         name: 'Recién añadidas',
-        subtitle: `${recentlyAddedSongs.length} ${recentlyAddedSongs.length === 1 ? 'canción' : 'canciones'}`,
+        subtitle: '',
         songs: recentlyAddedSongs,
         artwork: recentlyAddedSongs[0]?.artwork,
       },
       {
         id: 'default-most-played',
         name: 'Más escuchadas',
-        subtitle: `${homeMostPlayedSongs.length} ${homeMostPlayedSongs.length === 1 ? 'canción' : 'canciones'}`,
+        subtitle: '',
         songs: homeMostPlayedSongs,
         artwork: homeMostPlayedSongs[0]?.artwork,
       },
@@ -273,7 +276,7 @@ const PlaylistLibraryScreen = () => {
     return {
       id: playlist.id,
       name: playlist.name,
-      subtitle: `${playlistSongs.length} ${playlistSongs.length === 1 ? 'canción' : 'canciones'}`,
+      subtitle: '',
       songs: playlistSongs,
       artwork: playlistSongs[0]?.artwork,
     };
@@ -436,29 +439,18 @@ const PlaylistLibraryScreen = () => {
   };
 
   const confirmDeleteSelectedPlaylist = () => {
-    const playlistIdsToDelete = [...selectedPlaylistIds];
-
-    if (!playlistIdsToDelete.length) {
+    if (!selectedPlaylistIds.length) {
       return;
     }
 
-    const playlistCount = playlistIdsToDelete.length;
-    const title = playlistCount === 1 ? 'Eliminar playlist' : 'Eliminar playlists';
-    const message = playlistCount === 1 && selectedCustomPlaylist
-      ? `¿Quieres eliminar “${selectedCustomPlaylist.name}”?`
-      : `¿Quieres eliminar ${playlistCount} playlists?`;
+    setPlaylistBulkDeleteVisible(true);
+  };
 
-    Alert.alert(title, message, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Eliminar',
-        style: 'destructive',
-        onPress: () => {
-          void deleteSelectedPlaylists(playlistIdsToDelete);
-          closePlaylistActions();
-        },
-      },
-    ]);
+  const performBulkDeletePlaylist = () => {
+    const playlistIdsToDelete = [...selectedPlaylistIds];
+    void deleteSelectedPlaylists(playlistIdsToDelete);
+    closePlaylistActions();
+    setPlaylistBulkDeleteVisible(false);
   };
 
   const removeSongFromPlaylist = async (playlistId: string, songId: string) => {
@@ -526,23 +518,19 @@ const PlaylistLibraryScreen = () => {
 
   const confirmDeleteSelectedSongs = () => {
     if (!selectedSongIds.length) return;
-    Alert.alert('Eliminar canciones', `¿Quieres eliminar ${selectedSongIds.length} ${selectedSongIds.length === 1 ? 'canción' : 'canciones'}?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Eliminar',
-        style: 'destructive',
-        onPress: () => {
-          const idsToDelete = [...selectedSongIds];
-          idsToDelete.forEach(songId => {
-            void deleteAudioFile(songId).then(deleted => {
-              if (deleted) setSongs(currentSongs => currentSongs.filter(currentSong => currentSong.id !== songId));
-            });
-          });
-          void persistStoredPlaylists(storedPlaylists.map(playlist => ({ ...playlist, songIds: playlist.songIds.filter(songId => !idsToDelete.includes(songId)), updatedAt: Date.now() })));
-          clearSelectedSongs();
-        },
-      },
-    ]);
+    setBulkDeleteVisible(true);
+  };
+
+  const performBulkDelete = () => {
+    const idsToDelete = [...selectedSongIds];
+    idsToDelete.forEach(songId => {
+      void deleteAudioFile(songId).then(deleted => {
+        if (deleted) setSongs(currentSongs => currentSongs.filter(currentSong => currentSong.id !== songId));
+      });
+    });
+    void persistStoredPlaylists(storedPlaylists.map(playlist => ({ ...playlist, songIds: playlist.songIds.filter(songId => !idsToDelete.includes(songId)), updatedAt: Date.now() })));
+    clearSelectedSongs();
+    setBulkDeleteVisible(false);
   };
 
   const toggleSelectedSong = (song: Song) => {
@@ -617,23 +605,18 @@ const PlaylistLibraryScreen = () => {
   };
 
   const deleteTrack = (song: Song) => {
-    Alert.alert('Eliminar canción', `¿Quieres eliminar “${song.title}”?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: () => {
-        closeTrackMenu();
-        void deleteAudioFile(song.id).then(deleted => {
-          if (!deleted) return;
-          setSongs(currentSongs => currentSongs.filter(currentSong => currentSong.id !== song.id));
-          setMostPlayedSongs(currentSongs => currentSongs.filter(currentSong => currentSong.id !== song.id));
-          void persistStoredPlaylists(storedPlaylists.map(playlist => ({ ...playlist, songIds: playlist.songIds.filter(songId => songId !== song.id), updatedAt: Date.now() })));
-        });
-      } },
-    ]);
+    closeTrackMenu();
+    void deleteAudioFile(song.id).then(deleted => {
+      if (!deleted) return;
+      setSongs(currentSongs => currentSongs.filter(currentSong => currentSong.id !== song.id));
+      setMostPlayedSongs(currentSongs => currentSongs.filter(currentSong => currentSong.id !== song.id));
+      void persistStoredPlaylists(storedPlaylists.map(playlist => ({ ...playlist, songIds: playlist.songIds.filter(songId => songId !== song.id), updatedAt: Date.now() })));
+    });
   };
 
   const showTrackDetails = (song: Song) => {
     closeTrackMenu();
-    Alert.alert(song.title, `Artista: ${normalizeValue(song.artist, UNKNOWN_ARTIST)}\nÁlbum: ${normalizeValue(song.album, UNKNOWN_ALBUM)}\nDuración: ${formatDuration(song.duration)}\nRuta: ${song.url}`);
+    setDetailsSong(song);
   };
 
   const defineTrackAs = async (song: Song, type: ToneType) => {
@@ -669,79 +652,50 @@ const PlaylistLibraryScreen = () => {
           className="h-9 w-9 items-center justify-center rounded-full bg-[#333333]"
           onPress={() => confirmRemoveSongFromPlaylist(playlistId, item)}
         >
-          <Text className="text-xl font-bold text-[#b64400]">×</Text>
+          <Text className="text-xl font-bold text-white">×</Text>
         </Pressable>
       }
     />
   );
 
-  const selectedGroupList = selectedGroup ? (
-    <FlatList
-      className="flex-1 bg-[#1d1d1f]"
-      data={selectedGroup.songs}
-      keyExtractor={item => item.id}
-      ListHeaderComponent={
-        <View className="px-5 pb-4 pt-5">
-          <Pressable className="mb-4 self-start" onPress={closeSelectedGroup}>
-            <Text className="text-base font-bold text-white">‹ Volver</Text>
-          </Pressable>
-          <Text className="text-2xl font-bold text-white">{selectedGroup.name}</Text>
-          <Text className="mt-1 text-sm text-[#707070]">{selectedGroup.subtitle}</Text>
-        </View>
-      }
-      contentContainerStyle={{ paddingBottom: isSelectionMode ? 110 : 20 }}
-      renderItem={playlistEditMode ? renderEditablePlaylistSong(selectedGroup.id, selectedGroup.songs) : ({ item, index }) => {
-        const isSelected = selectedSongIds.includes(item.id);
-
-        return (
-          <SongListItem
-            item={item}
-            isActive={currentSong?.id === item.id}
-            isPlaying={currentSong?.id === item.id && playing}
-            isSelected={isSelected}
-            onPress={() => isSelectionMode ? toggleSelectedSong(item) : playFromList(selectedGroup.songs, index)}
-            onLongPress={() => startSongSelection(item)}
-            onTogglePlayPause={togglePlayPause}
-            showDuration={false}
-            showSelectionIndicator={isSelectionMode}
-            onOpenTrackMenu={isSelectionMode ? undefined : openTrackMenu}
-          />
-        );
-      }} 
-    />
-  ) : null;
-
   const selectedGroupModal = (
-    <Modal
-      animationType="none"
-      presentationStyle="overFullScreen"
-      transparent
+    <LibraryGroupDetailModal
       visible={groupModalVisible}
-      onRequestClose={closeSelectedGroup}
-    >
-      <Animated.View
-        className="flex-1 bg-[#1d1d1f]"
-        style={{
-          transform: [
-            {
-              translateY: groupModalTranslateY.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, SCREEN_HEIGHT],
-              }),
-            },
-          ],
+      group={selectedGroup}
+      translateY={groupModalTranslateY}
+      variant="playlist"
+      contentBottomPadding={isSelectionMode ? SELECTION_BAR_BOTTOM_INSET : MINI_PLAYER_BOTTOM_INSET}
+      onClose={closeSelectedGroup}
+      onPlayAll={selectedGroup?.songs.length ? () => playFromList(selectedGroup.songs, 0) : undefined}
+      renderItem={playlistEditMode && selectedGroup
+        ? renderEditablePlaylistSong(selectedGroup.id, selectedGroup.songs)
+        : ({ item, index }) => {
+          const isSelected = selectedSongIds.includes(item.id);
+
+          return (
+            <SongListItem
+              item={item}
+              isActive={currentSong?.id === item.id}
+              isPlaying={currentSong?.id === item.id && playing}
+              isSelected={isSelected}
+              onPress={() => isSelectionMode ? toggleSelectedSong(item) : playFromList(selectedGroup!.songs, index)}
+              onLongPress={() => startSongSelection(item)}
+              onTogglePlayPause={togglePlayPause}
+              showDuration={false}
+              showSelectionIndicator={isSelectionMode}
+              onOpenTrackMenu={isSelectionMode ? undefined : openTrackMenu}
+            />
+          );
         }}
-      >
-        {selectedGroupList}
-        <SelectedSongsActionBar
-          visible={!playlistEditMode && isSelectionMode}
-          onPlay={playSelectedSongs}
-          onAdd={openSelectedSongsPlaylistModal}
-          onShare={shareSelectedSongs}
-          onDelete={confirmDeleteSelectedSongs}
-        />
-      </Animated.View>
-    </Modal>
+    >
+      <SelectedSongsActionBar
+        visible={!playlistEditMode && isSelectionMode}
+        onPlay={playSelectedSongs}
+        onAdd={openSelectedSongsPlaylistModal}
+        onShare={shareSelectedSongs}
+        onDelete={confirmDeleteSelectedSongs}
+      />
+    </LibraryGroupDetailModal>
   );
 
   if (loading) {
@@ -799,7 +753,11 @@ const PlaylistLibraryScreen = () => {
         ListEmptyComponent={
           <Text className="px-5 py-6 text-center text-[#707070]">No has creado playlists todavía.</Text>
         }
-        contentContainerStyle={{ paddingBottom: isPlaylistSelectionMode ? 130 : 20 }}
+        contentContainerStyle={{
+          paddingBottom: isPlaylistSelectionMode || isSelectionMode
+            ? SELECTION_BAR_BOTTOM_INSET
+            : MINI_PLAYER_BOTTOM_INSET,
+        }}
         renderItem={({ item }) => (
           <LibraryPlaylistListItem
             playlist={item}
@@ -892,6 +850,29 @@ const PlaylistLibraryScreen = () => {
         onAdd={playlistId => openPlaylistSongSelectorForEdit(playlistId)}
         onEdit={openSelectedPlaylistEditor}
         onDelete={confirmDeleteSelectedPlaylist}
+      />
+
+      <SongDetailsModal song={detailsSong} onClose={() => setDetailsSong(null)} />
+      <ConfirmDeleteModal
+        visible={bulkDeleteVisible}
+        title="Eliminar canciones"
+        message={`¿Quieres eliminar ${selectedSongIds.length} ${selectedSongIds.length === 1 ? 'canción' : 'canciones'}? Esta acción no se puede deshacer.`}
+        onClose={() => setBulkDeleteVisible(false)}
+        onConfirm={performBulkDelete}
+      />
+      <ConfirmDeleteModal
+        visible={playlistBulkDeleteVisible}
+        title={selectedPlaylistIds.length === 1 ? 'Eliminar playlist' : 'Eliminar playlists'}
+        message={
+          selectedPlaylistIds.length === 1 && selectedCustomPlaylist
+            ? `¿Quieres eliminar “${selectedCustomPlaylist.name}”? Esta acción no se puede deshacer.`
+            : `¿Quieres eliminar ${selectedPlaylistIds.length} playlists? Esta acción no se puede deshacer.`
+        }
+        itemName={selectedPlaylistIds.length === 1 ? selectedCustomPlaylist?.name : undefined}
+        artwork={selectedPlaylistIds.length === 1 ? customPlaylists.find(playlist => playlist.id === selectedCustomPlaylist?.id)?.artwork : undefined}
+        accent="white"
+        onClose={() => setPlaylistBulkDeleteVisible(false)}
+        onConfirm={performBulkDeletePlaylist}
       />
     </View>
   );

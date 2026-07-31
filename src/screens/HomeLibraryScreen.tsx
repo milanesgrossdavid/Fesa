@@ -1,13 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Animated,
-  Dimensions,
   Easing,
   FlatList,
   GestureResponderEvent,
-  Modal,
   PermissionsAndroid,
   Platform,
   Pressable,
@@ -20,6 +17,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { deleteAudioFile, getAudioFiles, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
 import { musicPlayer, useMusicPlayer } from '../audio/musicPlayer';
 import AddSongToPlaylistModal from '../components/AddSongToPlaylistModal';
+import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
 import CreatePlaylistModal from '../components/CreatePlaylistModal';
 import DefineAsModal from '../components/DefineAsModal';
 import HomeFavoriteArtistsSection from '../components/HomeFavoriteArtistsSection';
@@ -28,10 +26,12 @@ import HomeRecommendedAlbumsSection from '../components/HomeRecommendedAlbumsSec
 import HomeRecommendedArtistsSection from '../components/HomeRecommendedArtistsSection';
 import HomeRecommendedSongsCarousel from '../components/HomeRecommendedSongsCarousel';
 import HomeRecentlyAddedSection from '../components/HomeRecentlyAddedSection';
+import LibraryGroupDetailModal, { LibraryGroupDetailVariant } from '../components/LibraryGroupDetailModal';
 import SelectedSongsActionBar from '../components/SelectedSongsActionBar';
+import SongDetailsModal from '../components/SongDetailsModal';
 import SongListItem from '../components/SongListItem';
 import TrackActionMenu from '../components/TrackActionMenu';
-import { formatDuration } from '../utils/time';
+import { MINI_PLAYER_BOTTOM_INSET, SELECTION_BAR_BOTTOM_INSET } from '../utils/layout';
 import PlayerScreen from './PlayerScreen';
 
 type SongGroup = {
@@ -61,7 +61,6 @@ type TrackMenuState = {
 const UNKNOWN_ALBUM = 'Álbum Desconocido';
 const UNKNOWN_ARTIST = 'Artista Desconocido';
 const CUSTOM_PLAYLISTS_STORAGE_KEY = '@fesa:custom-playlists';
-const SCREEN_HEIGHT = Dimensions.get('window').height;
 const MOST_PLAYED_HOME_LIMIT = 7;
 
 const normalizeValue = (value: string | null | undefined, fallback: string) => {
@@ -134,6 +133,7 @@ const HomeLibraryScreen = () => {
   const [loading, setLoading] = useState(true);
   const [showPlayer, setShowPlayer] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<SongGroup | null>(null);
+  const [groupDetailVariant, setGroupDetailVariant] = useState<LibraryGroupDetailVariant>('album');
   const [groupModalVisible, setGroupModalVisible] = useState(false);
   const [mostPlayedSongs, setMostPlayedSongs] = useState<Song[]>([]);
   const [favoriteArtists, setFavoriteArtists] = useState<SongGroup[]>([]);
@@ -147,6 +147,8 @@ const HomeLibraryScreen = () => {
   const [createPlaylistVisible, setCreatePlaylistVisible] = useState(false);
   const [playlistName, setPlaylistName] = useState('');
   const [defineAsSong, setDefineAsSong] = useState<Song | null>(null);
+  const [detailsSong, setDetailsSong] = useState<Song | null>(null);
+  const [bulkDeleteVisible, setBulkDeleteVisible] = useState(false);
   const [selectedSongIds, setSelectedSongIds] = useState<string[]>([]);
   const groupModalTranslateY = useRef(new Animated.Value(1)).current;
   const { currentSong, playing, playSong, togglePlayPause, setSelectionModeActive } = useMusicPlayer();
@@ -300,11 +302,12 @@ const HomeLibraryScreen = () => {
     return () => setSelectionModeActive(false);
   }, [isSelectionMode, setSelectionModeActive]);
 
-  const openGroup = (group: SongGroup) => {
+  const openGroup = (group: SongGroup, variant: LibraryGroupDetailVariant = 'album') => {
     if (!group.songs.length) {
       return;
     }
 
+    setGroupDetailVariant(variant);
     setSelectedGroup(group);
   };
 
@@ -358,17 +361,17 @@ const HomeLibraryScreen = () => {
 
   const confirmDeleteSelectedSongs = () => {
     if (!selectedSongIds.length) return;
-    Alert.alert('Eliminar canciones', `¿Quieres eliminar ${selectedSongIds.length} ${selectedSongIds.length === 1 ? 'canción' : 'canciones'}?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: () => {
-        const idsToDelete = [...selectedSongIds];
-        idsToDelete.forEach(songId => { void deleteAudioFile(songId); });
-        setSongs(currentSongs => currentSongs.filter(song => !idsToDelete.includes(song.id)));
-        setMostPlayedSongs(currentSongs => currentSongs.filter(song => !idsToDelete.includes(song.id)));
-        setRecommendedSongs(currentSongs => currentSongs.filter(song => !idsToDelete.includes(song.id)));
-        clearSelectedSongs();
-      } },
-    ]);
+    setBulkDeleteVisible(true);
+  };
+
+  const performBulkDelete = () => {
+    const idsToDelete = [...selectedSongIds];
+    idsToDelete.forEach(songId => { void deleteAudioFile(songId); });
+    setSongs(currentSongs => currentSongs.filter(song => !idsToDelete.includes(song.id)));
+    setMostPlayedSongs(currentSongs => currentSongs.filter(song => !idsToDelete.includes(song.id)));
+    setRecommendedSongs(currentSongs => currentSongs.filter(song => !idsToDelete.includes(song.id)));
+    clearSelectedSongs();
+    setBulkDeleteVisible(false);
   };
 
   const toggleSelectedSong = (song: Song) => {
@@ -395,7 +398,7 @@ const HomeLibraryScreen = () => {
     const targetGroup = (groupMode === 'albums' ? albumGroups : artistGroups).find(group => group.name === groupName);
 
     if (targetGroup) {
-      openGroup(targetGroup);
+      openGroup(targetGroup, groupMode === 'artists' ? 'artist' : 'album');
     }
   };
 
@@ -447,31 +450,19 @@ const HomeLibraryScreen = () => {
   };
 
   const deleteTrack = (song: Song) => {
-    Alert.alert('Eliminar canción', `¿Quieres eliminar “${song.title}”?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Eliminar',
-        style: 'destructive',
-        onPress: () => {
-          closeTrackMenu();
-          void deleteAudioFile(song.id).then(deleted => {
-            if (deleted) {
-              setSongs(currentSongs => currentSongs.filter(currentSong => currentSong.id !== song.id));
-              setMostPlayedSongs(currentSongs => currentSongs.filter(currentSong => currentSong.id !== song.id));
-              setRecommendedSongs(currentSongs => currentSongs.filter(currentSong => currentSong.id !== song.id));
-            }
-          });
-        },
-      },
-    ]);
+    closeTrackMenu();
+    void deleteAudioFile(song.id).then(deleted => {
+      if (deleted) {
+        setSongs(currentSongs => currentSongs.filter(currentSong => currentSong.id !== song.id));
+        setMostPlayedSongs(currentSongs => currentSongs.filter(currentSong => currentSong.id !== song.id));
+        setRecommendedSongs(currentSongs => currentSongs.filter(currentSong => currentSong.id !== song.id));
+      }
+    });
   };
 
   const showTrackDetails = (song: Song) => {
     closeTrackMenu();
-    Alert.alert(
-      song.title,
-      `Artista: ${normalizeValue(song.artist, UNKNOWN_ARTIST)}\nÁlbum: ${normalizeValue(song.album, UNKNOWN_ALBUM)}\nDuración: ${formatDuration(song.duration)}\nRuta: ${song.url}`
-    );
+    setDetailsSong(song);
   };
 
   const defineTrackAs = async (song: Song, type: ToneType) => {
@@ -479,21 +470,15 @@ const HomeLibraryScreen = () => {
     setDefineAsSong(null);
   };
 
-  const selectedGroupList = selectedGroup ? (
-    <FlatList
-      className="flex-1 bg-[#1d1d1f]"
-      data={selectedGroup.songs}
-      keyExtractor={item => item.id}
-      ListHeaderComponent={
-        <View className="px-5 pb-4 pt-5">
-          <Pressable className="mb-4 self-start" onPress={closeSelectedGroup}>
-            <Text className="text-base font-bold text-white">‹ Volver</Text>
-          </Pressable>
-          <Text className="text-2xl font-bold text-white">{selectedGroup.name}</Text>
-          <Text className="mt-1 text-sm text-[#707070]">{selectedGroup.subtitle}</Text>
-        </View>
-      }
-      contentContainerStyle={{ paddingBottom: isSelectionMode ? 110 : 20 }}
+  const selectedGroupModal = (
+    <LibraryGroupDetailModal
+      visible={groupModalVisible}
+      group={selectedGroup}
+      translateY={groupModalTranslateY}
+      variant={groupDetailVariant}
+      contentBottomPadding={isSelectionMode ? SELECTION_BAR_BOTTOM_INSET : MINI_PLAYER_BOTTOM_INSET}
+      onClose={closeSelectedGroup}
+      onPlayAll={selectedGroup ? () => playFromList(selectedGroup.songs, 0) : undefined}
       renderItem={({ item, index }) => {
         const isSelected = selectedSongIds.includes(item.id);
 
@@ -503,7 +488,7 @@ const HomeLibraryScreen = () => {
             isActive={currentSong?.id === item.id}
             isPlaying={currentSong?.id === item.id && playing}
             isSelected={isSelected}
-            onPress={() => isSelectionMode ? toggleSelectedSong(item) : playFromList(selectedGroup.songs, index)}
+            onPress={() => isSelectionMode ? toggleSelectedSong(item) : playFromList(selectedGroup!.songs, index)}
             onLongPress={() => startSongSelection(item)}
             onTogglePlayPause={togglePlayPause}
             showDuration={false}
@@ -512,40 +497,15 @@ const HomeLibraryScreen = () => {
           />
         );
       }}
-    />
-  ) : null;
-
-  const selectedGroupModal = (
-    <Modal
-      animationType="none"
-      presentationStyle="overFullScreen"
-      transparent
-      visible={groupModalVisible}
-      onRequestClose={closeSelectedGroup}
     >
-      <Animated.View
-        className="flex-1 bg-[#1d1d1f]"
-        style={{
-          transform: [
-            {
-              translateY: groupModalTranslateY.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, SCREEN_HEIGHT],
-              }),
-            },
-          ],
-        }}
-      >
-        {selectedGroupList}
-        <SelectedSongsActionBar
-          visible={isSelectionMode}
-          onPlay={playSelectedSongs}
-          onAdd={openSelectedSongsPlaylistModal}
-          onShare={shareSelectedSongs}
-          onDelete={confirmDeleteSelectedSongs}
-        />
-      </Animated.View>
-    </Modal>
+      <SelectedSongsActionBar
+        visible={isSelectionMode}
+        onPlay={playSelectedSongs}
+        onAdd={openSelectedSongsPlaylistModal}
+        onShare={shareSelectedSongs}
+        onDelete={confirmDeleteSelectedSongs}
+      />
+    </LibraryGroupDetailModal>
   );
 
   if (loading) {
@@ -572,11 +532,16 @@ const HomeLibraryScreen = () => {
 
   return (
     <View className="flex-1 bg-[#1d1d1f]">
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 28 }}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{
+          paddingBottom: isSelectionMode ? SELECTION_BAR_BOTTOM_INSET : MINI_PLAYER_BOTTOM_INSET,
+        }}
+      >
         <HomeMostPlayedSection
           group={homeMostPlayed}
           limit={MOST_PLAYED_HOME_LIMIT}
-          onOpenGroup={() => openGroup(homeMostPlayed)}
+          onOpenGroup={() => openGroup(homeMostPlayed, 'playlist')}
           onPlaySong={index => playFromList(homeMostPlayed.songs, index)}
         />
 
@@ -585,7 +550,7 @@ const HomeLibraryScreen = () => {
           songs={recentSongs}
           currentSongId={currentSong?.id}
           playing={playing}
-          onOpenGroup={() => openGroup(homeRecentlyAdded)}
+          onOpenGroup={() => openGroup(homeRecentlyAdded, 'playlist')}
           onPlaySong={index => playFromList(homeRecentlyAdded.songs, index)}
           onTogglePlayPause={togglePlayPause}
           selectedSongIds={selectedSongIds}
@@ -595,11 +560,11 @@ const HomeLibraryScreen = () => {
           onOpenTrackMenu={openTrackMenu}
         />
 
-        <HomeFavoriteArtistsSection artists={favoriteArtists} onOpenArtist={openGroup} />
+        <HomeFavoriteArtistsSection artists={favoriteArtists} onOpenArtist={group => openGroup(group, 'artist')} />
 
-        <HomeRecommendedAlbumsSection albums={recommendedAlbums} onOpenAlbum={openGroup} />
+        <HomeRecommendedAlbumsSection albums={recommendedAlbums} onOpenAlbum={group => openGroup(group, 'album')} />
 
-        <HomeRecommendedArtistsSection artists={recommendedArtists} onOpenArtist={openGroup} />
+        <HomeRecommendedArtistsSection artists={recommendedArtists} onOpenArtist={group => openGroup(group, 'artist')} />
 
         <HomeRecommendedSongsCarousel
           songs={recommendedSongs}
@@ -671,6 +636,15 @@ const HomeLibraryScreen = () => {
       />
 
       {selectedGroupModal}
+
+      <SongDetailsModal song={detailsSong} onClose={() => setDetailsSong(null)} />
+      <ConfirmDeleteModal
+        visible={bulkDeleteVisible}
+        title="Eliminar canciones"
+        message={`¿Quieres eliminar ${selectedSongIds.length} ${selectedSongIds.length === 1 ? 'canción' : 'canciones'}? Esta acción no se puede deshacer.`}
+        onClose={() => setBulkDeleteVisible(false)}
+        onConfirm={performBulkDelete}
+      />
     </View>
   );
 };

@@ -24,9 +24,11 @@ const LibraryPlaylistCard = ({ playlist, onPress }: LibraryPlaylistCardProps) =>
     <Text className="mt-2 text-center text-base font-bold text-white" numberOfLines={1}>
       {playlist.name}
     </Text>
-    <Text className="mt-1 text-center text-xs text-[#707070]" numberOfLines={1}>
-      {playlist.subtitle}
-    </Text>
+    {playlist.subtitle ? (
+      <Text className="mt-1 text-center text-xs text-[#707070]" numberOfLines={1}>
+        {playlist.subtitle}
+      </Text>
+    ) : null}
   </Pressable>
 );
 

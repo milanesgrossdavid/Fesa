@@ -41,15 +41,15 @@ const TopNavPistas = ({
           disabled={disabled}
           onPress={onShufflePress}
         >
-          <ShuffleIcon size={20} color={disabled ? '#707070' : 'white'} />
+          <ShuffleIcon size={20} color={disabled ? '#f5f5f5' : 'white'} />
         </Pressable>
 
         <Pressable
-          className={`h-10 w-10 items-center justify-center rounded-full ${disabled ? 'bg-[#252525]' : 'bg-[#b64400]'}`}
+          className={`h-10 w-10 items-center justify-center rounded-full ${disabled ? 'bg-[#252525]' : 'bg-[#f5f5f5]'}`}
           disabled={disabled}
           onPress={onPlayPress}
         >
-          <PlayIcon size={20} color={disabled ? '#707070' : 'white'} />
+          <PlayIcon size={20} color={disabled ? '#707070' : '#050505'} />
         </Pressable>
       </View>
     )}

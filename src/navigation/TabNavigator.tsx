@@ -28,6 +28,7 @@ const TabNavigator = () => {
   const visibleTabs = tabs.filter(tab => tab.enabled);
   const fallbackTabs = DEFAULT_TABS.filter(tab => tab.enabled);
   const renderedTabs = visibleTabs.length ? visibleTabs : fallbackTabs;
+  const tabsOrderKey = renderedTabs.map(tab => tab.id).join('|');
   const customDarkTheme = {
     ...DarkTheme,
     colors: {
@@ -44,6 +45,7 @@ const TabNavigator = () => {
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
       <NavigationContainer theme={customDarkTheme}>
         <Tab.Navigator
+          key={tabsOrderKey}
           screenOptions={{
             animationEnabled: true,
             swipeEnabled: true,

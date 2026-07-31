@@ -104,14 +104,32 @@ const sleepTimerListeners = new Set<() => void>();
 
 const getThemeById = (themeId: AppThemeId) => APP_THEMES.find(theme => theme.id === themeId) ?? APP_THEMES[0];
 
+const VALID_TAB_IDS = new Set<TabId>(DEFAULT_TABS.map(tab => tab.id));
+
 const normalizeTabs = (tabs?: TabPreference[]) => {
   const source = Array.isArray(tabs) ? tabs : DEFAULT_TABS;
-  const byId = new Map(source.map(tab => [tab.id, tab.enabled]));
+  const seen = new Set<TabId>();
+  const normalized: TabPreference[] = [];
 
-  return DEFAULT_TABS.map(tab => ({
-    id: tab.id,
-    enabled: byId.get(tab.id) ?? tab.enabled,
-  }));
+  for (const tab of source) {
+    if (!VALID_TAB_IDS.has(tab.id) || seen.has(tab.id)) {
+      continue;
+    }
+
+    seen.add(tab.id);
+    normalized.push({
+      id: tab.id,
+      enabled: Boolean(tab.enabled),
+    });
+  }
+
+  for (const tab of DEFAULT_TABS) {
+    if (!seen.has(tab.id)) {
+      normalized.push({ ...tab });
+    }
+  }
+
+  return normalized;
 };
 
 const updateSnapshot = () => {
@@ -259,6 +277,26 @@ export const moveTab = (tabId: TabId, direction: 'left' | 'right') => {
   }
 
   [nextTabs[currentIndex], nextTabs[targetIndex]] = [nextTabs[targetIndex], nextTabs[currentIndex]];
+  updatePersistedState({ tabs: nextTabs });
+};
+
+export const reorderTabs = (orderedIds: TabId[]) => {
+  const currentTabs = normalizeTabs(persistedState.tabs);
+  const byId = new Map(currentTabs.map(tab => [tab.id, tab]));
+  const nextTabs: TabPreference[] = [];
+
+  for (const id of orderedIds) {
+    const tab = byId.get(id);
+
+    if (!tab) {
+      continue;
+    }
+
+    nextTabs.push(tab);
+    byId.delete(id);
+  }
+
+  byId.forEach(tab => nextTabs.push(tab));
   updatePersistedState({ tabs: nextTabs });
 };
 

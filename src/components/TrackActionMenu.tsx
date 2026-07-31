@@ -1,6 +1,10 @@
-import React from 'react';
-import { Dimensions, Modal, Pressable, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Modal, Pressable, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Song } from '../../modules/local-music';
+import { useAppSettings } from '../settings/appSettings';
+import ConfirmDeleteModal from './ConfirmDeleteModal';
+import LibraryArtwork from './LibraryArtwork';
 
 type TrackMenuState = {
   song: Song;
@@ -19,8 +23,6 @@ interface TrackActionMenuProps {
   onDefineAs: (song: Song) => void;
 }
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-
 const TrackActionMenu = ({
   trackMenu,
   onClose,
@@ -31,37 +33,107 @@ const TrackActionMenu = ({
   onOpenGroup,
   onDefineAs,
 }: TrackActionMenuProps) => {
+  const insets = useSafeAreaInsets();
+  const { theme } = useAppSettings();
+  const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
+
   if (!trackMenu) {
     return null;
   }
 
-  const actions: { label: string; onPress: () => void }[] = [
-    { label: 'Añadir', onPress: () => onAdd(trackMenu.song) },
-    { label: 'Eliminar', onPress: () => onDelete(trackMenu.song) },
-    { label: 'Compartir', onPress: () => onShare(trackMenu.song) },
-    { label: 'Detalles de la Pista', onPress: () => onDetails(trackMenu.song) },
-    { label: 'Álbum', onPress: () => onOpenGroup(trackMenu.song, 'albums') },
-    { label: 'Artista', onPress: () => onOpenGroup(trackMenu.song, 'artists') },
-    { label: 'Definir como', onPress: () => onDefineAs(trackMenu.song) },
+  const song = trackMenu.song;
+
+  const actions: {
+    label: string;
+    onPress: () => void;
+  }[] = [
+    { label: 'Añadir a playlist', onPress: () => onAdd(song) },
+    { label: 'Compartir', onPress: () => onShare(song) },
+    { label: 'Detalles de la pista', onPress: () => onDetails(song) },
+    { label: 'Álbum', onPress: () => onOpenGroup(song, 'albums') },
+    { label: 'Artista', onPress: () => onOpenGroup(song, 'artists') },
+    { label: 'Definir como', onPress: () => onDefineAs(song) },
+    { label: 'Eliminar', onPress: () => setConfirmDeleteVisible(true) },
   ];
 
+  const handleClose = () => {
+    setConfirmDeleteVisible(false);
+    onClose();
+  };
+
   return (
-    <Modal transparent visible animationType="fade" onRequestClose={onClose}>
-      <Pressable className="absolute inset-0" onPress={onClose} />
-      <View
-        className="absolute w-56 overflow-hidden rounded-2xl bg-[#252525] shadow-lg"
-        style={{
-          left: Math.min(Math.max(trackMenu.x - 210, 12), SCREEN_WIDTH - 236),
-          top: Math.max(trackMenu.y - 306, 48),
+    <>
+      <Modal transparent visible={!confirmDeleteVisible} animationType="slide" onRequestClose={handleClose}>
+        <View className="flex-1 justify-end">
+          <Pressable className="absolute inset-0 bg-black/70" onPress={handleClose} />
+          <View
+            className="rounded-t-[32px] px-5 pt-3"
+            style={{
+              backgroundColor: theme.background,
+              paddingBottom: Math.max(insets.bottom, 24),
+            }}
+          >
+            <View className="mb-4 items-center">
+              <View className="h-1 w-10 rounded-full bg-white/20" />
+            </View>
+
+            <View
+              className="mb-4 flex-row items-center rounded-3xl px-3 py-3"
+              style={{ backgroundColor: theme.surface }}
+            >
+              <LibraryArtwork
+                artwork={song.artwork}
+                className="mr-3 h-14 w-14 rounded-2xl"
+                fallbackTextClassName="text-2xl text-white"
+              />
+              <View className="flex-1 pr-2">
+                <Text className="text-base font-bold" style={{ color: theme.text }} numberOfLines={1}>
+                  {song.title}
+                </Text>
+                <Text className="mt-1 text-sm" style={{ color: theme.mutedText }} numberOfLines={1}>
+                  {song.artist?.trim() || 'Artista Desconocido'}
+                </Text>
+              </View>
+            </View>
+
+            <View className="overflow-hidden rounded-3xl" style={{ backgroundColor: theme.surface }}>
+              {actions.map((action, index) => (
+                <Pressable
+                  key={action.label}
+                  className="px-4 py-4"
+                  style={{
+                    borderBottomWidth: index === actions.length - 1 ? 0 : 1,
+                    borderBottomColor: theme.border,
+                  }}
+                  onPress={action.onPress}
+                >
+                  <Text
+                    className="text-base font-bold"
+                    style={{ color: theme.text }}
+                  >
+                    {action.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <ConfirmDeleteModal
+        visible={confirmDeleteVisible}
+        title="Eliminar canción"
+        message="Esta acción quitará la pista de tu dispositivo. No se puede deshacer."
+        itemName={song.title}
+        artwork={song.artwork}
+        accent="white"
+        onClose={() => setConfirmDeleteVisible(false)}
+        onConfirm={() => {
+          setConfirmDeleteVisible(false);
+          onDelete(song);
         }}
-      >
-        {actions.map(action => (
-          <Pressable key={action.label} className="border-b border-white/5 px-4 py-3" onPress={action.onPress}>
-            <Text className="text-sm font-bold text-white">{action.label}</Text>
-          </Pressable>
-        ))}
-      </View>
-    </Modal>
+      />
+    </>
   );
 };
 

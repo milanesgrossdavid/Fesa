@@ -43,7 +43,9 @@ const LibraryPlaylistListItem = ({
         <Text className="text-base font-extrabold text-white" numberOfLines={1}>
           {playlist.name}
         </Text>
-        <Text className="mt-1 text-sm font-medium text-white/45">{playlist.subtitle}</Text>
+        {playlist.subtitle ? (
+          <Text className="mt-1 text-sm font-medium text-white/45">{playlist.subtitle}</Text>
+        ) : null}
       </View>
       <Pressable
         className="ml-3 h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-[#1d1d1f]"

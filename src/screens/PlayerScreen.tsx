@@ -1,7 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Alert,
-  FlatList,
   Image,
   Modal,
   Pressable,
@@ -11,6 +9,7 @@ import {
   type GestureResponderEvent,
   type LayoutChangeEvent,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Font from "expo-font";
 import {
@@ -23,6 +22,11 @@ import {
 } from "../../modules/local-music";
 import { useMusicPlayer } from "../audio/musicPlayer";
 import AppSettingsModal from "../components/AppSettingsModal";
+import AudioWaveBars from "../components/AudioWaveBars";
+import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
+import QueuePlaylistModal from "../components/QueuePlaylistModal";
+import RelatedTracksModal from "../components/RelatedTracksModal";
+import SongDetailsModal from "../components/SongDetailsModal";
 import {
   BackIcon,
   BackwardIcon,
@@ -42,6 +46,7 @@ import {
 } from "../Icons";
 import { formatDuration } from "../utils/time";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
+import { useAppSettings } from "../settings/appSettings";
 
 interface PlayerScreenProps {
   onBack: () => void;
@@ -49,6 +54,7 @@ interface PlayerScreenProps {
 
 type RelatedSongsState = {
   title: string;
+  type: "album" | "artist";
   songs: Song[];
 } | null;
 
@@ -81,6 +87,8 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
     toggleFavoriteSong,
     togglePlayPause,
   } = useMusicPlayer();
+  const { theme } = useAppSettings();
+  const insets = useSafeAreaInsets();
 
   const mainProgressBarRef = useRef<View>(null);
   const miniProgressBarRef = useRef<View>(null);
@@ -99,6 +107,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
   const [lockScreenVisible, setLockScreenVisible] = useState(false);
   const [trackMenuVisible, setTrackMenuVisible] = useState(false);
   const [detailsVisible, setDetailsVisible] = useState(false);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [defineAsVisible, setDefineAsVisible] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [relatedSongs, setRelatedSongs] = useState<RelatedSongsState>(null);
@@ -146,7 +155,8 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
         ? normalizeValue(currentSong.album, UNKNOWN_ALBUM)
         : normalizeValue(currentSong.artist, UNKNOWN_ARTIST);
     setRelatedSongs({
-      title: type === "album" ? `Álbum: ${target}` : `Artista: ${target}`,
+      title: target,
+      type,
       songs: allSongs.filter(
         (song) =>
           normalizeValue(
@@ -183,9 +193,16 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
         animationType="slide"
         presentationStyle="fullScreen"
         statusBarTranslucent
+        navigationBarTranslucent
         onRequestClose={onBack}
       >
-        <View className="flex-1 items-center justify-center bg-[#121212] px-6">
+        <View
+          className="flex-1 items-center justify-center bg-[#121212] px-6"
+          style={{
+            paddingTop: Math.max(insets.top, 12),
+            paddingBottom: Math.max(insets.bottom, 16),
+          }}
+        >
           <Text className="mb-6 text-center text-base text-white/60">
             No hay ninguna canción seleccionada.
           </Text>
@@ -209,7 +226,6 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
   const remaining = formatDuration(
     Math.round(Math.max(playbackDuration - displayTime, 0) * 1000),
   );
-  const duration = formatDuration(Math.round(playbackDuration * 1000));
 
   const createProgressBarLayoutHandler = (
     ref: React.RefObject<View>,
@@ -299,9 +315,16 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
       animationType="slide"
       presentationStyle="fullScreen"
       statusBarTranslucent
+      navigationBarTranslucent
       onRequestClose={onBack}
     >
-      <View className="flex-1 bg-[#121212] px-6 pb-10 pt-12">
+      <View
+        className="flex-1 bg-[#121212] px-6"
+        style={{
+          paddingTop: Math.max(insets.top, 12),
+          paddingBottom: Math.max(insets.bottom, 16),
+        }}
+      >
         {/* Header */}
         <View className="flex-row items-center justify-between">
           <Pressable
@@ -332,7 +355,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
           </View>
         </View>
 
-        <View className="flex-1 justify-between pt-16 pb-20">
+        <View className="flex-1 justify-between pt-8 pb-4">
           {/* Portada */}
           <View className="aspect-square w-full max-w-[400px] items-center justify-center self-center overflow-hidden rounded-3xl bg-[#2a2a2a]">
             {currentSong.artwork ? (
@@ -452,52 +475,26 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
           </View>
         </View>
 
-        <Modal
-          transparent
+        <QueuePlaylistModal
           visible={queueVisible}
-          animationType="slide"
-          onRequestClose={() => setQueueVisible(false)}
-        >
-          <View className="flex-1 justify-end bg-black/70">
-            <View className="max-h-[72%] rounded-t-[32px] bg-[#202020] px-5 pb-6 pt-5">
-              <View className="mb-4 flex-row items-center justify-between">
-                <Text className="text-xl font-bold text-white">
-                  Lista de reproducción
-                </Text>
-                <Pressable onPress={() => setQueueVisible(false)}>
-                  <Text className="font-bold text-white/70">Cerrar</Text>
-                </Pressable>
-              </View>
-              <FlatList
-                data={currentQueue}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item, index }) => (
-                  <Pressable
-                    className={`mb-2 rounded-2xl px-4 py-4 ${index === currentIndex ? "bg-white/15" : "bg-white/5"}`}
-                    onPress={() => {
-                      setQueueVisible(false);
-                      void playSong(currentQueue, index);
-                    }}
-                  >
-                    <Text className="font-bold text-white" numberOfLines={1}>
-                      {item.title}
-                    </Text>
-                    <Text className="mt-1 text-sm text-white/50" numberOfLines={1}>
-                      {normalizeValue(item.artist, UNKNOWN_ARTIST)}
-                    </Text>
-                  </Pressable>
-                )}
-              />
-            </View>
-          </View>
-        </Modal>
+          queue={currentQueue}
+          currentIndex={currentIndex}
+          onClose={() => setQueueVisible(false)}
+          onSelectSong={index => {
+            setQueueVisible(false);
+            void playSong(currentQueue, index);
+          }}
+        />
 
         <Modal transparent visible={trackMenuVisible} animationType="fade" onRequestClose={closeTrackMenu}>
           <View className="flex-1 justify-end">
             <Pressable className="absolute inset-0 bg-black/70" onPress={closeTrackMenu} />
-            <View className="rounded-t-[32px] bg-[#202020] px-6 pb-8 pt-6">
+            <View
+              className="rounded-t-[32px] px-6 pb-8 pt-6"
+              style={{ backgroundColor: theme.surface }}
+            >
               {[
-                ["Eliminar", () => Alert.alert("Eliminar canción", `¿Quieres eliminar “${currentSong.title}”?`, [{ text: "Cancelar", style: "cancel" }, { text: "Eliminar", style: "destructive", onPress: () => void deleteCurrentSong() }])],
+                ["Eliminar", () => { closeTrackMenu(); setDeleteConfirmVisible(true); }],
                 ["Compartir", () => { closeTrackMenu(); void shareAudioFile(currentSong.id); }],
                 ["Detalles de la pista", () => { closeTrackMenu(); setDetailsVisible(true); }],
                 ["Álbum", () => openRelatedSongs("album")],
@@ -506,27 +503,31 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                 ["Ajustes", () => { closeTrackMenu(); setSettingsVisible(true); }],
               ].map(([label, onPress]) => (
                 <Pressable key={label as string} className="border-b border-white/5 px-2 py-4" onPress={onPress as () => void}>
-                  <Text className="text-base font-bold text-white">{label as string}</Text>
+                  <Text className="text-base font-bold" style={{ color: theme.text }}>{label as string}</Text>
                 </Pressable>
               ))}
             </View>
           </View>
         </Modal>
 
-        <Modal transparent visible={detailsVisible} animationType="slide" onRequestClose={() => setDetailsVisible(false)}>
-          <View className="flex-1 justify-end">
-            <Pressable className="absolute inset-0 bg-black/70" onPress={() => setDetailsVisible(false)} />
-            <View className="rounded-t-[32px] bg-[#202020] px-6 pb-8 pt-6">
-              <Text className="text-center text-2xl font-bold text-white" numberOfLines={2}>{currentSong.title}</Text>
-              <Text className="mt-3 text-center text-base text-white/60">{normalizeValue(currentSong.artist, UNKNOWN_ARTIST)}</Text>
-              <View className="mt-6 gap-3">
-                <Text className="text-sm text-white/70">Álbum: {normalizeValue(currentSong.album, UNKNOWN_ALBUM)}</Text>
-                <Text className="text-sm text-white/70">Duración: {duration}</Text>
-                <Text className="text-sm text-white/70" numberOfLines={2}>Ruta: {currentSong.url}</Text>
-              </View>
-            </View>
-          </View>
-        </Modal>
+        <SongDetailsModal
+          song={detailsVisible ? currentSong : null}
+          onClose={() => setDetailsVisible(false)}
+        />
+
+        <ConfirmDeleteModal
+          visible={deleteConfirmVisible}
+          title="Eliminar canción"
+          message={`¿Quieres eliminar “${currentSong.title}”? Esta acción no se puede deshacer.`}
+          itemName={currentSong.title}
+          artwork={currentSong.artwork}
+          accent="white"
+          onClose={() => setDeleteConfirmVisible(false)}
+          onConfirm={() => {
+            setDeleteConfirmVisible(false);
+            void deleteCurrentSong();
+          }}
+        />
 
         <Modal transparent visible={defineAsVisible} animationType="fade" onRequestClose={() => setDefineAsVisible(false)}>
           <View className="flex-1 justify-end">
@@ -545,6 +546,8 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
           transparent
           visible={miniPlayerVisible}
           animationType="fade"
+          statusBarTranslucent
+          navigationBarTranslucent
           onRequestClose={() => setMiniPlayerVisible(false)}
         >
           <View className="flex-1 items-center justify-center bg-black/95 px-6">
@@ -664,9 +667,17 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
           transparent
           visible={lockScreenVisible}
           animationType="fade"
+          statusBarTranslucent
+          navigationBarTranslucent
           onRequestClose={() => setLockScreenVisible(false)}
         >
-          <View className="flex-1 bg-black px-6 pb-10 pt-16">
+          <View
+            className="flex-1 bg-black px-6"
+            style={{
+              paddingTop: Math.max(insets.top, 16),
+              paddingBottom: Math.max(insets.bottom, 16),
+            }}
+          >
 
             <View className="items-center">
               <Text
@@ -706,7 +717,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                   </Text>
                 </View>
                 <View className="flex-row items-center gap-5">
-                  <Ionicons name="cellular-outline" size={22} color="#f5f5f5" />
+                  <AudioWaveBars playing={playing} color="#f5f5f5" size="md" />
                   <Pressable onPress={() => void toggleFavoriteSong(currentSong.id)}>
                     {isCurrentSongFavorite ? (
                       <FavoritedIcon size={24} color="#f5f5f5" />
@@ -765,44 +776,24 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
           </View>
         </Modal>
 
-        <Modal
-          transparent
+        <RelatedTracksModal
           visible={Boolean(relatedSongs)}
-          animationType="slide"
-          onRequestClose={() => setRelatedSongs(null)}
-        >
-          <View className="flex-1 justify-end bg-black/70">
-            <View className="max-h-[72%] rounded-t-[32px] bg-[#202020] px-5 pb-6 pt-5">
-              <View className="mb-4 flex-row items-center justify-between">
-                <Text className="flex-1 text-xl font-bold text-white" numberOfLines={1}>
-                  {relatedSongs?.title}
-                </Text>
-                <Pressable onPress={() => setRelatedSongs(null)}>
-                  <Text className="font-bold text-white/70">Cerrar</Text>
-                </Pressable>
-              </View>
-              <FlatList
-                data={relatedSongs?.songs ?? []}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item, index }) => (
-                  <Pressable
-                    className="mb-2 rounded-2xl bg-white/5 px-4 py-4"
-                    onPress={() => {
-                      if (!relatedSongs) return;
-                      setRelatedSongs(null);
-                      void playSong(relatedSongs.songs, index);
-                    }}
-                  >
-                    <Text className="font-bold text-white" numberOfLines={1}>{item.title}</Text>
-                    <Text className="mt-1 text-sm text-white/50" numberOfLines={1}>
-                      {normalizeValue(item.artist, UNKNOWN_ARTIST)}
-                    </Text>
-                  </Pressable>
-                )}
-              />
-            </View>
-          </View>
-        </Modal>
+          title={relatedSongs?.title ?? ""}
+          songs={relatedSongs?.songs ?? []}
+          variant={relatedSongs?.type ?? "album"}
+          artwork={relatedSongs?.songs[0]?.artwork}
+          onClose={() => setRelatedSongs(null)}
+          onPlayAll={() => {
+            if (!relatedSongs?.songs.length) return;
+            setRelatedSongs(null);
+            void playSong(relatedSongs.songs, 0);
+          }}
+          onSelectSong={(index) => {
+            if (!relatedSongs) return;
+            setRelatedSongs(null);
+            void playSong(relatedSongs.songs, index);
+          }}
+        />
 
         <AppSettingsModal
           visible={settingsVisible}

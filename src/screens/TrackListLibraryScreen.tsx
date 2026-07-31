@@ -1,18 +1,21 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, GestureResponderEvent, PermissionsAndroid, Platform, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, GestureResponderEvent, PermissionsAndroid, Platform, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { deleteAudioFile, getAudioFiles, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
 import { useMusicPlayer } from '../audio/musicPlayer';
 import AddSongToPlaylistModal from '../components/AddSongToPlaylistModal';
+import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
 import CreatePlaylistModal from '../components/CreatePlaylistModal';
 import DefineAsModal from '../components/DefineAsModal';
+import RelatedTracksModal from '../components/RelatedTracksModal';
 import SelectedSongsActionBar from '../components/SelectedSongsActionBar';
+import SongDetailsModal from '../components/SongDetailsModal';
 import SongListItem from '../components/SongListItem';
 import TopNavFavoritos from '../components/TopNavFavoritos';
 import TrackActionMenu from '../components/TrackActionMenu';
 import TopNavPistas, { TrackSortDirection, TrackSortOption } from '../components/TopNavPistas';
-import { formatDuration } from '../utils/time';
+import { MINI_PLAYER_BOTTOM_INSET, SELECTION_BAR_BOTTOM_INSET } from '../utils/layout';
 import PlayerScreen from './PlayerScreen';
 
 type TrackListMode = 'tracks' | 'favorites';
@@ -74,6 +77,15 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
   const [createPlaylistVisible, setCreatePlaylistVisible] = useState(false);
   const [playlistName, setPlaylistName] = useState('');
   const [defineAsSong, setDefineAsSong] = useState<Song | null>(null);
+  const [detailsSong, setDetailsSong] = useState<Song | null>(null);
+  const [relatedTracks, setRelatedTracks] = useState<{
+    title: string;
+    subtitle: string;
+    songs: Song[];
+    artwork?: string | null;
+    variant: 'album' | 'artist';
+  } | null>(null);
+  const [bulkDeleteVisible, setBulkDeleteVisible] = useState(false);
   const [selectedSongIds, setSelectedSongIds] = useState<string[]>([]);
   const [trackSort, setTrackSort] = useState<TrackSortOption>('name');
   const [trackSortDirection, setTrackSortDirection] = useState<TrackSortDirection>('asc');
@@ -205,15 +217,15 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
 
   const confirmDeleteSelectedSongs = () => {
     if (!selectedSongIds.length) return;
-    Alert.alert('Eliminar canciones', `¿Quieres eliminar ${selectedSongIds.length} ${selectedSongIds.length === 1 ? 'canción' : 'canciones'}?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: () => {
-        const idsToDelete = [...selectedSongIds];
-        idsToDelete.forEach(songId => { void deleteAudioFile(songId); });
-        setSongs(currentSongs => currentSongs.filter(song => !idsToDelete.includes(song.id)));
-        clearSelectedSongs();
-      } },
-    ]);
+    setBulkDeleteVisible(true);
+  };
+
+  const performBulkDelete = () => {
+    const idsToDelete = [...selectedSongIds];
+    idsToDelete.forEach(songId => { void deleteAudioFile(songId); });
+    setSongs(currentSongs => currentSongs.filter(song => !idsToDelete.includes(song.id)));
+    clearSelectedSongs();
+    setBulkDeleteVisible(false);
   };
 
   const toggleSelectedSong = (song: Song) => {
@@ -270,25 +282,37 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
   };
 
   const deleteTrack = (song: Song) => {
-    Alert.alert('Eliminar canción', `¿Quieres eliminar “${song.title}”?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: () => {
-        closeTrackMenu();
-        void deleteAudioFile(song.id).then(deleted => {
-          if (deleted) setSongs(currentSongs => currentSongs.filter(currentSong => currentSong.id !== song.id));
-        });
-      } },
-    ]);
+    closeTrackMenu();
+    void deleteAudioFile(song.id).then(deleted => {
+      if (deleted) setSongs(currentSongs => currentSongs.filter(currentSong => currentSong.id !== song.id));
+    });
   };
 
   const showTrackDetails = (song: Song) => {
     closeTrackMenu();
-    Alert.alert(song.title, `Artista: ${normalizeValue(song.artist, UNKNOWN_ARTIST)}\nÁlbum: ${normalizeValue(song.album, UNKNOWN_ALBUM)}\nDuración: ${formatDuration(song.duration)}\nRuta: ${song.url}`);
+    setDetailsSong(song);
   };
 
   const showTrackGroup = (song: Song, groupMode: 'albums' | 'artists') => {
     closeTrackMenu();
-    Alert.alert(groupMode === 'albums' ? 'Álbum' : 'Artista', groupMode === 'albums' ? normalizeValue(song.album, UNKNOWN_ALBUM) : normalizeValue(song.artist, UNKNOWN_ARTIST));
+    const groupName = groupMode === 'albums'
+      ? normalizeValue(song.album, UNKNOWN_ALBUM)
+      : normalizeValue(song.artist, UNKNOWN_ARTIST);
+    const relatedSongs = songs.filter(item => (
+      groupMode === 'albums'
+        ? normalizeValue(item.album, UNKNOWN_ALBUM) === groupName
+        : normalizeValue(item.artist, UNKNOWN_ARTIST) === groupName
+    ));
+
+    setRelatedTracks({
+      title: groupName,
+      subtitle: groupMode === 'albums'
+        ? normalizeValue(song.artist, UNKNOWN_ARTIST)
+        : `${relatedSongs.length} ${relatedSongs.length === 1 ? 'canción' : 'canciones'}`,
+      songs: relatedSongs,
+      artwork: song.artwork,
+      variant: groupMode === 'albums' ? 'album' : 'artist',
+    });
   };
 
   const defineTrackAs = async (song: Song, type: ToneType) => {
@@ -376,7 +400,7 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
         ListEmptyComponent={
           <Text className="px-5 py-8 text-center text-[#707070]">{emptyMessage}</Text>
         }
-        contentContainerStyle={{ paddingBottom: isSelectionMode ? 110 : 20 }}
+        contentContainerStyle={{ paddingBottom: isSelectionMode ? SELECTION_BAR_BOTTOM_INSET : MINI_PLAYER_BOTTOM_INSET }}
         renderItem={({ item, index }) => {
           const isActive = currentSong?.id === item.id;
 
@@ -460,6 +484,40 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
         song={defineAsSong}
         onClose={() => setDefineAsSong(null)}
         onDefineAs={(song, type) => { void defineTrackAs(song, type); }}
+      />
+
+      <SongDetailsModal
+        song={detailsSong}
+        onClose={() => setDetailsSong(null)}
+      />
+
+      <RelatedTracksModal
+        visible={Boolean(relatedTracks)}
+        title={relatedTracks?.title ?? ''}
+        subtitle={relatedTracks?.subtitle}
+        songs={relatedTracks?.songs ?? []}
+        artwork={relatedTracks?.artwork}
+        variant={relatedTracks?.variant}
+        onClose={() => setRelatedTracks(null)}
+        onPlayAll={() => {
+          if (!relatedTracks?.songs.length) return;
+          playFromList(relatedTracks.songs, 0);
+          setRelatedTracks(null);
+        }}
+        onSelectSong={index => {
+          if (!relatedTracks) return;
+          playFromList(relatedTracks.songs, index);
+          setRelatedTracks(null);
+        }}
+      />
+
+      <ConfirmDeleteModal
+        visible={bulkDeleteVisible}
+        title="Eliminar canciones"
+        message={`¿Quieres eliminar ${selectedSongIds.length} ${selectedSongIds.length === 1 ? 'canción' : 'canciones'}? Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar"
+        onClose={() => setBulkDeleteVisible(false)}
+        onConfirm={performBulkDelete}
       />
     </View>
   );

@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, Text } from 'react-native';
 import TopNavSortFilter, { TrackSortDirection, TrackSortOption } from './TopNavSortFilter';
 import { PlusIcon } from '../Icons';
+import { useAppSettings } from '../settings/appSettings';
 
 export type { TrackSortDirection, TrackSortOption };
 
@@ -22,19 +23,27 @@ const TopNavPlaylist = ({
   selectedDirection,
   onSortChange,
   onCreatePlaylist,
-}: TopNavPlaylistProps) => (
-  <TopNavSortFilter
-    selectedSort={selectedSort}
-    selectedDirection={selectedDirection}
-    onSortChange={onSortChange}
-    sortOptions={SORT_OPTIONS}
-    rightContent={onCreatePlaylist ? (
-      <Pressable className="rounded-full flex-row gap-1 items-center bg-[#f5f5f5] px-4 py-2" onPress={onCreatePlaylist}>
-        <Text className="text-lg font-bold text-black">Crear</Text>
-        <PlusIcon size={24} color='#000000'/>
-      </Pressable>
-    ) : null}
-  />
-);
+}: TopNavPlaylistProps) => {
+  const { theme } = useAppSettings();
+
+  return (
+    <TopNavSortFilter
+      selectedSort={selectedSort}
+      selectedDirection={selectedDirection}
+      onSortChange={onSortChange}
+      sortOptions={SORT_OPTIONS}
+      rightContent={onCreatePlaylist ? (
+        <Pressable
+          className="flex-row items-center gap-1.5 rounded-full px-2 py-2"
+          style={{ backgroundColor: theme.text }}
+          onPress={onCreatePlaylist}
+        >
+          <PlusIcon size={24} color={theme.background} />
+          
+        </Pressable>
+      ) : null}
+    />
+  );
+};
 
 export default TopNavPlaylist;
