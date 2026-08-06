@@ -1,7 +1,5 @@
 import React from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
-import { BlurView } from "expo-blur";
-import { LinearGradient } from "expo-linear-gradient";
 import { Song } from "../../modules/local-music";
 import LibraryArtwork from "./LibraryArtwork";
 import { PlayIcon } from "../Icons";

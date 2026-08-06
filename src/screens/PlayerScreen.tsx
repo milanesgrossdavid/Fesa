@@ -355,7 +355,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
           </View>
         </View>
 
-        <View className="flex-1 justify-between pt-8 pb-4">
+        <View className="flex-1 justify-between pt-16 pb-32">
           {/* Portada */}
           <View className="aspect-square w-full max-w-[400px] items-center justify-center self-center overflow-hidden rounded-3xl bg-[#2a2a2a]">
             {currentSong.artwork ? (
@@ -672,11 +672,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
           onRequestClose={() => setLockScreenVisible(false)}
         >
           <View
-            className="flex-1 bg-black px-6"
-            style={{
-              paddingTop: Math.max(insets.top, 16),
-              paddingBottom: Math.max(insets.bottom, 16),
-            }}
+            className="flex-1 bg-black px-6 pt-20"
           >
 
             <View className="items-center">
