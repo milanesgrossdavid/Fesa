@@ -8,6 +8,11 @@ import {
 } from 'expo-audio';
 import type { Song } from '../../modules/local-music';
 import {
+  addNotificationActionListener,
+  showMusicNotification,
+  stopMusicNotification,
+} from '../../modules/local-music';
+import {
   getAppSettingsSnapshot,
   hydrateAppSettings,
   registerSleepTimerListener,
@@ -102,6 +107,7 @@ let cachedSnapshot: MusicPlayerSnapshot = {
 const listeners = new Set<() => void>();
 let settingsUnsubscribe: (() => void) | null = null;
 let sleepTimerUnsubscribe: (() => void) | null = null;
+let notificationActionUnsubscribe: (() => void) | null = null;
 
 const normalizeUri = (uri: string) => {
   if (!uri) {
@@ -203,8 +209,23 @@ const persistPlaybackState = async () => {
 };
 
 const activateLockScreen = (song: Song) => {
-  const metadata = buildMetadata(song);
+  if (Platform.OS === 'android') {
+    // On Android we drive the notification/lock screen ourselves via
+    // the local-music native module (RemoteViews). Make sure expo-audio's
+    // MediaSession notification is off so the two don't compete.
+    player.clearLockScreenControls?.();
+    showMusicNotification({
+      title: song.title,
+      artist: song.artist || 'Artista Desconocido',
+      artworkUri: song.artwork ?? null,
+      playing,
+      positionMs: Math.floor(currentTime * 1000),
+      durationMs: song.duration || Math.floor(durationSeconds * 1000),
+    });
+    return;
+  }
 
+  const metadata = buildMetadata(song);
   player.setActiveForLockScreen(
     true,
     metadata,
@@ -220,10 +241,40 @@ const activateLockScreen = (song: Song) => {
 const syncLockScreenState = (song?: Song | null) => {
   if (!getAppSettingsSnapshot().lockScreenControlsEnabled || !song) {
     player.clearLockScreenControls?.();
+    if (Platform.OS === 'android') {
+      stopMusicNotification();
+    }
     return;
   }
 
   activateLockScreen(song);
+};
+
+let lastNotificationUpdateMs = 0;
+const updateAndroidNotification = (force = false) => {
+  if (Platform.OS !== 'android') {
+    return;
+  }
+  if (!getAppSettingsSnapshot().lockScreenControlsEnabled) {
+    return;
+  }
+  const song = getCurrentSong();
+  if (!song) {
+    return;
+  }
+  const now = Date.now();
+  if (!force && now - lastNotificationUpdateMs < 950) {
+    return;
+  }
+  lastNotificationUpdateMs = now;
+  showMusicNotification({
+    title: song.title,
+    artist: song.artist || 'Artista Desconocido',
+    artworkUri: song.artwork ?? null,
+    playing,
+    positionMs: Math.floor(currentTime * 1000),
+    durationMs: song.duration || Math.floor(durationSeconds * 1000),
+  });
 };
 
 const applyRuntimeSettings = () => {
@@ -328,6 +379,7 @@ const loadAndPlay = async (index: number, withTransition = false) => {
   applyRuntimeSettings();
 
   playing = true;
+  updateAndroidNotification(true);
   void persistPlaybackState();
   emit();
 
@@ -492,9 +544,13 @@ const ensureInitialized = async () => {
       return;
     }
 
-    if (playing !== nextPlaying || progressChanged) {
+    const playingChanged = playing !== nextPlaying;
+    if (playingChanged || progressChanged) {
       playing = nextPlaying;
+      updateAndroidNotification(playingChanged);
       emit();
+    } else {
+      updateAndroidNotification();
     }
   });
 
@@ -510,6 +566,19 @@ const ensureInitialized = async () => {
     sleepTimerUnsubscribe = registerSleepTimerListener(() => {
       pause();
     });
+  }
+
+  if (Platform.OS === 'android' && !notificationActionUnsubscribe) {
+    const subscription = addNotificationActionListener(action => {
+      if (action === 'previous') {
+        void playPrevious();
+      } else if (action === 'next') {
+        void playNext();
+      } else if (action === 'toggle') {
+        void togglePlayPause();
+      }
+    });
+    notificationActionUnsubscribe = () => subscription.remove();
   }
 };
 
@@ -628,12 +697,14 @@ const togglePlayPause = async () => {
     void persistPlaybackState();
   }
 
+  updateAndroidNotification(true);
   emit();
 };
 
 const pause = () => {
   player.pause();
   playing = false;
+  updateAndroidNotification(true);
   emit();
 };
 
@@ -641,6 +712,7 @@ const seekTo = (seconds: number) => {
   const nextTime = Math.max(0, Math.min(seconds, durationSeconds || seconds));
   player.seekTo(nextTime);
   currentTime = nextTime;
+  updateAndroidNotification(true);
   emit();
 };
 

@@ -15,6 +15,13 @@
           "enableBackgroundPlayback": true,
           "enableBackgroundRecording": false
         }
+      ],[
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#000",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200
+        }
       ]
     ],
     "ios": {

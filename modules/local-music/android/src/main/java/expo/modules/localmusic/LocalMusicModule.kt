@@ -10,6 +10,9 @@ import android.provider.MediaStore
 import android.provider.Settings
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import expo.modules.localmusic.notification.MusicNotificationActionReceiver
+import expo.modules.localmusic.notification.MusicNotificationService
+import expo.modules.localmusic.notification.NotificationState
 
 class LocalMusicModule : Module() {
   private fun audioUri(songId: String): Uri {
@@ -18,6 +21,28 @@ class LocalMusicModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("LocalMusic")
+
+    Events("onNotificationAction")
+
+    OnCreate {
+      MusicNotificationActionReceiver.actionCallback = actionCallback@{ action ->
+        val actionName = when (action) {
+          MusicNotificationService.ACTION_PREVIOUS -> "previous"
+          MusicNotificationService.ACTION_NEXT -> "next"
+          MusicNotificationService.ACTION_TOGGLE -> "toggle"
+          else -> return@actionCallback
+        }
+        try {
+          sendEvent("onNotificationAction", mapOf("action" to actionName))
+        } catch (e: Exception) {
+          // Module not ready; ignore.
+        }
+      }
+    }
+
+    OnDestroy {
+      MusicNotificationActionReceiver.actionCallback = null
+    }
 
     AsyncFunction("getAudioFiles") { ->
       // Tipamos explícitamente como Any? para aceptar distintos tipos de datos y nulos
@@ -145,6 +170,27 @@ class LocalMusicModule : Module() {
 
       RingtoneManager.setActualDefaultRingtoneUri(context, ringtoneType, uri)
       return@AsyncFunction true
+    }
+
+    Function("showMusicNotification") { title: String, artist: String, artworkUri: String?, playing: Boolean, positionMs: Double, durationMs: Double ->
+      val context = appContext.reactContext ?: return@Function null
+      MusicNotificationService.start(
+        context,
+        NotificationState(
+          title = title,
+          artist = artist,
+          artworkUri = artworkUri,
+          playing = playing,
+          positionMs = positionMs.toLong(),
+          durationMs = durationMs.toLong()
+        )
+      )
+    }
+
+    Function("stopMusicNotification") {
+      val context = appContext.reactContext ?: return@Function null
+      MusicNotificationService.stop(context)
+      null
     }
   }
 }
