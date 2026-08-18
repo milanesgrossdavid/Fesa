@@ -1,8 +1,8 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export type AppThemeId = 'fesa' | 'oceano' | 'uva';
-export type TabId = 'Inicio' | 'Favoritos' | 'Playlist' | 'Pistas' | 'Álbumes' | 'Artistas' | 'Carpetas';
+export type AppThemeId = 'fesa' | 'oceano' | 'uva' | 'rosa';
+export type TabId = 'Inicio' | 'Favoritos' | 'Playlist' | 'Pistas' | 'Álbumes' | 'Artistas' | 'Carpetas' | 'Descarga';
 
 export type AppTheme = {
   id: AppThemeId;
@@ -24,7 +24,6 @@ type PersistedAppSettings = {
   sleepTimerEndsAt: number | null;
   playbackRate: number;
   crossfadeEnabled: boolean;
-  skipSilenceBetweenTracks: boolean;
   lockScreenControlsEnabled: boolean;
   themeId: AppThemeId;
   tabs: TabPreference[];
@@ -40,33 +39,43 @@ const APP_SETTINGS_STORAGE_KEY = '@fesa:app-settings';
 export const APP_THEMES: AppTheme[] = [
   {
     id: 'fesa',
-    name: 'FESA',
+    name: 'Fesa',
     background: '#1d1d1f',
     surface: '#252525',
-    accent: '#b64400',
+    accent: '#f5f5f5',
     text: '#ffffff',
-    mutedText: '#707070',
+    mutedText: '#b6b6b6',
     border: '#333333',
   },
   {
     id: 'oceano',
     name: 'Océano',
-    background: '#101826',
-    surface: '#162236',
-    accent: '#33a1ff',
-    text: '#ffffff',
-    mutedText: '#8da5c3',
-    border: '#23324a',
+    background: '#eff3ff',
+    surface: '#bdd7e7',
+    accent: '#2171b5',
+    text: '#102240',
+    mutedText: '#4f6c88',
+    border: '#7d99b9',
   },
   {
     id: 'uva',
     name: 'Uva',
-    background: '#1a1323',
-    surface: '#261b33',
-    accent: '#b86cff',
-    text: '#ffffff',
-    mutedText: '#9b8ab1',
-    border: '#38284c',
+    background: '#fc9af5',
+    surface: '#c56ebf',
+    accent: '#68245f',
+    text: '#2a0a2e',
+    mutedText: '#6f4f7d',
+    border: '#8f6f9a',
+  },
+  {
+    id: 'rosa',
+    name: 'Rosa',
+    background: '#f8f4f2',
+    surface: '#e6d2d9',
+    accent: '#5c2334',
+    text: '#2c1721',
+    mutedText: '#6c4e61',
+    border: '#b897a2',
   },
 ];
 
@@ -78,13 +87,13 @@ export const DEFAULT_TABS: TabPreference[] = [
   { id: 'Álbumes', enabled: true },
   { id: 'Artistas', enabled: true },
   { id: 'Carpetas', enabled: true },
+  { id: 'Descarga', enabled: true },
 ];
 
 const DEFAULT_SETTINGS: PersistedAppSettings = {
   sleepTimerEndsAt: null,
   playbackRate: 1,
   crossfadeEnabled: false,
-  skipSilenceBetweenTracks: false,
   lockScreenControlsEnabled: true,
   themeId: 'fesa',
   tabs: DEFAULT_TABS,
@@ -248,10 +257,6 @@ export const setPlaybackRate = (playbackRate: number) => {
 
 export const setCrossfadeEnabled = (crossfadeEnabled: boolean) => {
   updatePersistedState({ crossfadeEnabled });
-};
-
-export const setSkipSilenceBetweenTracks = (skipSilenceBetweenTracks: boolean) => {
-  updatePersistedState({ skipSilenceBetweenTracks });
 };
 
 export const setLockScreenControlsEnabled = (lockScreenControlsEnabled: boolean) => {

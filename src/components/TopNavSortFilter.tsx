@@ -45,7 +45,6 @@ const TopNavSortFilter = ({
           style={{ backgroundColor: theme.surface }}
           onPress={() => setModalVisible(true)}
         >
-          <FilterIcon size={18} color={theme.text} />
           <Text className="text-sm font-bold" style={{ color: theme.text }}>{selectedLabel}</Text>
           {selectedDirection === 'desc' ? (
             <SortDescIcon size={16} color={theme.mutedText} />

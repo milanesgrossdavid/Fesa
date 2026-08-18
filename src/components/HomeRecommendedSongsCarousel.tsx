@@ -3,6 +3,7 @@ import { Animated, Dimensions, Pressable, Text, View } from 'react-native';
 import { Song } from '../../modules/local-music';
 import { PlayIcon } from '../Icons';
 import LibraryArtwork from './LibraryArtwork';
+import { useAppSettings } from '../settings/appSettings';
 
 interface HomeRecommendedSongsCarouselProps {
   songs: Song[];
@@ -30,10 +31,12 @@ const HomeRecommendedSongsCarousel = ({
   const cardWidth = Math.min(SCREEN_WIDTH * 0.68, 270);
   const cardGap = 18;
   const snapInterval = cardWidth + cardGap;
+  const { theme } = useAppSettings();
+  
 
   return (
     <View className="pt-8 pb-16">
-      <Text className="mb-3 px-5 text-lg font-bold text-white">Canciones recomendadas</Text>
+      <Text className="mb-3 px-5 text-lg font-bold" style={{ color: theme.text }}>Canciones recomendadas</Text>
       {circularSongs.length ? (
         <Animated.FlatList
           horizontal

@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppSettingsModal from './AppSettingsModal';
 import LibraryArtwork from './LibraryArtwork';
 import { BackIcon, SearchIcon, SettingsIcon } from '../Icons';
-import { getAudioFiles, Song } from '../../modules/local-music';
+import { getAudioFilesWithPermission, Song } from '../../modules/local-music';
 import { useMusicPlayer } from '../audio/musicPlayer';
 import { useAppSettings } from '../settings/appSettings';
 
@@ -14,7 +14,7 @@ const Header = () => {
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [query, setQuery] = useState('');
   const [songs, setSongs] = useState<Song[]>([]);
-  const { playSong } = useMusicPlayer();
+  const { playSong, requestShowPlayer } = useMusicPlayer();
   const { theme } = useAppSettings();
 
   useEffect(() => {
@@ -22,10 +22,50 @@ const Header = () => {
       return;
     }
 
-    getAudioFiles()
+    getAudioFilesWithPermission()
       .then(setSongs)
       .catch(error => console.error('Error al cargar música para búsqueda:', error));
   }, [searchVisible, songs.length]);
+
+  const levenshteinDistance = (a: string, b: string) => {
+    const aLength = a.length;
+    const bLength = b.length;
+
+    if (aLength === 0) return bLength;
+    if (bLength === 0) return aLength;
+
+    const matrix: number[][] = Array.from({ length: aLength + 1 }, (_, row) =>
+      Array.from({ length: bLength + 1 }, (_, col) => (row === 0 ? col : col === 0 ? row : 0))
+    );
+
+    for (let i = 1; i <= aLength; i += 1) {
+      for (let j = 1; j <= bLength; j += 1) {
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j - 1] + cost
+        );
+      }
+    }
+
+    return matrix[aLength][bLength];
+  };
+
+  const computeFieldScore = (queryText: string, fieldText: string) => {
+    if (!fieldText) {
+      return Number.MAX_SAFE_INTEGER;
+    }
+
+    if (fieldText.includes(queryText)) {
+      return 0;
+    }
+
+    const words = fieldText.split(/[^a-z0-9]+/).filter(Boolean);
+    const candidates = [fieldText, ...words];
+
+    return Math.min(...candidates.map(candidate => levenshteinDistance(queryText, candidate)));
+  };
 
   const filteredSongs = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -34,11 +74,25 @@ const Header = () => {
       return [];
     }
 
-    return songs.filter(song => (
-      song.title.toLowerCase().includes(normalizedQuery) ||
-      song.artist.toLowerCase().includes(normalizedQuery) ||
-      song.album.toLowerCase().includes(normalizedQuery)
-    ));
+    const maxDistance = Math.max(2, Math.round(normalizedQuery.length * 0.5));
+
+    return songs
+      .map(song => {
+        const title = song.title.toLowerCase();
+        const artist = song.artist.toLowerCase();
+        const album = song.album.toLowerCase();
+
+        const score = Math.min(
+          computeFieldScore(normalizedQuery, title),
+          computeFieldScore(normalizedQuery, artist),
+          computeFieldScore(normalizedQuery, album),
+        );
+
+        return { song, score };
+      })
+      .filter(({ score }) => score <= maxDistance)
+      .sort((a, b) => a.score - b.score || a.song.title.localeCompare(b.song.title))
+      .map(({ song }) => song);
   }, [query, songs]);
 
   const closeSearch = () => {
@@ -46,8 +100,9 @@ const Header = () => {
     setQuery('');
   };
 
-  const playSearchResult = (index: number) => {
-    void playSong(filteredSongs, index);
+  const playSearchResult = async (index: number) => {
+    await playSong(filteredSongs, index);
+    requestShowPlayer();
     closeSearch();
   };
 

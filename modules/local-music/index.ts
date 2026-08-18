@@ -1,4 +1,5 @@
 import { requireNativeModule } from 'expo-modules-core';
+import { PermissionsAndroid, Platform } from 'react-native';
 
 export type Song = {
   id: string;
@@ -29,6 +30,35 @@ const LocalMusic = requireNativeModule('LocalMusic');
 
 export async function getAudioFiles(): Promise<Song[]> {
   return await LocalMusic.getAudioFiles();
+}
+
+export async function getAudioFilesWithPermission(): Promise<Song[]> {
+  try {
+    let granted = false;
+
+    if (Platform.OS === 'android') {
+      const version = typeof Platform.Version === 'string' 
+        ? parseInt(Platform.Version, 10) 
+        : Platform.Version;
+
+      const permission = version >= 33
+        ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_AUDIO
+        : PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE;
+
+      const result = await PermissionsAndroid.request(permission);
+      granted = result === PermissionsAndroid.RESULTS.GRANTED;
+    } else {
+      granted = true;
+    }
+
+    if (granted) {
+      return await getAudioFiles();
+    }
+    return [];
+  } catch (error) {
+    console.error('Error requesting permissions or fetching audio files:', error);
+    return [];
+  }
 }
 
 export async function deleteAudioFile(songId: string): Promise<boolean> {

@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Song } from '../../modules/local-music';
 import LibraryArtwork from './LibraryArtwork';
+import { useAppSettings } from '../settings/appSettings';
 
 type SongGroup = {
   id: string;
@@ -19,9 +20,12 @@ interface HomeRecommendedArtistsSectionProps {
 const HomeRecommendedArtistsSection = ({
   artists,
   onOpenArtist,
-}: HomeRecommendedArtistsSectionProps) => (
+}: HomeRecommendedArtistsSectionProps) => {
+  const { theme } = useAppSettings();
+
+  return (
   <View className="px-5 pt-7">
-    <Text className="mb-3 text-lg font-bold text-white">Artistas recomendados</Text>
+    <Text className="mb-3 text-lg font-bold" style={{ color: theme.text }}>Artistas recomendados</Text>
     <View className="flex-row flex-wrap gap-4">
       {artists.map(artist => (
         <Pressable key={artist.id} className="w-[47%]" onPress={() => onOpenArtist(artist)}>
@@ -30,13 +34,13 @@ const HomeRecommendedArtistsSection = ({
             fallback={artist.name.charAt(0).toUpperCase()}
             className="aspect-[1.15] w-full rounded-3xl"
           />
-          <Text className="mt-2 text-sm font-bold text-white" numberOfLines={1}>
+          <Text className="mt-2 text-sm font-bold text-center" style={{ color: theme.text }} numberOfLines={1}>
             {artist.name}
           </Text>
         </Pressable>
       ))}
     </View>
   </View>
-);
+)};
 
 export default HomeRecommendedArtistsSection;

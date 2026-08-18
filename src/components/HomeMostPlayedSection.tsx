@@ -3,6 +3,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { Song } from "../../modules/local-music";
 import LibraryArtwork from "./LibraryArtwork";
 import { PlayIcon } from "../Icons";
+import { useAppSettings } from "../settings/appSettings";
 
 type SongGroup = {
   id: string;
@@ -33,6 +34,7 @@ const HomeMostPlayedSection = ({
   onOpenGroup,
   onPlaySong,
 }: HomeMostPlayedSectionProps) => {
+  const { theme } = useAppSettings();
   const featuredSongs = group.songs.slice(0, limit);
   const topSong = featuredSongs[0];
   const remainingSongs = featuredSongs.slice(1);
@@ -40,19 +42,19 @@ const HomeMostPlayedSection = ({
   return (
     <View className="pt-2">
       <View className="mb-3 flex-row items-center justify-between px-5">
-        <Text className="text-lg font-bold text-white">Más escuchadas</Text>
+        <Text className="text-lg font-bold" style={{ color: theme.text }}>Más escuchadas</Text>
       </View>
 
       {topSong ? (
         <>
           <View className="mx-5 mb-4">
-            <View className="aspect-[1.75] w-full overflow-hidden rounded-3xl bg-[#333333]">
+            <View className="aspect-[1.75] w-full overflow-hidden rounded-3xl" style={{ backgroundColor: theme.surface }}>
               <LibraryArtwork
                 artwork={topSong.artwork}
                 className="h-full w-full rounded-3xl"
               />
-              <View className="absolute left-4 top-4 rounded-full bg-[#f5f5f5] px-4 py-2">
-                <Text className="text-xs font-bold text-black">Top 1</Text>
+              <View className="absolute left-4 top-4 rounded-full px-4 py-2" style={{ backgroundColor: theme.accent }}>
+                <Text className="text-xs font-bold" style={{ color: theme.background }}>Top 1</Text>
               </View>
               <View className="absolute bottom-0 left-0 right-0 py-2 px-4 bg-black/25 flex flex-row justify-between items-center">
                 <View className="flex flex-col">
@@ -70,10 +72,11 @@ const HomeMostPlayedSection = ({
                   </Text>
                 </View>
                 <Pressable
-                  className="rounded-full bg-[#c3c3c3] p-4"
+                  className="rounded-full p-4"
+                  style={{ backgroundColor: theme.surface }}
                   onPress={() => onPlaySong(0)}
                 >
-                  <PlayIcon size={24} color="#f5f5f5" />
+                  <PlayIcon size={24} color={theme.text} />
                 </Pressable>
               </View>
             </View>
@@ -87,7 +90,7 @@ const HomeMostPlayedSection = ({
             >
               {remainingSongs.map((song, index) => (
                 <View key={song.id} className="w-56">
-                  <View className="aspect-[1.35] w-full overflow-hidden rounded-3xl bg-[#333333]">
+                  <View className="aspect-[1.35] w-full overflow-hidden rounded-3xl" style={{ backgroundColor: theme.surface }}>
                     <LibraryArtwork
                       artwork={song.artwork}
                       className="h-full w-full rounded-3xl"
@@ -108,10 +111,11 @@ const HomeMostPlayedSection = ({
                         </Text>
                       </View>
                       <Pressable
-                        className="rounded-full bg-[#c3c3c3] p-3"
+                        className="rounded-full p-3"
+                        style={{ backgroundColor: theme.surface }}
                         onPress={() => onPlaySong(index + 1)}
                       >
-                        <PlayIcon size={20} color="#f5f5f5" />
+                        <PlayIcon size={20} color={theme.text} />
                       </Pressable>
                     </View>
                   </View>
@@ -121,7 +125,7 @@ const HomeMostPlayedSection = ({
           ) : null}
         </>
       ) : (
-        <Text className="px-5 py-6 text-center text-sm text-[#707070]">
+        <Text className="px-5 py-6 text-center text-sm" style={{ color: theme.mutedText }}>
           Cuando empieces a reproducir canciones, aquí aparecerán tus más
           escuchadas.
         </Text>

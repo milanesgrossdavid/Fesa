@@ -14,7 +14,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Font from "expo-font";
 import {
   deleteAudioFile,
-  getAudioFiles,
+  getAudioFilesWithPermission,
   setAudioAsTone,
   shareAudioFile,
   Song,
@@ -27,6 +27,7 @@ import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import QueuePlaylistModal from "../components/QueuePlaylistModal";
 import RelatedTracksModal from "../components/RelatedTracksModal";
 import SongDetailsModal from "../components/SongDetailsModal";
+import LyricsModal from "../components/LyricsModal";
 import {
   BackIcon,
   BackwardIcon,
@@ -47,6 +48,9 @@ import {
 import { formatDuration } from "../utils/time";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import { useAppSettings } from "../settings/appSettings";
+import { LinearGradient } from "expo-linear-gradient";
+import { BlurTargetView, BlurView } from "expo-blur";
+import { useDominantColor, withAlpha } from "../hooks/useDominantColor";
 
 interface PlayerScreenProps {
   onBack: () => void;
@@ -58,7 +62,7 @@ type RelatedSongsState = {
   songs: Song[];
 } | null;
 
-const LOCK_DATE_FONT = "Poppins-Regular";
+const LOCK_DATE_FONT = "SFNSText-Regular";
 const LOCK_TIME_FONT = "BlackOpsOne-Regular";
 const UNKNOWN_ALBUM = "Álbum Desconocido";
 const UNKNOWN_ARTIST = "Artista Desconocido";
@@ -94,6 +98,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
   const miniProgressBarRef = useRef<View>(null);
   const lockProgressBarRef = useRef<View>(null);
   const volumeBarRef = useRef<View>(null);
+  const miniPlayerBlurTargetRef = useRef<View | null>(null);
   const [allSongs, setAllSongs] = useState<Song[]>([]);
 
   const [mainProgressBar, setMainProgressBar] = useState({ x: 0, width: 0 });
@@ -110,13 +115,16 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [defineAsVisible, setDefineAsVisible] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
+  const [lyricsVisible, setLyricsVisible] = useState(false);
   const [relatedSongs, setRelatedSongs] = useState<RelatedSongsState>(null);
   const [lockFontsLoaded, setLockFontsLoaded] = useState(false);
 
+  const dominantColor = useDominantColor(currentSong?.artwork ?? null);
+
   useEffect(() => {
     Font.loadAsync({
-      [LOCK_DATE_FONT]: "https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/Poppins-Regular.ttf",
-      [LOCK_TIME_FONT]: "https://raw.githubusercontent.com/google/fonts/main/ofl/blackopsone/BlackOpsOne-Regular.ttf",
+      [LOCK_DATE_FONT]: require("../../assets/fonts/SFNSText-Regular.otf"),
+      [LOCK_TIME_FONT]: require("../../assets/fonts/BlackOpsOne-Regular.ttf"),
     })
       .then(() => setLockFontsLoaded(true))
       .catch((error) =>
@@ -125,7 +133,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
   }, []);
 
   useEffect(() => {
-    getAudioFiles()
+    getAudioFilesWithPermission()
       .then(setAllSongs)
       .catch((error) =>
         console.warn("No se pudo cargar la biblioteca:", error),
@@ -197,20 +205,22 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
         onRequestClose={onBack}
       >
         <View
-          className="flex-1 items-center justify-center bg-[#121212] px-6"
+          className="flex-1 items-center justify-center px-6"
           style={{
+            backgroundColor: theme.background,
             paddingTop: Math.max(insets.top, 12),
             paddingBottom: Math.max(insets.bottom, 16),
           }}
         >
-          <Text className="mb-6 text-center text-base text-white/60">
+          <Text className="mb-6 text-center text-base" style={{ color: theme.mutedText }}>
             No hay ninguna canción seleccionada.
           </Text>
           <Pressable
-            className="rounded-full bg-white/10 px-6 py-3"
+            className="rounded-full px-6 py-3"
+            style={{ backgroundColor: theme.surface }}
             onPress={onBack}
           >
-            <Text className="font-bold text-white">Volver</Text>
+            <Text className="font-bold" style={{ color: theme.text }}>Volver</Text>
           </Pressable>
         </View>
       </Modal>
@@ -319,12 +329,18 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
       onRequestClose={onBack}
     >
       <View
-        className="flex-1 bg-[#121212] px-6"
+        className="flex-1 px-6"
         style={{
           paddingTop: Math.max(insets.top, 12),
           paddingBottom: Math.max(insets.bottom, 16),
         }}
       >
+        <LinearGradient
+          pointerEvents="none"
+          colors={[dominantColor, withAlpha(dominantColor, 0.55), "#0a0a0a"]}
+          locations={[0, 0.45, 1]}
+          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+        />
         {/* Header */}
         <View className="flex-row items-center justify-between">
           <Pressable
@@ -497,6 +513,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                 ["Eliminar", () => { closeTrackMenu(); setDeleteConfirmVisible(true); }],
                 ["Compartir", () => { closeTrackMenu(); void shareAudioFile(currentSong.id); }],
                 ["Detalles de la pista", () => { closeTrackMenu(); setDetailsVisible(true); }],
+                ["Letra", () => { closeTrackMenu(); setLyricsVisible(true); }],
                 ["Álbum", () => openRelatedSongs("album")],
                 ["Artista", () => openRelatedSongs("artist")],
                 ["Definir como", () => { closeTrackMenu(); setDefineAsVisible(true); }],
@@ -513,6 +530,12 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
         <SongDetailsModal
           song={detailsVisible ? currentSong : null}
           onClose={() => setDetailsVisible(false)}
+        />
+
+        <LyricsModal
+          song={lyricsVisible ? currentSong : null}
+          visible={lyricsVisible}
+          onClose={() => setLyricsVisible(false)}
         />
 
         <ConfirmDeleteModal
@@ -533,7 +556,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
           <View className="flex-1 justify-end">
             <Pressable className="absolute inset-0 bg-black/70" onPress={() => setDefineAsVisible(false)} />
             <View className="rounded-t-[32px] bg-[#202020] px-6 pb-8 pt-6">
-              {[["Tono del dispositivo", "ringtone"], ["Tono del contacto", "contact"], ["Tono de alarma", "alarm"]].map(([label, type]) => (
+              {[["Tono del dispositivo", "ringtone"], ["Tono de alarma", "alarm"]].map(([label, type]) => (
                 <Pressable key={label} className="mt-3 rounded-2xl bg-white/5 px-4 py-4" onPress={() => void defineSongAs(type as ToneType)}>
                   <Text className="font-bold text-white">{label}</Text>
                 </Pressable>
@@ -550,12 +573,66 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
           navigationBarTranslucent
           onRequestClose={() => setMiniPlayerVisible(false)}
         >
-          <View className="flex-1 items-center justify-center bg-black/95 px-6">
+          <View className="flex-1 items-center justify-center px-6">
+            <BlurTargetView
+              ref={miniPlayerBlurTargetRef}
+              style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+            >
+              {currentSong.artwork ? (
+                <Image
+                  source={{ uri: currentSong.artwork }}
+                  style={{ position: "absolute", top: -32, left: -32, right: -32, bottom: -32 }}
+                  resizeMode="cover"
+                  blurRadius={18}
+                />
+              ) : null}
+              <LinearGradient
+                colors={[dominantColor, "#050505"]}
+                style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+              />
+            </BlurTargetView>
+            <BlurView
+              blurTarget={miniPlayerBlurTargetRef}
+              blurMethod="dimezisBlurView"
+              intensity={100}
+              tint="dark"
+              style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+            />
+            <LinearGradient
+              pointerEvents="none"
+              colors={[withAlpha(dominantColor, 0.45), "rgba(0,0,0,0.82)"]}
+              style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+            />
             <Pressable
               className="absolute inset-0"
               onPress={() => setMiniPlayerVisible(false)}
             />
-            <View className="w-full max-w-[380px] rounded-[34px] border border-white/10 bg-[#202020] p-6">
+            <View
+              className="w-full max-w-[380px] rounded-[34px] p-6"
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.04)',
+                borderColor: 'rgba(255,255,255,0.08)',
+                borderWidth: 1,
+                overflow: 'hidden',
+                shadowColor: '#000',
+                shadowOpacity: 0.35,
+                shadowOffset: { width: 0, height: 8 },
+                shadowRadius: 18,
+                elevation: 10,
+              }}
+            >
+              {/* sheen + depth overlays to simulate liquid glass */}
+              <LinearGradient
+                pointerEvents="none"
+                colors={["rgba(255,255,255,0.12)", "rgba(255,255,255,0)"]}
+                style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 90, borderTopLeftRadius: 34, borderTopRightRadius: 34 }}
+              />
+              <LinearGradient
+                pointerEvents="none"
+                colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.18)"]}
+                style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 80 }}
+              />
+              <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 34, borderWidth: 1, borderColor: 'rgba(255,255,255,0.03)' }} pointerEvents="none" />
               <View className="aspect-square w-full items-center justify-center overflow-hidden rounded-[24px] bg-[#2a2a2a]">
                 {currentSong.artwork ? (
                   <Image
@@ -672,8 +749,14 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
           onRequestClose={() => setLockScreenVisible(false)}
         >
           <View
-            className="flex-1 bg-black px-6 pt-20"
+            className="flex-1 px-6 pt-20"
           >
+            <LinearGradient
+              pointerEvents="none"
+              colors={[dominantColor, withAlpha(dominantColor, 1), "#000000"]}
+              locations={[0, 0.5, 1]}
+              style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+            />
 
             <View className="items-center">
               <Text

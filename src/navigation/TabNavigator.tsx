@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Text, View } from 'react-native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { NavigationContainer, DarkTheme } from '@react-navigation/native';
@@ -9,10 +10,12 @@ import PistasScreen from '../screens/PistasScreen';
 import AlbumesScreen from '../screens/AlbumesScreen';
 import ArtistasScreen from '../screens/ArtistasScreen';
 import CarpetasScreen from '../screens/CarpetasScreen';
+import DescargarScreen from '../screens/DescargarScreen';
 import MiniPlayer from '../components/MiniPlayer';
 import { DEFAULT_TABS, TabId, useAppSettings } from '../settings/appSettings';
 
 const Tab = createMaterialTopTabNavigator();
+const LAST_LIBRARY_TAB_KEY = '@fesa:lastLibraryTab';
 const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
   Inicio: InicioScreen,
   Favoritos: FavoritosScreen,
@@ -21,14 +24,44 @@ const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
   'Álbumes': AlbumesScreen,
   Artistas: ArtistasScreen,
   Carpetas: CarpetasScreen,
+  Descarga: DescargarScreen,
 };
+
+const isTabId = (value: string | undefined): value is TabId =>
+  Boolean(value && Object.prototype.hasOwnProperty.call(TAB_COMPONENTS, value));
 
 const TabNavigator = () => {
   const { theme, tabs } = useAppSettings();
+  const [lastTabLoaded, setLastTabLoaded] = useState(false);
+  const [lastTab, setLastTab] = useState<TabId | null>(null);
   const visibleTabs = tabs.filter(tab => tab.enabled);
   const fallbackTabs = DEFAULT_TABS.filter(tab => tab.enabled);
   const renderedTabs = visibleTabs.length ? visibleTabs : fallbackTabs;
   const tabsOrderKey = renderedTabs.map(tab => tab.id).join('|');
+  const initialRouteName = useMemo(() => {
+    const fallback = renderedTabs[0]?.id ?? 'Inicio';
+    return lastTab && renderedTabs.some(tab => tab.id === lastTab) ? lastTab : fallback;
+  }, [lastTab, renderedTabs]);
+  useEffect(() => {
+    let mounted = true;
+
+    AsyncStorage.getItem(LAST_LIBRARY_TAB_KEY)
+      .then(value => {
+        if (mounted && isTabId(value ?? undefined)) {
+          setLastTab(value);
+        }
+      })
+      .finally(() => {
+        if (mounted) {
+          setLastTabLoaded(true);
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const customDarkTheme = {
     ...DarkTheme,
     colors: {
@@ -41,11 +74,25 @@ const TabNavigator = () => {
     },
   };
 
+  if (!lastTabLoaded) {
+    return <View className="flex-1" style={{ backgroundColor: theme.background }} />;
+  }
+
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
-      <NavigationContainer theme={customDarkTheme}>
+      <NavigationContainer
+        theme={customDarkTheme}
+        onStateChange={state => {
+          const routeName = state?.routes[state.index]?.name;
+          if (isTabId(routeName)) {
+            setLastTab(routeName);
+            void AsyncStorage.setItem(LAST_LIBRARY_TAB_KEY, routeName);
+          }
+        }}
+      >
         <Tab.Navigator
           key={tabsOrderKey}
+          initialRouteName={initialRouteName}
           screenOptions={{
             animationEnabled: true,
             swipeEnabled: true,

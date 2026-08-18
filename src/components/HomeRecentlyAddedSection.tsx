@@ -2,6 +2,7 @@ import React from 'react';
 import { GestureResponderEvent, Text, View } from 'react-native';
 import { Song } from '../../modules/local-music';
 import SongListItem from './SongListItem';
+import { useAppSettings } from '../settings/appSettings';
 
 type SongGroup = {
   id: string;
@@ -39,10 +40,12 @@ const HomeRecentlyAddedSection = ({
   onToggleSongSelection,
   onStartSongSelection,
   onOpenTrackMenu,
-}: HomeRecentlyAddedSectionProps) => (
+}: HomeRecentlyAddedSectionProps) => {
+  const { theme } = useAppSettings();
+   return (
   <View className="px-2 pt-7">
-    <View className="mb-3 flex-row items-center justify-between">
-      <Text className="text-lg font-bold text-white">Recién añadidas</Text>
+    <View className="mb-3 flex-row items-center justify-between px-5">
+      <Text className="text-lg font-bold " style={{ color: theme.text }}>Recién añadidas</Text>
     </View>
 
     {songs.map((song, index) => {
@@ -65,6 +68,6 @@ const HomeRecentlyAddedSection = ({
       );
     })}
   </View>
-);
+)};
 
 export default HomeRecentlyAddedSection;

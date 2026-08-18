@@ -14,8 +14,9 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import { deleteAudioFile, getAudioFiles, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
+import { deleteAudioFile, getAudioFiles, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
 import { musicPlayer, useMusicPlayer } from '../audio/musicPlayer';
+import { useAppSettings } from '../settings/appSettings';
 import AddSongToPlaylistModal from '../components/AddSongToPlaylistModal';
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
 import CreatePlaylistModal from '../components/CreatePlaylistModal';
@@ -151,41 +152,35 @@ const HomeLibraryScreen = () => {
   const [bulkDeleteVisible, setBulkDeleteVisible] = useState(false);
   const [selectedSongIds, setSelectedSongIds] = useState<string[]>([]);
   const groupModalTranslateY = useRef(new Animated.Value(1)).current;
+  const { theme } = useAppSettings();
   const { currentSong, playing, playSong, togglePlayPause, setSelectionModeActive } = useMusicPlayer();
 
-  useEffect(() => {
-    const requestPermissionsAndLoadMusic = async () => {
-      try {
-        let granted = false;
-
-        if (Platform.OS === 'android') {
-          const permission = Platform.Version >= 33
-            ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_AUDIO
-            : PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE;
-
-          const result = await PermissionsAndroid.request(permission);
-          granted = result === PermissionsAndroid.RESULTS.GRANTED;
-        } else {
-          granted = true;
-        }
-
-        if (granted) {
-          setPermissionGranted(true);
-          const music = await getAudioFiles();
-          setSongs(music);
-        }
-      } catch (error) {
-        console.error('Error al obtener música:', error);
-      } finally {
-        setLoading(false);
+  const requestPermissionsAndLoadMusic = useCallback(async () => {
+    try {
+      setLoading(true);
+      const music = await getAudioFilesWithPermission();
+      setSongs(music);
+      if (music.length > 0) {
+        setPermissionGranted(true);
       }
-    };
-
-    requestPermissionsAndLoadMusic();
+    } catch (error) {
+      console.error('Error al obtener música:', error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void requestPermissionsAndLoadMusic();
+  }, [requestPermissionsAndLoadMusic]);
 
   useFocusEffect(
     useCallback(() => {
+      // Si no hay canciones, intentamos recargar al enfocar
+      if (songs.length === 0 && !loading) {
+        void requestPermissionsAndLoadMusic();
+      }
+
       AsyncStorage.getItem(CUSTOM_PLAYLISTS_STORAGE_KEY)
         .then(storedValue => {
           const parsedPlaylists = storedValue ? JSON.parse(storedValue) : [];
@@ -510,18 +505,25 @@ const HomeLibraryScreen = () => {
 
   if (loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-[#1d1d1f]">
-        <ActivityIndicator size="large" color="#ffffff" />
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor: theme.background }}>
+        <ActivityIndicator size="large" color={theme.accent} />
       </View>
     );
   }
 
-  if (!permissionGranted) {
+  if (!permissionGranted && songs.length === 0) {
     return (
-      <View className="flex-1 items-center justify-center bg-[#1d1d1f] px-5">
-        <Text className="text-center text-base text-[#b64400]">
+      <View className="flex-1 items-center justify-center px-5" style={{ backgroundColor: theme.background }}>
+        <Text className="text-center text-base" style={{ color: theme.mutedText }}>
           Se requieren permisos para leer tu música.
         </Text>
+        <Pressable 
+          className="mt-4 rounded-full px-6 py-2" 
+          style={{ backgroundColor: theme.surface }}
+          onPress={() => void requestPermissionsAndLoadMusic()}
+        >
+          <Text style={{ color: theme.text }}>Reintentar</Text>
+        </Pressable>
       </View>
     );
   }
@@ -531,7 +533,7 @@ const HomeLibraryScreen = () => {
   }
 
   return (
-    <View className="flex-1 bg-[#1d1d1f]">
+    <View className="flex-1" style={{ backgroundColor: theme.background }}>
       <ScrollView
         className="flex-1"
         contentContainerStyle={{

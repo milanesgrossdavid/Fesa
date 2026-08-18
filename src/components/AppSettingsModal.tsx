@@ -20,7 +20,6 @@ import {
   setCrossfadeEnabled,
   setLockScreenControlsEnabled,
   setPlaybackRate,
-  setSkipSilenceBetweenTracks,
   setSleepTimer,
   setTabEnabled,
   setThemeId,
@@ -37,6 +36,8 @@ interface AppSettingsModalProps {
 
 const SETTINGS_ACCENT = '#ffffff';
 const SETTINGS_ACCENT_SOFT = 'rgba(255,255,255,0.12)';
+
+const getAccentOverlay = (hex: string) => `${hex}22`;
 const TAB_ROW_HEIGHT = 72;
 const TAB_ROW_GAP = 10;
 const TAB_ROW_STRIDE = TAB_ROW_HEIGHT + TAB_ROW_GAP;
@@ -59,11 +60,14 @@ const HOUR_OPTIONS = Array.from({ length: 24 }, (_, index) => index);
 const MINUTE_OPTIONS = Array.from({ length: 60 }, (_, index) => index);
 
 const TERMS_TEXT = [
-  '1. FESA reproduce y organiza el audio almacenado localmente en tu dispositivo.',
-  '2. La app solo solicita permisos necesarios para leer tu biblioteca y aplicar funciones como tonos cuando tú lo indicas.',
-  '3. El contenido reproducido sigue siendo responsabilidad de la persona usuaria.',
-  '4. Puedes cambiar tus preferencias, permisos y pestañas visibles en cualquier momento desde este panel.',
-  '5. Si necesitas soporte, usa la opción de contacto y te responderemos con ayuda sobre la app.',
+  '1. FESA es una aplicación de reproducción y organización de audio local. No sube tus archivos a servidores externos.',
+  '2. Los permisos que solicita son únicamente para acceder a tu biblioteca local y habilitar funciones de audio, tonos y reproducción.',
+  '3. El uso de tu contenido de audio y la selección de canciones son responsabilidad del usuario, no de FESA.',
+  '4. La app no garantiza compatibilidad con todos los formatos de audio ni con todos los archivos del dispositivo.',
+  '5. No almacenamos ni compartimos tu información personal fuera del dispositivo sin tu consentimiento explícito.',
+  '6. Puedes cambiar tus ajustes, temas y pestañas visibles en cualquier momento desde el panel de Ajustes.',
+  '7. El contacto y las redes sociales están disponibles solo para soporte y consultas relacionadas con la aplicación.',
+  '8. Aceptar estos términos implica que conoces el alcance de la app y su funcionamiento dentro de tu dispositivo.',
 ];
 
 const formatSpeedLabel = (speed: number) => `${speed}x`;
@@ -501,6 +505,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
   const [tabsVisible, setTabsVisible] = useState(false);
   const [themesVisible, setThemesVisible] = useState(false);
   const [termsVisible, setTermsVisible] = useState(false);
+  const [contactVisible, setContactVisible] = useState(false);
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
@@ -528,20 +533,56 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
     }
   };
 
-  const openContact = async () => {
-    const mailUrl = 'mailto:soporte.fesa.app@gmail.com?subject=Soporte%20FESA';
+  const openContact = () => {
+    setContactVisible(true);
+  };
+
+  const openMail = async (email: string) => {
+    const mailUrl = `mailto:${encodeURIComponent(email)}?subject=Soporte%20FESA`;
 
     try {
       const supported = await Linking.canOpenURL(mailUrl);
 
       if (!supported) {
-        Alert.alert('Correo no disponible', 'Escríbenos a soporte.fesa.app@gmail.com.');
+        Alert.alert('Correo no disponible', `Escríbenos a ${email}.`);
         return;
       }
 
       await Linking.openURL(mailUrl);
-    } catch (error) {
-      Alert.alert('Correo no disponible', 'Escríbenos a soporte.fesa.app@gmail.com.');
+    } catch {
+      Alert.alert('Correo no disponible', `Escríbenos a ${email}.`);
+    }
+  };
+
+  const openPhone = async (phone: string) => {
+    const telUrl = `tel:${phone}`;
+
+    try {
+      const supported = await Linking.canOpenURL(telUrl);
+
+      if (!supported) {
+        Alert.alert('Teléfono no disponible', `Llama a ${phone}.`);
+        return;
+      }
+
+      await Linking.openURL(telUrl);
+    } catch {
+      Alert.alert('Teléfono no disponible', `Llama a ${phone}.`);
+    }
+  };
+
+  const openURL = async (url: string, fallbackMessage: string) => {
+    try {
+      const supported = await Linking.canOpenURL(url);
+
+      if (!supported) {
+        Alert.alert('Enlace no disponible', fallbackMessage);
+        return;
+      }
+
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert('Enlace no disponible', fallbackMessage);
     }
   };
 
@@ -642,16 +683,6 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 toggleValue={settings.crossfadeEnabled}
                 {...rowProps}
               />
-              <SettingsRow
-                label="Omitir silencio"
-                subtitle="Entre canciones"
-                onPress={() => setSkipSilenceBetweenTracks(!settings.skipSilenceBetweenTracks)}
-                borderColor="transparent"
-                textColor={theme.text}
-                mutedColor={theme.mutedText}
-                knobOn={theme.background}
-                toggleValue={settings.skipSilenceBetweenTracks}
-              />
             </View>
           </View>
 
@@ -719,8 +750,8 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
               />
               <SettingsRow
                 label="Contacto"
-                subtitle="soporte.fesa.app@gmail.com"
-                onPress={() => { void openContact(); }}
+                subtitle="Soporte y redes sociales"
+                onPress={openContact}
                 borderColor="transparent"
                 textColor={theme.text}
                 mutedColor={theme.mutedText}
@@ -952,7 +983,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 style={{
                   borderBottomWidth: index === APP_THEMES.length - 1 ? 0 : 1,
                   borderBottomColor: theme.border,
-                  backgroundColor: isSelected ? SETTINGS_ACCENT_SOFT : 'transparent',
+                  backgroundColor: isSelected ? getAccentOverlay(themeOption.accent) : 'transparent',
                 }}
                 onPress={() => {
                   setThemeId(themeOption.id);
@@ -960,9 +991,9 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 }}
               >
                 <View className="flex-row items-center gap-3">
-                  <View className="h-8 w-8 rounded-full" style={{ backgroundColor: themeOption.accent }} />
+                  <View className="h-8 w-8 rounded-full" style={{ backgroundColor: themeOption.accent, borderColor: themeOption.border, borderWidth: 1 }} />
                   <View>
-                    <Text className="text-base font-bold" style={{ color: theme.text }}>{themeOption.name}</Text>
+                    <Text className="text-base font-bold" style={{ color: themeOption.text }}>{themeOption.name}</Text>
                     <View className="mt-1.5 flex-row gap-1.5">
                       <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: themeOption.background }} />
                       <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: themeOption.surface }} />
@@ -970,7 +1001,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                     </View>
                   </View>
                 </View>
-                {isSelected ? <CheckIcon size={22} color={SETTINGS_ACCENT} /> : null}
+                {isSelected ? <CheckIcon size={22} color={themeOption.accent} /> : null}
               </Pressable>
             );
           })}
@@ -993,7 +1024,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
 
               <ScrollView>
                 <Text className="mb-4 text-sm leading-6" style={{ color: theme.mutedText }}>
-                  Estos términos resumen el uso básico de FESA y cómo se comportan sus funciones principales dentro del dispositivo.
+                  Estos términos resumen el uso y las responsabilidades de FESA como aplicación de reproducción y gestión de audio local.
                 </Text>
                 {TERMS_TEXT.map(item => (
                   <View key={item} className="mb-3 rounded-2xl px-4 py-4" style={{ backgroundColor: theme.surface }}>
@@ -1010,6 +1041,70 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 >
                   <Text className="text-center font-bold" style={{ color: theme.background }}>Aceptar términos</Text>
                 </Pressable>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal transparent visible={contactVisible} animationType="slide" onRequestClose={() => setContactVisible(false)}>
+          <View className="flex-1 justify-end">
+            <Pressable className="absolute inset-0 bg-black/70" onPress={() => setContactVisible(false)} />
+            <View
+              className="max-h-[72%] rounded-t-[32px] px-5 pb-6 pt-3"
+              style={{ backgroundColor: theme.background, paddingBottom: Math.max(insets.bottom, 24) }}
+            >
+              <SheetHandle />
+              <View className="mb-4 flex-row items-center justify-between">
+                <Text className="text-xl font-bold" style={{ color: theme.text }}>Contacto</Text>
+                <Pressable onPress={() => setContactVisible(false)}>
+                  <Text className="font-bold" style={{ color: SETTINGS_ACCENT }}>Cerrar</Text>
+                </Pressable>
+              </View>
+
+              <ScrollView>
+                <View className="mb-4 rounded-2xl px-4 py-4" style={{ backgroundColor: theme.surface }}>
+                  <Text className="mb-3 text-sm font-bold" style={{ color: theme.text }}>Autor</Text>
+                  <Text className="text-sm" style={{ color: theme.mutedText }}>David Milanes Gross</Text>
+                </View>
+
+                <View className="mb-4 rounded-2xl px-4 py-4" style={{ backgroundColor: theme.surface }}>
+                  <Text className="mb-3 text-sm font-bold" style={{ color: theme.text }}>Información de contacto</Text>
+                  <Pressable onPress={() => void openPhone('55574125')} className="mb-3 rounded-2xl px-3 py-3" style={{ backgroundColor: theme.background }}>
+                    <Text className="text-sm font-bold" style={{ color: theme.text }}>Teléfono</Text>
+                    <Text className="mt-1 text-xs" style={{ color: theme.mutedText }}>55574125</Text>
+                  </Pressable>
+                  <Pressable onPress={() => void openMail('davmilgross@gmail.com')} className="rounded-2xl px-3 py-3" style={{ backgroundColor: theme.background }}>
+                    <Text className="text-sm font-bold" style={{ color: theme.text }}>Correo</Text>
+                    <Text className="mt-1 text-xs" style={{ color: theme.mutedText }}>davmilgross@gmail.com</Text>
+                  </Pressable>
+                </View>
+
+                <View className="rounded-2xl px-4 py-4" style={{ backgroundColor: theme.surface }}>
+                  <Text className="mb-3 text-sm font-bold" style={{ color: theme.text }}>Redes sociales</Text>
+                  <View className="flex-row items-center justify-between px-1">
+                    <Pressable
+                      className="items-center rounded-2xl px-4 py-4"
+                      onPress={() => void openURL('https://www.facebook.com', 'Abre Facebook para contactar al autor.')}
+                    >
+                      <Ionicons name="logo-facebook" size={28} color={SETTINGS_ACCENT} />
+                      <Text className="mt-2 text-xs" style={{ color: theme.mutedText }}>Facebook</Text>
+                    </Pressable>
+                    <Pressable
+                      className="items-center rounded-2xl px-4 py-4"
+                      onPress={() => void openURL('https://www.instagram.com', 'Abre Instagram para contactar al autor.')}
+                    >
+                      <Ionicons name="logo-instagram" size={28} color={SETTINGS_ACCENT} />
+                      <Text className="mt-2 text-xs" style={{ color: theme.mutedText }}>Instagram</Text>
+                    </Pressable>
+                    <Pressable
+                      className="items-center rounded-2xl px-4 py-4"
+                      onPress={() => void openURL('https://wa.me/55574125', 'Abre WhatsApp para enviar un mensaje al autor.')}
+                    >
+                      <Ionicons name="logo-whatsapp" size={28} color={SETTINGS_ACCENT} />
+                      <Text className="mt-2 text-xs" style={{ color: theme.mutedText }}>WhatsApp</Text>
+                    </Pressable>
+                  </View>
+                </View>
               </ScrollView>
             </View>
           </View>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
@@ -22,7 +22,18 @@ const MiniPlayer = () => {
     playPrevious,
     playNext,
     togglePlayPause,
+    showPlayerRequested,
+    clearShowPlayerRequest,
   } = useMusicPlayer();
+
+  useEffect(() => {
+    if (!showPlayerRequested) {
+      return;
+    }
+
+    setShowPlayer(true);
+    clearShowPlayerRequest();
+  }, [showPlayerRequested, clearShowPlayerRequest]);
 
   if (!currentSong || selectionModeActive) {
     return null;
@@ -32,7 +43,7 @@ const MiniPlayer = () => {
     <>
       <View className="absolute bottom-5 left-4 right-4 z-50" pointerEvents="box-none">
         <Pressable
-          className="flex-row items-center rounded-full border px-3 py-2 shadow-lg"
+          className="flex-row items-center rounded-2xl border px-3 py-2 shadow-lg"
           style={{
             backgroundColor: theme.surface,
             borderColor: theme.border,
@@ -41,7 +52,7 @@ const MiniPlayer = () => {
         >
           <LibraryArtwork
             artwork={currentSong.artwork}
-            className="mr-3 h-12 w-12 rounded-full"
+            className="mr-3 h-12 w-12 rounded-2xl"
             fallbackTextClassName="text-xl text-white"
           />
 
@@ -54,7 +65,7 @@ const MiniPlayer = () => {
             </Text>
           </View>
 
-          <View className="ml-2 flex-row items-center gap-1">
+          <View className="ml-2 flex-row items-center gap-2">
             <Pressable
               className="h-9 w-9 items-center justify-center rounded-full"
               onPress={event => {
@@ -83,6 +94,7 @@ const MiniPlayer = () => {
             >
               <Ionicons name="play-skip-forward" size={18} color={theme.text} />
             </Pressable>
+
             <Pressable
               className="h-9 w-9 items-center justify-center rounded-full"
               style={{ backgroundColor: theme.background }}
