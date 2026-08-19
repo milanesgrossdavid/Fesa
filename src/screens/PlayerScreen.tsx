@@ -51,6 +51,7 @@ import { useAppSettings } from "../settings/appSettings";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurTargetView, BlurView } from "expo-blur";
 import { useDominantColor, withAlpha } from "../hooks/useDominantColor";
+import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 
 interface PlayerScreenProps {
   onBack: () => void;
@@ -489,6 +490,16 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
               />
             </Pressable>
           </View>
+
+          {/* Botón de Letras - centro inferior */}
+          <View className="absolute bottom-0 items-center w-full justify-center">
+            <Pressable
+              className="h-10 w-10 items-center justify-center rounded-full"
+              onPress={() => setLyricsVisible(true)}
+            >
+              <MaterialCommunityIcons name="format-letter-case" size={22} color="#f5f5f5" />
+            </Pressable>
+          </View>
         </View>
 
         <QueuePlaylistModal
@@ -513,7 +524,6 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                 ["Eliminar", () => { closeTrackMenu(); setDeleteConfirmVisible(true); }],
                 ["Compartir", () => { closeTrackMenu(); void shareAudioFile(currentSong.id); }],
                 ["Detalles de la pista", () => { closeTrackMenu(); setDetailsVisible(true); }],
-                ["Letra", () => { closeTrackMenu(); setLyricsVisible(true); }],
                 ["Álbum", () => openRelatedSongs("album")],
                 ["Artista", () => openRelatedSongs("artist")],
                 ["Definir como", () => { closeTrackMenu(); setDefineAsVisible(true); }],

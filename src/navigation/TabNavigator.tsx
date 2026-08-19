@@ -10,7 +10,6 @@ import PistasScreen from '../screens/PistasScreen';
 import AlbumesScreen from '../screens/AlbumesScreen';
 import ArtistasScreen from '../screens/ArtistasScreen';
 import CarpetasScreen from '../screens/CarpetasScreen';
-import DescargarScreen from '../screens/DescargarScreen';
 import MiniPlayer from '../components/MiniPlayer';
 import { DEFAULT_TABS, TabId, useAppSettings } from '../settings/appSettings';
 
@@ -24,7 +23,6 @@ const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
   'Álbumes': AlbumesScreen,
   Artistas: ArtistasScreen,
   Carpetas: CarpetasScreen,
-  Descarga: DescargarScreen,
 };
 
 const isTabId = (value: string | undefined): value is TabId =>

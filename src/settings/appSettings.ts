@@ -2,7 +2,7 @@ import { useEffect, useSyncExternalStore } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type AppThemeId = 'fesa' | 'oceano' | 'uva' | 'rosa';
-export type TabId = 'Inicio' | 'Favoritos' | 'Playlist' | 'Pistas' | 'Álbumes' | 'Artistas' | 'Carpetas' | 'Descarga';
+export type TabId = 'Inicio' | 'Favoritos' | 'Playlist' | 'Pistas' | 'Álbumes' | 'Artistas' | 'Carpetas';
 
 export type AppTheme = {
   id: AppThemeId;
@@ -87,7 +87,6 @@ export const DEFAULT_TABS: TabPreference[] = [
   { id: 'Álbumes', enabled: true },
   { id: 'Artistas', enabled: true },
   { id: 'Carpetas', enabled: true },
-  { id: 'Descarga', enabled: true },
 ];
 
 const DEFAULT_SETTINGS: PersistedAppSettings = {
