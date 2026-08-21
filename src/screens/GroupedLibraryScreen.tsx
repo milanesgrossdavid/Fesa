@@ -32,6 +32,7 @@ import TopNavArtistas from '../components/TopNavArtistas';
 import TopNavCarpetas from '../components/TopNavCarpetas';
 import { TrackSortDirection, TrackSortOption } from '../components/TopNavPistas';
 import { MINI_PLAYER_BOTTOM_INSET, SELECTION_BAR_BOTTOM_INSET } from '../utils/layout';
+import { loadSortPreference, saveSortPreference } from '../utils/sortPreferences';
 import PlayerScreen from './PlayerScreen';
 
 type GroupedLibraryMode = 'albums' | 'artists' | 'folders';
@@ -186,6 +187,21 @@ const GroupedLibraryScreen = ({ mode, title }: GroupedLibraryScreenProps) => {
     void requestPermissionsAndLoadMusic();
   }, [requestPermissionsAndLoadMusic]);
 
+  useEffect(() => {
+    let mounted = true;
+
+    void loadSortPreference(`groups:${mode}`, { sort: 'name', direction: 'asc' }).then(preference => {
+      if (mounted) {
+        setTrackSort(preference.sort);
+        setTrackSortDirection(preference.direction);
+      }
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, [mode]);
+
   useFocusEffect(
     useCallback(() => {
       // Si no hay canciones, intentamos recargar al enfocar
@@ -267,6 +283,7 @@ const GroupedLibraryScreen = ({ mode, title }: GroupedLibraryScreenProps) => {
   const handleTrackSortChange = (option: TrackSortOption, direction: TrackSortDirection) => {
     setTrackSort(option);
     setTrackSortDirection(direction);
+    void saveSortPreference(`groups:${mode}`, { sort: option, direction });
   };
 
   const openGroup = (group: SongGroup) => {
@@ -502,7 +519,9 @@ const GroupedLibraryScreen = ({ mode, title }: GroupedLibraryScreenProps) => {
         columnWrapperStyle={isVisualGridMode ? { paddingHorizontal: 20, gap: 14 } : undefined}
         ListHeaderComponent={renderTopNav()}
         ListEmptyComponent={
-          <Text className="px-5 py-8 text-center text-[#707070]">No hay elementos para mostrar.</Text>
+          <Text className="px-5 py-8 text-center" style={{ color: theme.mutedText }}>
+            No hay elementos para mostrar.
+          </Text>
         }
         contentContainerStyle={{ paddingBottom: isSelectionMode ? SELECTION_BAR_BOTTOM_INSET : MINI_PLAYER_BOTTOM_INSET }}
         renderItem={({ item }) => isVisualGridMode ? (

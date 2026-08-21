@@ -25,6 +25,7 @@ type PersistedAppSettings = {
   playbackRate: number;
   crossfadeEnabled: boolean;
   lockScreenControlsEnabled: boolean;
+  skipSilenceBetweenTracks: boolean;
   themeId: AppThemeId;
   tabs: TabPreference[];
   termsAcceptedAt: number | null;
@@ -94,6 +95,7 @@ const DEFAULT_SETTINGS: PersistedAppSettings = {
   playbackRate: 1,
   crossfadeEnabled: false,
   lockScreenControlsEnabled: true,
+  skipSilenceBetweenTracks: true,
   themeId: 'fesa',
   tabs: DEFAULT_TABS,
   termsAcceptedAt: null,

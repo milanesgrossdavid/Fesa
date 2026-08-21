@@ -35,10 +35,10 @@ const TopNavPlaylist = ({
       rightContent={onCreatePlaylist ? (
         <Pressable
           className="flex-row items-center gap-1.5 rounded-full px-2 py-2"
-          style={{ backgroundColor: theme.text }}
+          style={{ backgroundColor: theme.surface }}
           onPress={onCreatePlaylist}
         >
-          <PlusIcon size={24} color={theme.background} />
+          <PlusIcon size={24} color={theme.text} />
           
         </Pressable>
       ) : null}

@@ -31,6 +31,7 @@ import SongDetailsModal from '../components/SongDetailsModal';
 import SongListItem from '../components/SongListItem';
 import TrackActionMenu from '../components/TrackActionMenu';
 import TopNavPlaylist, { TrackSortDirection, TrackSortOption } from '../components/TopNavPlaylist';
+import { loadSortPreference, saveSortPreference } from '../utils/sortPreferences';
 import { MINI_PLAYER_BOTTOM_INSET, SELECTION_BAR_BOTTOM_INSET } from '../utils/layout';
 import PlayerScreen from './PlayerScreen';
 
@@ -177,6 +178,21 @@ const PlaylistLibraryScreen = () => {
     void requestPermissionsAndLoadMusic();
   }, [requestPermissionsAndLoadMusic]);
 
+  useEffect(() => {
+    let mounted = true;
+
+    void loadSortPreference('playlists', { sort: 'name', direction: 'asc' }).then(preference => {
+      if (mounted) {
+        setTrackSort(preference.sort);
+        setTrackSortDirection(preference.direction);
+      }
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const loadStoredPlaylists = async () => {
     try {
       const storedValue = await AsyncStorage.getItem(CUSTOM_PLAYLISTS_STORAGE_KEY);
@@ -308,6 +324,12 @@ const PlaylistLibraryScreen = () => {
       return directionMultiplier * a.name.localeCompare(b.name);
     });
   }, [customPlaylists, storedPlaylists, trackSort, trackSortDirection]);
+
+  const handleTrackSortChange = (option: TrackSortOption, direction: TrackSortDirection) => {
+    setTrackSort(option);
+    setTrackSortDirection(direction);
+    void saveSortPreference('playlists', { sort: option, direction });
+  };
 
   const persistStoredPlaylists = async (nextPlaylists: StoredPlaylist[]) => {
     setStoredPlaylists(nextPlaylists);
@@ -448,10 +470,22 @@ const PlaylistLibraryScreen = () => {
   };
 
   const removeSongFromPlaylist = async (playlistId: string, songId: string) => {
-    await persistStoredPlaylists(storedPlaylists.map(playlist => playlist.id === playlistId
-      ? { ...playlist, songIds: playlist.songIds.filter(id => id !== songId), updatedAt: Date.now() }
-      : playlist
-    ));
+    const nextPlaylists = storedPlaylists.flatMap(playlist => {
+      if (playlist.id !== playlistId) {
+        return [playlist];
+      }
+
+      const nextSongIds = playlist.songIds.filter(id => id !== songId);
+      return nextSongIds.length
+        ? [{ ...playlist, songIds: nextSongIds, updatedAt: Date.now() }]
+        : [];
+    });
+
+    await persistStoredPlaylists(nextPlaylists);
+
+    if (!nextPlaylists.some(playlist => playlist.id === playlistId)) {
+      closeSelectedGroup();
+    }
   };
 
   const confirmRemoveSongFromPlaylist = (playlistId: string, song: Song) => {
@@ -733,10 +767,7 @@ const PlaylistLibraryScreen = () => {
             <TopNavPlaylist
               selectedSort={trackSort}
               selectedDirection={trackSortDirection}
-              onSortChange={(option, direction) => {
-                setTrackSort(option);
-                setTrackSortDirection(direction);
-              }}
+              onSortChange={handleTrackSortChange}
               onCreatePlaylist={openCreatePlaylist}
             />
             <View className="px-5 pb-2 pt-4">

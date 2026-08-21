@@ -95,7 +95,6 @@ const LibraryGroupDetailModal = ({
                 <View className="mb-4 flex-row items-center justify-between px-4">
                   <Pressable
                     className="h-10 w-10 items-center justify-center rounded-full"
-                    style={{ backgroundColor: theme.surface }}
                     onPress={onClose}
                   >
                     <BackIcon size={22} color={theme.text} />
@@ -104,11 +103,11 @@ const LibraryGroupDetailModal = ({
                   {onPlayAll && songCount > 0 ? (
                     <Pressable
                       className="flex-row items-center gap-2 rounded-full px-4 py-2.5"
-                      style={{ backgroundColor: theme.text }}
+                      style={{ backgroundColor: theme.surface }}
                       onPress={onPlayAll}
                     >
-                      <PlayIcon size={16} color={theme.background} />
-                      <Text className="text-sm font-bold" style={{ color: theme.background }}>
+                      <PlayIcon size={16} color={theme.text} />
+                      <Text className="text-sm font-bold" style={{ color: theme.text }}>
                         Reproducir
                       </Text>
                     </Pressable>

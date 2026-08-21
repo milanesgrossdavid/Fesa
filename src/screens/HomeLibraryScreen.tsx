@@ -153,7 +153,14 @@ const HomeLibraryScreen = () => {
   const [selectedSongIds, setSelectedSongIds] = useState<string[]>([]);
   const groupModalTranslateY = useRef(new Animated.Value(1)).current;
   const { theme } = useAppSettings();
-  const { currentSong, playing, playSong, togglePlayPause, setSelectionModeActive } = useMusicPlayer();
+  const {
+    currentSong,
+    playing,
+    listeningStatsVersion,
+    playSong,
+    togglePlayPause,
+    setSelectionModeActive,
+  } = useMusicPlayer();
 
   const requestPermissionsAndLoadMusic = useCallback(async () => {
     try {
@@ -259,7 +266,15 @@ const HomeLibraryScreen = () => {
     }
 
     void refreshHomeListeningStats();
-  }, [artistGroups, loading, permissionGranted, songs]);
+  }, [artistGroups, listeningStatsVersion, loading, permissionGranted, songs]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!loading && permissionGranted) {
+        void refreshHomeListeningStats();
+      }
+    }, [artistGroups, loading, permissionGranted, songs])
+  );
 
   useEffect(() => {
     setRecommendedSongs(shuffleList(songs).slice(0, 12));
@@ -282,8 +297,14 @@ const HomeLibraryScreen = () => {
     }).start();
   }, [groupModalTranslateY, selectedGroup]);
 
-  const homeMostPlayed = defaultPlaylists.find(playlist => playlist.id === 'default-most-played') ?? { songs: [] } as SongGroup;
-  const homeRecentlyAdded = defaultPlaylists.find(playlist => playlist.id === 'default-recently-added') ?? { songs: [] } as SongGroup;
+  const emptySongGroup = (): SongGroup => ({
+    id: '',
+    name: '',
+    subtitle: '',
+    songs: [],
+  });
+  const homeMostPlayed = defaultPlaylists.find(playlist => playlist.id === 'default-most-played') ?? emptySongGroup();
+  const homeRecentlyAdded = defaultPlaylists.find(playlist => playlist.id === 'default-recently-added') ?? emptySongGroup();
   const recentSongs = homeRecentlyAdded.songs.slice(0, 10);
   const selectedSongs = useMemo(
     () => selectedSongIds.map(songId => songs.find(song => song.id === songId)).filter(Boolean) as Song[],

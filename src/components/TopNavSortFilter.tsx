@@ -42,7 +42,6 @@ const TopNavSortFilter = ({
       <View className="flex-row items-center justify-between">
         <Pressable
           className="flex-row items-center gap-2 rounded-full px-3 py-2"
-          style={{ backgroundColor: theme.surface }}
           onPress={() => setModalVisible(true)}
         >
           <Text className="text-sm font-bold" style={{ color: theme.text }}>{selectedLabel}</Text>

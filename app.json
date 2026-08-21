@@ -15,7 +15,8 @@
           "enableBackgroundPlayback": true,
           "enableBackgroundRecording": false
         }
-      ],[
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#000",
@@ -38,7 +39,8 @@
         "android.permission.READ_MEDIA_AUDIO",
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.FOREGROUND_SERVICE",
-        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
       "package": "com.davidmlnsgross.Fesa"
     },
@@ -47,7 +49,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "179c750f-de21-4253-95bb-5208e075e052"
+        "projectId": "c5229793-ced7-40be-8c77-c72edc4ea072"
       }
     }
   }

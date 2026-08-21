@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import LibraryArtwork from './LibraryArtwork';
+import { useAppSettings } from '../settings/appSettings';
 
 type LibraryGroupListItemData = {
   id: string;
@@ -14,8 +15,10 @@ interface LibraryGroupListItemProps {
   onPress: () => void;
 }
 
-const LibraryGroupListItem = ({ group, onPress }: LibraryGroupListItemProps) => (
-  <Pressable className="mx-5 mb-3 rounded-2xl bg-[#252525] px-4 py-4" onPress={onPress}>
+const LibraryGroupListItem = ({ group, onPress }: LibraryGroupListItemProps) => {
+  const { theme } = useAppSettings();
+  return(
+  <Pressable className="mx-3 mb-2 px-4 py-4" onPress={onPress}>
     <View className="flex-row items-center">
       <LibraryArtwork
         artwork={group.artwork}
@@ -23,14 +26,18 @@ const LibraryGroupListItem = ({ group, onPress }: LibraryGroupListItemProps) => 
         fallbackTextClassName="text-2xl text-[#b64400]"
       />
       <View className="flex-1">
-        <Text className="text-base font-bold text-white" numberOfLines={1}>
+        <Text className="text-base font-bold" numberOfLines={1} style={{ color: theme.text }}>
           {group.name}
         </Text>
-        <Text className="mt-1 text-sm text-[#707070]">{group.subtitle}</Text>
+        <Text className="mt-1 text-sm" style={{ color: theme.accent }}>
+          {group.subtitle}
+        </Text>
       </View>
-      <Text className="text-2xl text-[#707070]">›</Text>
+      <Text className="text-2xl" style={{ color: theme.accent }}>
+        ›
+      </Text>
     </View>
   </Pressable>
-);
+)};
 
 export default LibraryGroupListItem;

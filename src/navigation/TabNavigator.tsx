@@ -46,7 +46,7 @@ const TabNavigator = () => {
     AsyncStorage.getItem(LAST_LIBRARY_TAB_KEY)
       .then(value => {
         if (mounted && isTabId(value ?? undefined)) {
-          setLastTab(value);
+          setLastTab((value ?? null) as TabId | null);
         }
       })
       .finally(() => {
@@ -83,7 +83,7 @@ const TabNavigator = () => {
         onStateChange={state => {
           const routeName = state?.routes[state.index]?.name;
           if (isTabId(routeName)) {
-            setLastTab(routeName);
+            setLastTab(routeName as TabId | null);
             void AsyncStorage.setItem(LAST_LIBRARY_TAB_KEY, routeName);
           }
         }}

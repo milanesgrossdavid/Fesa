@@ -25,15 +25,21 @@ class LocalMusicModule : Module() {
     Events("onNotificationAction")
 
     OnCreate {
-      MusicNotificationActionReceiver.actionCallback = actionCallback@{ action ->
+      MusicNotificationActionReceiver.actionCallback = actionCallback@{ action, positionMs ->
         val actionName = when (action) {
           MusicNotificationService.ACTION_PREVIOUS -> "previous"
           MusicNotificationService.ACTION_NEXT -> "next"
           MusicNotificationService.ACTION_TOGGLE -> "toggle"
+          MusicNotificationService.ACTION_SEEK -> "seek"
+          MusicNotificationService.ACTION_REWIND -> "rewind"
+          MusicNotificationService.ACTION_FORWARD -> "forward"
           else -> return@actionCallback
         }
         try {
-          sendEvent("onNotificationAction", mapOf("action" to actionName))
+          sendEvent(
+            "onNotificationAction",
+            mapOf("action" to actionName, "positionMs" to positionMs)
+          )
         } catch (e: Exception) {
           // Module not ready; ignore.
         }

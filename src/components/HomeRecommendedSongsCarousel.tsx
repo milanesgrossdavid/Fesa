@@ -92,10 +92,11 @@ const HomeRecommendedSongsCarousel = ({
                         </Text>
                       </View>
                       <Pressable
-                        className="rounded-full bg-[#c3c3c3] p-4"
+                        className="rounded-full p-4"
+                        style={{ backgroundColor: theme.accent }}
                         onPress={() => onPlaySong(playIndex)}
                       >
-                        <PlayIcon size={22} color="#f5f5f5" />
+                        <PlayIcon size={22} color={theme.background} />
                       </Pressable>
                     </View>
                   </View>

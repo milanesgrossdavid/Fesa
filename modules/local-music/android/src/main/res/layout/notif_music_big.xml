@@ -1,9 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/notif_root"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="14dp">
+    android:layout_height="wrap_content">
+
+  <LinearLayout
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:orientation="vertical"
+      android:padding="14dp">
 
   <!-- Top row: artwork + title/artist stacked -->
   <LinearLayout
@@ -17,6 +22,8 @@
         android:layout_width="64dp"
         android:layout_height="64dp"
         android:scaleType="centerCrop"
+        android:background="@drawable/notif_artwork_background"
+        android:clipToOutline="true"
         android:src="@drawable/notif_artwork_placeholder"
         android:contentDescription="artwork" />
 
@@ -94,6 +101,14 @@
       android:gravity="center">
 
     <ImageButton
+        android:id="@+id/notif_btn_rewind"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:src="@drawable/ic_notif_rewind"
+        android:contentDescription="Retroceder 10 segundos" />
+
+    <ImageButton
         android:id="@+id/notif_btn_prev"
         android:layout_width="56dp"
         android:layout_height="48dp"
@@ -109,6 +124,7 @@
         android:src="@drawable/ic_notif_play"
         android:contentDescription="Reproducir/Pausar" />
 
+
     <ImageButton
         android:id="@+id/notif_btn_next"
         android:layout_width="56dp"
@@ -116,5 +132,14 @@
         android:background="?android:attr/selectableItemBackgroundBorderless"
         android:src="@drawable/ic_notif_next"
         android:contentDescription="Siguiente" />
+        
+    <ImageButton
+        android:id="@+id/notif_btn_forward"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:src="@drawable/ic_notif_forward"
+        android:contentDescription="Adelantar 10 segundos" />
   </LinearLayout>
-</LinearLayout>
+    </LinearLayout>
+</FrameLayout>

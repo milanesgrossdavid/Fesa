@@ -239,7 +239,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
   );
 
   const createProgressBarLayoutHandler = (
-    ref: React.RefObject<View>,
+    ref: React.RefObject<View | null>,
     setter: React.Dispatch<React.SetStateAction<{ x: number; width: number }>>,
   ) => (event: LayoutChangeEvent) => {
     const { width } = event.nativeEvent.layout;

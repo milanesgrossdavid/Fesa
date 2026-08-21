@@ -46,7 +46,7 @@ const HomeFavoriteArtistsSection = ({
         ))}
       </View>
     ) : (
-      <Text className="rounded-3xl bg-[#252525] px-5 py-6 text-center text-sm text-[#707070]">
+      <Text className="rounded-3xl px-5 py-6 text-center text-sm" style={{ backgroundColor: theme.background, color: theme.mutedText }}>
         Cuando escuches canciones, aquí aparecerán tus artistas favoritos.
       </Text>
     )}

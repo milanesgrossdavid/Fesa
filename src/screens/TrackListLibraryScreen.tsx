@@ -17,7 +17,9 @@ import TopNavFavoritos from '../components/TopNavFavoritos';
 import TrackActionMenu from '../components/TrackActionMenu';
 import TopNavPistas, { TrackSortDirection, TrackSortOption } from '../components/TopNavPistas';
 import { MINI_PLAYER_BOTTOM_INSET, SELECTION_BAR_BOTTOM_INSET } from '../utils/layout';
+import { loadSortPreference, saveSortPreference } from '../utils/sortPreferences';
 import PlayerScreen from './PlayerScreen';
+import { Pressable } from 'react-native';
 
 type TrackListMode = 'tracks' | 'favorites';
 
@@ -118,6 +120,21 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
   useEffect(() => {
     void requestPermissionsAndLoadMusic();
   }, [requestPermissionsAndLoadMusic]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    void loadSortPreference(`tracks:${mode}`, { sort: 'name', direction: 'asc' }).then(preference => {
+      if (mounted) {
+        setTrackSort(preference.sort);
+        setTrackSortDirection(preference.direction);
+      }
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, [mode]);
 
   useFocusEffect(
     useCallback(() => {
@@ -334,6 +351,7 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
   const handleTrackSortChange = (option: TrackSortOption, direction: TrackSortDirection) => {
     setTrackSort(option);
     setTrackSortDirection(direction);
+    void saveSortPreference(`tracks:${mode}`, { sort: option, direction });
   };
 
   const renderHeader = () => {

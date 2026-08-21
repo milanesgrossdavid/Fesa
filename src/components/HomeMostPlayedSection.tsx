@@ -53,9 +53,6 @@ const HomeMostPlayedSection = ({
                 artwork={topSong.artwork}
                 className="h-full w-full rounded-3xl"
               />
-              <View className="absolute left-4 top-4 rounded-full px-4 py-2" style={{ backgroundColor: theme.accent }}>
-                <Text className="text-xs font-bold" style={{ color: theme.background }}>Top 1</Text>
-              </View>
               <View className="absolute bottom-0 left-0 right-0 py-2 px-4 bg-black/25 flex flex-row justify-between items-center">
                 <View className="flex flex-col">
                   <Text
@@ -73,10 +70,10 @@ const HomeMostPlayedSection = ({
                 </View>
                 <Pressable
                   className="rounded-full p-4"
-                  style={{ backgroundColor: theme.surface }}
+                  style={{ backgroundColor: theme.accent }}
                   onPress={() => onPlaySong(0)}
                 >
-                  <PlayIcon size={24} color={theme.text} />
+                  <PlayIcon size={24} color={theme.background} />
                 </Pressable>
               </View>
             </View>

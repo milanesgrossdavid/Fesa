@@ -11,12 +11,18 @@ class MusicNotificationActionReceiver : BroadcastReceiver() {
     when (action) {
       MusicNotificationService.ACTION_PREVIOUS,
       MusicNotificationService.ACTION_NEXT,
-      MusicNotificationService.ACTION_TOGGLE -> callback(action)
+      MusicNotificationService.ACTION_TOGGLE,
+      MusicNotificationService.ACTION_REWIND,
+      MusicNotificationService.ACTION_FORWARD -> callback(action, null)
+      MusicNotificationService.ACTION_SEEK -> callback(
+        action,
+        intent.getLongExtra(MusicNotificationService.EXTRA_SEEK_POSITION_MS, 0L)
+      )
     }
   }
 
   companion object {
     @Volatile
-    var actionCallback: ((String) -> Unit)? = null
+    var actionCallback: ((String, Long?) -> Unit)? = null
   }
 }

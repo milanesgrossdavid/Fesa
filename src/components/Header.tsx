@@ -112,14 +112,13 @@ const Header = () => {
       <View className="flex-row items-center gap-2">
         <Pressable
           className="h-10 w-10 items-center justify-center rounded-full"
-          style={{ backgroundColor: theme.surface }}
+          
           onPress={() => setSearchVisible(true)}
         >
           <SearchIcon size={22} color={theme.text} />
         </Pressable>
         <Pressable
           className="h-10 w-10 items-center justify-center rounded-full"
-          style={{ backgroundColor: theme.surface }}
           onPress={() => setSettingsVisible(true)}
         >
           <SettingsIcon size={22} color={theme.text} />
@@ -135,14 +134,7 @@ const Header = () => {
             paddingBottom: insets.bottom,
           }}
         >
-          <View className="mb-3 flex-row items-center px-4 py-2">
-            <Pressable
-              className="mr-2 h-10 w-10 items-center justify-center rounded-full"
-              style={{ backgroundColor: theme.surface }}
-              onPress={closeSearch}
-            >
-              <BackIcon size={22} color={theme.text} />
-            </Pressable>
+          <View className="mb-3 flex-row items-center px-5 py-2">
             <Text className="text-2xl font-bold" style={{ color: theme.text }}>Buscar</Text>
           </View>
 
@@ -170,8 +162,8 @@ const Header = () => {
                 {filteredSongs.length} {filteredSongs.length === 1 ? 'resultado' : 'resultados'}
               </Text>
             ) : (
-              <Text className="mt-3 text-sm" style={{ color: theme.mutedText }}>
-                Escribe para buscar en tu biblioteca local.
+              <Text className="mt-5 text-center text-lg font-medium" style={{ color: theme.mutedText }}>
+                No hay busquedas recientes
               </Text>
             )}
           </View>

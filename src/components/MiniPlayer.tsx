@@ -77,13 +77,13 @@ const MiniPlayer = () => {
             </Pressable>
             <Pressable
               className="h-10 w-10 items-center justify-center rounded-full"
-              style={{ backgroundColor: theme.text }}
+              style={{ backgroundColor: theme.background }}
               onPress={event => {
                 event.stopPropagation();
                 void togglePlayPause();
               }}
             >
-              <Ionicons name={playing ? 'pause' : 'play'} size={20} color={theme.background} />
+              <Ionicons name={playing ? 'pause' : 'play'} size={20} color={theme.text} />
             </Pressable>
             <Pressable
               className="h-9 w-9 items-center justify-center rounded-full"

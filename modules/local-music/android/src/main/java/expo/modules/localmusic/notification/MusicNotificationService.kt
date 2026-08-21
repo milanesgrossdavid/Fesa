@@ -9,12 +9,16 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
+import android.support.v4.media.MediaMetadataCompat
+import android.support.v4.media.session.MediaSessionCompat
+import android.support.v4.media.session.PlaybackStateCompat
 import expo.modules.localmusic.R
 import java.io.InputStream
 import java.util.concurrent.Executors
@@ -24,12 +28,21 @@ class MusicNotificationService : Service() {
   private val ioExecutor = Executors.newSingleThreadExecutor()
   private var currentArtworkUri: String? = null
   private var currentArtworkBitmap: Bitmap? = null
+  private var mediaSession: MediaSessionCompat? = null
+  private var lastState: NotificationState? = null
 
   override fun onBind(intent: Intent?): IBinder? = null
 
+  override fun onCreate() {
+    super.onCreate()
+    ensureMediaSession()
+  }
+
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    ensureMediaSession()
     when (intent?.action) {
       ACTION_STOP -> {
+        releaseMediaSession()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
         return START_NOT_STICKY
@@ -44,6 +57,7 @@ class MusicNotificationService : Service() {
 
   private fun showOrUpdate(state: NotificationState) {
     ensureChannel()
+    lastState = state
 
     val artworkUri = state.artworkUri
     if (artworkUri != currentArtworkUri) {
@@ -54,10 +68,16 @@ class MusicNotificationService : Service() {
           val bmp = loadBitmap(artworkUri)
           if (bmp != null && artworkUri == currentArtworkUri) {
             currentArtworkBitmap = bmp
-            postNotification(state)
+            val latestState = lastState ?: state
+            updateMediaSession(latestState, currentArtworkBitmap)
+            postNotification(latestState)
           }
         }
+      } else {
+        updateMediaSession(state, null)
       }
+    } else {
+      updateMediaSession(state, currentArtworkBitmap)
     }
 
     postNotification(state)
@@ -82,7 +102,7 @@ class MusicNotificationService : Service() {
       .setPriority(NotificationCompat.PRIORITY_LOW)
       .setCustomContentView(small)
       .setCustomBigContentView(big)
-      .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+      .setCustomHeadsUpContentView(small)
 
     val notification = builder.build()
 
@@ -127,6 +147,8 @@ class MusicNotificationService : Service() {
 
     // Only the big view has the seekbar and timestamps.
     if (layoutRes == R.layout.notif_music_big) {
+      rv.setOnClickPendingIntent(R.id.notif_btn_rewind, actionPendingIntent(ACTION_REWIND))
+      rv.setOnClickPendingIntent(R.id.notif_btn_forward, actionPendingIntent(ACTION_FORWARD))
       val durationMs = state.durationMs.coerceAtLeast(0L)
       val positionMs = state.positionMs.coerceIn(0L, if (durationMs > 0) durationMs else Long.MAX_VALUE)
       val progress = if (durationMs > 0) {
@@ -202,6 +224,114 @@ class MusicNotificationService : Service() {
     }
   }
 
+  private fun ensureMediaSession() {
+    if (mediaSession != null) return
+    val session = MediaSessionCompat(this, TAG).apply {
+      setFlags(
+        MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS or
+          MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS
+      )
+      setSessionActivity(launchAppIntent())
+      setCallback(object : MediaSessionCompat.Callback() {
+        override fun onPlay() {
+          val state = lastState
+          if (state?.playing != true) {
+            dispatchAction(ACTION_TOGGLE)
+          }
+        }
+        override fun onPause() {
+          val state = lastState
+          if (state?.playing == true) {
+            dispatchAction(ACTION_TOGGLE)
+          }
+        }
+        override fun onSkipToPrevious() {
+          dispatchAction(ACTION_PREVIOUS)
+        }
+        override fun onSkipToNext() {
+          dispatchAction(ACTION_NEXT)
+        }
+        override fun onSeekTo(pos: Long) {
+          dispatchAction(ACTION_SEEK, pos)
+        }
+        override fun onStop() {
+          val state = lastState
+          if (state?.playing == true) {
+            dispatchAction(ACTION_TOGGLE)
+          }
+        }
+      })
+      setPlaybackToLocal(AudioManager.STREAM_MUSIC)
+      isActive = true
+    }
+    mediaSession = session
+  }
+
+  private fun releaseMediaSession() {
+    try {
+      mediaSession?.isActive = false
+      mediaSession?.release()
+    } catch (_: Exception) {
+    }
+    mediaSession = null
+  }
+
+  private fun dispatchAction(action: String, positionMs: Long? = null) {
+    val cb = MusicNotificationActionReceiver.actionCallback
+    if (cb != null) {
+      try { cb(action, positionMs) } catch (_: Exception) { }
+      return
+    }
+    val intent = Intent(this, MusicNotificationActionReceiver::class.java).apply {
+      this.action = action
+      setPackage(packageName)
+      if (positionMs != null) {
+        putExtra(EXTRA_SEEK_POSITION_MS, positionMs)
+      }
+    }
+    sendBroadcast(intent)
+  }
+
+  private fun updateMediaSession(state: NotificationState, artwork: Bitmap?) {
+    val session = mediaSession ?: return
+    val durationMs = state.durationMs.coerceAtLeast(0L)
+    val positionMs = state.positionMs.coerceIn(0L, if (durationMs > 0) durationMs else Long.MAX_VALUE)
+
+    val playbackState = PlaybackStateCompat.Builder()
+      .setActions(
+        PlaybackStateCompat.ACTION_PLAY
+          or PlaybackStateCompat.ACTION_PAUSE
+          or PlaybackStateCompat.ACTION_PLAY_PAUSE
+          or PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
+          or PlaybackStateCompat.ACTION_SKIP_TO_NEXT
+          or PlaybackStateCompat.ACTION_SEEK_TO
+          or PlaybackStateCompat.ACTION_STOP
+      )
+      .setState(
+        if (state.playing) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED,
+        positionMs,
+        if (state.playing) 1.0f else 0.0f,
+        System.currentTimeMillis()
+      )
+      .setBufferedPosition(durationMs)
+      .build()
+    session.setPlaybackState(playbackState)
+
+    val metadata = MediaMetadataCompat.Builder()
+      .putString(MediaMetadataCompat.METADATA_KEY_TITLE, state.title)
+      .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, state.artist)
+      .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, durationMs)
+      .apply {
+        if (artwork != null) {
+          putBitmap(MediaMetadataCompat.METADATA_KEY_ART, artwork)
+          putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, artwork)
+          putBitmap(MediaMetadataCompat.METADATA_KEY_DISPLAY_ICON, artwork)
+        }
+      }
+      .build()
+    session.setMetadata(metadata)
+  }
+
   private fun formatMs(ms: Long): String {
     val totalSeconds = ms / 1000L
     val minutes = totalSeconds / 60
@@ -210,6 +340,7 @@ class MusicNotificationService : Service() {
   }
 
   override fun onDestroy() {
+    releaseMediaSession()
     ioExecutor.shutdownNow()
     currentArtworkBitmap = null
     super.onDestroy()
@@ -226,6 +357,9 @@ class MusicNotificationService : Service() {
     const val ACTION_PREVIOUS = "expo.modules.localmusic.action.PREVIOUS"
     const val ACTION_NEXT = "expo.modules.localmusic.action.NEXT"
     const val ACTION_TOGGLE = "expo.modules.localmusic.action.TOGGLE"
+    const val ACTION_SEEK = "expo.modules.localmusic.action.SEEK"
+    const val ACTION_REWIND = "expo.modules.localmusic.action.REWIND_10"
+    const val ACTION_FORWARD = "expo.modules.localmusic.action.FORWARD_10"
 
     const val EXTRA_TITLE = "title"
     const val EXTRA_ARTIST = "artist"
@@ -233,6 +367,7 @@ class MusicNotificationService : Service() {
     const val EXTRA_PLAYING = "playing"
     const val EXTRA_POSITION_MS = "positionMs"
     const val EXTRA_DURATION_MS = "durationMs"
+    const val EXTRA_SEEK_POSITION_MS = "seekPositionMs"
 
     fun start(context: Context, state: NotificationState) {
       val intent = Intent(context, MusicNotificationService::class.java).apply {

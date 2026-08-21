@@ -15,7 +15,7 @@ export type Song = {
 
 export type ToneType = 'ringtone' | 'contact' | 'alarm';
 
-export type MusicNotificationAction = 'previous' | 'next' | 'toggle';
+export type MusicNotificationAction = 'previous' | 'next' | 'toggle' | 'seek' | 'rewind' | 'forward';
 
 export type MusicNotificationState = {
   title: string;
@@ -28,11 +28,18 @@ export type MusicNotificationState = {
 
 const LocalMusic = requireNativeModule('LocalMusic');
 
+let audioFilesRequest: Promise<Song[]> | null = null;
+
 export async function getAudioFiles(): Promise<Song[]> {
   return await LocalMusic.getAudioFiles();
 }
 
 export async function getAudioFilesWithPermission(): Promise<Song[]> {
+  if (audioFilesRequest) {
+    return audioFilesRequest;
+  }
+
+  audioFilesRequest = (async () => {
   try {
     let granted = false;
 
@@ -58,6 +65,13 @@ export async function getAudioFilesWithPermission(): Promise<Song[]> {
   } catch (error) {
     console.error('Error requesting permissions or fetching audio files:', error);
     return [];
+  }
+  })();
+
+  try {
+    return await audioFilesRequest;
+  } finally {
+    audioFilesRequest = null;
   }
 }
 
@@ -89,10 +103,13 @@ export function stopMusicNotification(): void {
 }
 
 export function addNotificationActionListener(
-  listener: (action: MusicNotificationAction) => void
+  listener: (action: MusicNotificationAction, positionMs?: number) => void
 ): { remove: () => void } {
-  const subscription = LocalMusic.addListener('onNotificationAction', (event: { action: MusicNotificationAction }) => {
-    listener(event.action);
+  const subscription = LocalMusic.addListener('onNotificationAction', (event: {
+    action: MusicNotificationAction;
+    positionMs?: number;
+  }) => {
+    listener(event.action, event.positionMs);
   });
   return {
     remove: () => {

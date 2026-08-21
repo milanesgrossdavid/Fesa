@@ -58,19 +58,25 @@ type MusicPlayerSnapshot = {
   shuffleEnabled: boolean;
   playbackMode: PlaybackMode;
   favoriteSongIds: string[];
+  listeningStatsVersion: number;
   selectionModeActive: boolean;
+  showPlayerRequested: boolean;
 };
 
 type PersistedPlaybackState = {
   queue: Song[];
   currentIndex: number;
+  currentTime?: number;
 };
 
 const LAST_PLAYBACK_STORAGE_KEY = '@fesa:last-playback';
 const MOST_PLAYED_SONGS_STORAGE_KEY = '@fesa:most-played-songs';
 const FAVORITE_SONGS_STORAGE_KEY = '@fesa:favorite-songs';
 
-const player = createAudioPlayer(null, {
+let player = createAudioPlayer(null, {
+  updateInterval: 500,
+}) as PatchedAudioPlayer;
+let transitionPlayer = createAudioPlayer(null, {
   updateInterval: 500,
 }) as PatchedAudioPlayer;
 
@@ -87,8 +93,13 @@ let volume = 1;
 let shuffleEnabled = false;
 let playbackMode: PlaybackMode = 'linear';
 let favoriteSongIds: string[] = [];
+let listeningStatsVersion = 0;
 let selectionModeActive = false;
+let showPlayerRequested = false;
 let activeTransitionId = 0;
+let transitionInProgress = false;
+let transitionSong: Song | null = null;
+let restoredPositionSeconds: number | null = null;
 let proactivelySkippedTrackKey: string | null = null;
 let cachedSnapshot: MusicPlayerSnapshot = {
   queue,
@@ -101,7 +112,9 @@ let cachedSnapshot: MusicPlayerSnapshot = {
   shuffleEnabled,
   playbackMode,
   favoriteSongIds,
+  listeningStatsVersion,
   selectionModeActive,
+  showPlayerRequested: false,
 };
 
 const listeners = new Set<() => void>();
@@ -151,6 +164,7 @@ const updateSnapshot = () => {
     playbackMode,
     favoriteSongIds,
     selectionModeActive,
+    showPlayerRequested,
   };
 };
 
@@ -187,25 +201,63 @@ const buildMetadata = (song: Song): PatchedAudioMetadata => ({
   durationMs: song.duration,
 });
 
+const publishAndroidNotification = (song: Song, positionSeconds: number, isPlaying: boolean) => {
+  if (Platform.OS !== 'android' || !getAppSettingsSnapshot().lockScreenControlsEnabled) {
+    return;
+  }
+
+  showMusicNotification({
+    title: song.title,
+    artist: song.artist || 'Artista Desconocido',
+    artworkUri: song.artwork ?? null,
+    playing: isPlaying,
+    positionMs: Math.floor(Math.max(0, positionSeconds) * 1000),
+    durationMs: song.duration > 0 ? song.duration : Math.floor(durationSeconds * 1000),
+  });
+};
+
 const wait = (milliseconds: number) => new Promise(resolve => {
   setTimeout(resolve, milliseconds);
 });
 
-const persistPlaybackState = async () => {
-  if (!queue.length || currentIndex < 0 || currentIndex >= queue.length) {
+let lastPlaybackPersistMs = 0;
+let playbackPersistRevision = 0;
+let playbackPersistChain = Promise.resolve();
+const persistPlaybackState = async (
+  force = false,
+  override?: { currentIndex: number; currentTime: number },
+) => {
+  const stateIndex = override?.currentIndex ?? currentIndex;
+  if (!queue.length || stateIndex < 0 || stateIndex >= queue.length) {
     return;
   }
 
+  const now = Date.now();
+  if (!force && now - lastPlaybackPersistMs < 1000) {
+    return;
+  }
+  lastPlaybackPersistMs = now;
+  const persistRevision = ++playbackPersistRevision;
+
   const playbackState: PersistedPlaybackState = {
     queue,
-    currentIndex,
+    currentIndex: stateIndex,
+    currentTime: override?.currentTime ?? currentTime,
   };
 
-  try {
-    await AsyncStorage.setItem(LAST_PLAYBACK_STORAGE_KEY, JSON.stringify(playbackState));
-  } catch (error) {
-    console.warn('No se pudo guardar la última canción:', error);
-  }
+  playbackPersistChain = playbackPersistChain.then(async () => {
+    if (persistRevision !== playbackPersistRevision) {
+      return;
+    }
+
+    try {
+      await AsyncStorage.setItem(LAST_PLAYBACK_STORAGE_KEY, JSON.stringify(playbackState));
+    } catch (error) {
+      console.warn('No se pudo guardar la última canción:', error);
+    }
+  });
+
+  await playbackPersistChain;
 };
 
 const activateLockScreen = (song: Song) => {
@@ -214,14 +266,7 @@ const activateLockScreen = (song: Song) => {
     // the local-music native module (RemoteViews). Make sure expo-audio's
     // MediaSession notification is off so the two don't compete.
     player.clearLockScreenControls?.();
-    showMusicNotification({
-      title: song.title,
-      artist: song.artist || 'Artista Desconocido',
-      artworkUri: song.artwork ?? null,
-      playing,
-      positionMs: Math.floor(currentTime * 1000),
-      durationMs: song.duration || Math.floor(durationSeconds * 1000),
-    });
+    publishAndroidNotification(song, currentTime, playing);
     return;
   }
 
@@ -267,33 +312,26 @@ const updateAndroidNotification = (force = false) => {
     return;
   }
   lastNotificationUpdateMs = now;
-  showMusicNotification({
-    title: song.title,
-    artist: song.artist || 'Artista Desconocido',
-    artworkUri: song.artwork ?? null,
-    playing,
-    positionMs: Math.floor(currentTime * 1000),
-    durationMs: song.duration || Math.floor(durationSeconds * 1000),
-  });
+  publishAndroidNotification(song, currentTime, playing);
 };
 
-const applyRuntimeSettings = () => {
+const applyRuntimeSettings = (targetPlayer: PatchedAudioPlayer = player) => {
   const settings = getAppSettingsSnapshot();
 
-  if (player.setPlaybackRate) {
-    player.setPlaybackRate(settings.playbackRate, 'medium');
+  if (targetPlayer.setPlaybackRate) {
+    targetPlayer.setPlaybackRate(settings.playbackRate, 'medium');
   } else {
     try {
-      player.playbackRate = settings.playbackRate;
+      targetPlayer.playbackRate = settings.playbackRate;
     } catch (error) {
       console.warn('No se pudo aplicar la velocidad de reproducción:', error);
     }
   }
 
-  player.shouldCorrectPitch = true;
+  targetPlayer.shouldCorrectPitch = true;
 
   if (!settings.lockScreenControlsEnabled) {
-    player.clearLockScreenControls?.();
+    targetPlayer.clearLockScreenControls?.();
   }
 };
 
@@ -325,21 +363,29 @@ const trackSongPlayback = async (song: Song) => {
     parsedMostPlayedSongs[song.id] = currentCount + 1;
 
     await AsyncStorage.setItem(MOST_PLAYED_SONGS_STORAGE_KEY, JSON.stringify(parsedMostPlayedSongs));
+    listeningStatsVersion += 1;
+    emit();
   } catch (error) {
     console.warn('No se pudo rastrear la reproduccion de la cancion:', error);
   }
 };
 
-const fadePlayerVolume = async (from: number, to: number, durationMs: number, transitionId: number) => {
+const fadePlayerVolume = async (
+  targetPlayer: PatchedAudioPlayer,
+  from: number,
+  to: number,
+  durationMs: number,
+  transitionId: number
+) => {
   if (durationMs <= 0) {
-    player.volume = to;
+    targetPlayer.volume = to;
     return;
   }
 
   const steps = Math.max(Math.floor(durationMs / 45), 1);
   const delay = durationMs / steps;
 
-  player.volume = from;
+  targetPlayer.volume = from;
 
   for (let step = 1; step <= steps; step += 1) {
     await wait(delay);
@@ -348,21 +394,44 @@ const fadePlayerVolume = async (from: number, to: number, durationMs: number, tr
       return;
     }
 
-    player.volume = from + ((to - from) * step) / steps;
+    targetPlayer.volume = from + ((to - from) * step) / steps;
   }
 };
 
-const loadAndPlay = async (index: number, withTransition = false) => {
+const waitForPlayerReady = async (targetPlayer: PatchedAudioPlayer, transitionId: number) => {
+  const timeoutAt = Date.now() + 2000;
+
+  await wait(25);
+
+  while (Date.now() < timeoutAt) {
+    if (transitionId !== activeTransitionId) {
+      return false;
+    }
+
+    if (targetPlayer.isLoaded) {
+      return true;
+    }
+
+    await wait(25);
+  }
+
+  return false;
+};
+
+const CROSSFADE_DURATION_MS = 5000;
+const CROSSFADE_START_VOLUME = 0.3;
+const CROSSFADE_START_SECONDS = 5;
+
+const loadAndPlay = async (index: number) => {
   if (!queue.length || index < 0 || index >= queue.length) {
     return;
   }
 
-  const transitionId = ++activeTransitionId;
-  const shouldUseTransition = withTransition && getAppSettingsSnapshot().crossfadeEnabled && sourceLoaded;
-
-  if (shouldUseTransition) {
-    await fadePlayerVolume(player.volume || 1, 0, 220, transitionId);
-  }
+  ++activeTransitionId;
+  transitionInProgress = false;
+  transitionSong = null;
+  transitionPlayer.pause();
+  transitionPlayer.volume = volume;
 
   currentIndex = index;
   proactivelySkippedTrackKey = null;
@@ -372,20 +441,99 @@ const loadAndPlay = async (index: number, withTransition = false) => {
     return;
   }
 
-  syncLockScreenState(song);
-  player.volume = shouldUseTransition ? 0 : volume;
+  const startPosition = restoredPositionSeconds;
+  restoredPositionSeconds = null;
+  if (startPosition !== null && startPosition > 0) {
+    player.seekTo(startPosition);
+    currentTime = startPosition;
+  }
+
+  player.volume = volume;
   player.play();
   void trackSongPlayback(song);
   applyRuntimeSettings();
 
   playing = true;
-  updateAndroidNotification(true);
+  syncLockScreenState(song);
   void persistPlaybackState();
   emit();
+};
 
-  if (shouldUseTransition) {
-    await fadePlayerVolume(0, volume, 260, transitionId);
+const crossfadeTo = async (index: number) => {
+  if (!queue.length || index < 0 || index >= queue.length) {
+    return;
   }
+
+  if (!sourceLoaded || !getAppSettingsSnapshot().crossfadeEnabled) {
+    await loadAndPlay(index);
+    return;
+  }
+
+  const transitionId = ++activeTransitionId;
+  const outgoingPlayer = player;
+  const incomingPlayer = transitionPlayer;
+  const song = queue[index];
+
+  transitionInProgress = true;
+  transitionSong = song;
+  currentIndex = index;
+  currentTime = 0;
+  durationSeconds = song.duration ? song.duration / 1000 : 0;
+  incomingPlayer.pause();
+  incomingPlayer.replace({
+    uri: normalizeUri(song.url),
+    name: song.title,
+  });
+  applyRuntimeSettings(incomingPlayer);
+  incomingPlayer.volume = CROSSFADE_START_VOLUME;
+  incomingPlayer.play();
+  publishAndroidNotification(song, 0, true);
+  void persistPlaybackState(true);
+  emit();
+
+  const playerReady = await waitForPlayerReady(incomingPlayer, transitionId);
+
+  if (!playerReady || transitionId !== activeTransitionId) {
+    if (transitionId === activeTransitionId) {
+      transitionInProgress = false;
+      await loadAndPlay(index);
+    }
+    return;
+  }
+
+  await Promise.all([
+    fadePlayerVolume(outgoingPlayer, outgoingPlayer.volume, 0, CROSSFADE_DURATION_MS, transitionId),
+    fadePlayerVolume(incomingPlayer, CROSSFADE_START_VOLUME, volume, CROSSFADE_DURATION_MS, transitionId),
+  ]);
+
+  if (transitionId !== activeTransitionId) {
+    return;
+  }
+
+  outgoingPlayer.clearLockScreenControls?.();
+  outgoingPlayer.pause();
+  outgoingPlayer.volume = volume;
+  player = incomingPlayer;
+  transitionPlayer = outgoingPlayer;
+  currentIndex = index;
+  proactivelySkippedTrackKey = null;
+  currentTime = Number.isFinite(incomingPlayer.currentTime)
+    ? Math.max(incomingPlayer.currentTime, 0)
+    : 0;
+  durationSeconds = incomingPlayer.duration > 0
+    ? incomingPlayer.duration
+    : song.duration
+      ? song.duration / 1000
+      : 0;
+  sourceLoaded = true;
+  void trackSongPlayback(song);
+  playing = true;
+  syncLockScreenState(song);
+  void persistPlaybackState(true);
+  transitionInProgress = false;
+  transitionSong = null;
+  updateAndroidNotification(true);
+  emit();
 };
 
 const getRandomQueueIndex = () => {
@@ -402,14 +550,9 @@ const getRandomQueueIndex = () => {
   return nextIndex;
 };
 
-const playNext = async () => {
-  if (!queue.length) {
-    return;
-  }
-
+const getNextTrackIndex = () => {
   if (playbackMode === 'repeat-one') {
-    await loadAndPlay(currentIndex, true);
-    return;
+    return currentIndex;
   }
 
   const nextIndex = shuffleEnabled
@@ -417,16 +560,29 @@ const playNext = async () => {
     : currentIndex + 1;
 
   if (nextIndex >= queue.length) {
-    if (playbackMode !== 'repeat-all') {
-      pause();
-      return;
-    }
+    return playbackMode === 'repeat-all' ? 0 : null;
+  }
 
-    await loadAndPlay(0, true);
+  return nextIndex;
+};
+
+const playNext = async (manual = true) => {
+  if (!queue.length) {
     return;
   }
 
-  await loadAndPlay(nextIndex, true);
+  const nextIndex = getNextTrackIndex();
+
+  if (nextIndex === null) {
+    pause();
+    return;
+  }
+
+  if (manual) {
+    await loadAndPlay(nextIndex);
+  } else {
+    await crossfadeTo(nextIndex);
+  }
 };
 
 const playPrevious = async () => {
@@ -435,7 +591,7 @@ const playPrevious = async () => {
   }
 
   if (playbackMode === 'repeat-one') {
-    await loadAndPlay(currentIndex, true);
+    await loadAndPlay(currentIndex);
     return;
   }
 
@@ -444,11 +600,11 @@ const playPrevious = async () => {
     : currentIndex - 1;
 
   if (previousIndex < 0) {
-    await loadAndPlay(playbackMode === 'repeat-all' ? queue.length - 1 : 0, true);
+    await loadAndPlay(playbackMode === 'repeat-all' ? queue.length - 1 : 0);
     return;
   }
 
-  await loadAndPlay(previousIndex, true);
+  await loadAndPlay(previousIndex);
 };
 
 const ensureInitialized = async () => {
@@ -506,7 +662,35 @@ const ensureInitialized = async () => {
     cyclePlaybackMode();
   });
 
-  player.addListener?.('playbackStatusUpdate', status => {
+  const handlePlaybackStatus = (status: any, sourcePlayer: PatchedAudioPlayer) => {
+    if (transitionInProgress) {
+      if (sourcePlayer === transitionPlayer && transitionSong) {
+        const transitionTime = Number.isFinite(status?.currentTime)
+          ? Math.max(status.currentTime, 0)
+          : currentTime;
+        const transitionDuration = status?.duration > 0
+          ? status.duration
+          : transitionSong.duration
+            ? transitionSong.duration / 1000
+            : durationSeconds;
+
+        currentTime = transitionTime;
+        durationSeconds = transitionDuration;
+        publishAndroidNotification(transitionSong, transitionTime, Boolean(status?.playing));
+        void persistPlaybackState(false, {
+          currentIndex,
+          currentTime: transitionTime,
+        });
+        emit();
+      }
+
+      return;
+    }
+
+    if (sourcePlayer !== player) {
+      return;
+    }
+
     const nextPlaying = Boolean(status?.playing);
     const currentSong = getCurrentSong();
     const nextCurrentTime = Number.isFinite(status?.currentTime)
@@ -525,8 +709,27 @@ const ensureInitialized = async () => {
     currentTime = nextCurrentTime;
     durationSeconds = nextDurationSeconds;
 
+    if (progressChanged) {
+      void persistPlaybackState();
+    }
+
     if (
       currentTrackKey &&
+      getAppSettingsSnapshot().crossfadeEnabled &&
+      status?.playing &&
+      status.duration > 0 &&
+      status.duration - status.currentTime <= CROSSFADE_START_SECONDS &&
+      status.duration - status.currentTime > 0 &&
+      proactivelySkippedTrackKey !== currentTrackKey
+    ) {
+      proactivelySkippedTrackKey = currentTrackKey;
+      void playNext(false);
+      return;
+    }
+
+    if (
+      currentTrackKey &&
+      !getAppSettingsSnapshot().crossfadeEnabled &&
       getAppSettingsSnapshot().skipSilenceBetweenTracks &&
       status?.playing &&
       status.duration > 0 &&
@@ -534,13 +737,13 @@ const ensureInitialized = async () => {
       proactivelySkippedTrackKey !== currentTrackKey
     ) {
       proactivelySkippedTrackKey = currentTrackKey;
-      void playNext();
+      void playNext(false);
       return;
     }
 
     if (status?.didJustFinish) {
       proactivelySkippedTrackKey = null;
-      void playNext();
+      void playNext(false);
       return;
     }
 
@@ -552,6 +755,16 @@ const ensureInitialized = async () => {
     } else {
       updateAndroidNotification();
     }
+  };
+
+  const primaryPlayer = player;
+  const secondaryPlayer = transitionPlayer;
+
+  primaryPlayer.addListener?.('playbackStatusUpdate', status => {
+    handlePlaybackStatus(status, primaryPlayer);
+  });
+  secondaryPlayer.addListener?.('playbackStatusUpdate', status => {
+    handlePlaybackStatus(status, secondaryPlayer);
   });
 
   if (!settingsUnsubscribe) {
@@ -569,13 +782,19 @@ const ensureInitialized = async () => {
   }
 
   if (Platform.OS === 'android' && !notificationActionUnsubscribe) {
-    const subscription = addNotificationActionListener(action => {
+    const subscription = addNotificationActionListener((action, positionMs) => {
       if (action === 'previous') {
         void playPrevious();
       } else if (action === 'next') {
         void playNext();
       } else if (action === 'toggle') {
         void togglePlayPause();
+      } else if (action === 'rewind') {
+        seekTo(currentTime - 10);
+      } else if (action === 'forward') {
+        seekTo(currentTime + 10);
+      } else if (action === 'seek' && positionMs !== undefined) {
+        seekTo(positionMs / 1000);
       }
     });
     notificationActionUnsubscribe = () => subscription.remove();
@@ -659,6 +878,13 @@ const restoreLastSession = async () => {
     currentIndex = parsedPlaybackState.currentIndex;
     playing = false;
     sourceLoaded = false;
+    currentTime = Number.isFinite(parsedPlaybackState.currentTime)
+      ? Math.max(parsedPlaybackState.currentTime ?? 0, 0)
+      : 0;
+    durationSeconds = queue[currentIndex]?.duration
+      ? queue[currentIndex].duration / 1000
+      : 0;
+    restoredPositionSeconds = currentTime;
     emit();
   } catch (error) {
     console.warn('No se pudo restaurar la última canción:', error);
@@ -669,6 +895,7 @@ const playSong = async (songs: Song[], index: number) => {
   await ensureInitialized();
 
   queue = songs;
+  restoredPositionSeconds = null;
   await loadAndPlay(index);
 };
 
@@ -689,6 +916,12 @@ const togglePlayPause = async () => {
       return;
     }
 
+    if (!sourceLoaded && restoredPositionSeconds !== null && restoredPositionSeconds > 0) {
+      player.seekTo(restoredPositionSeconds);
+      currentTime = restoredPositionSeconds;
+      restoredPositionSeconds = null;
+    }
+
     applyRuntimeSettings();
     syncLockScreenState(song);
     player.volume = volume;
@@ -697,6 +930,7 @@ const togglePlayPause = async () => {
     void persistPlaybackState();
   }
 
+  void persistPlaybackState(true);
   updateAndroidNotification(true);
   emit();
 };
@@ -704,6 +938,7 @@ const togglePlayPause = async () => {
 const pause = () => {
   player.pause();
   playing = false;
+  void persistPlaybackState(true);
   updateAndroidNotification(true);
   emit();
 };
@@ -712,6 +947,7 @@ const seekTo = (seconds: number) => {
   const nextTime = Math.max(0, Math.min(seconds, durationSeconds || seconds));
   player.seekTo(nextTime);
   currentTime = nextTime;
+  void persistPlaybackState(true);
   updateAndroidNotification(true);
   emit();
 };
@@ -739,6 +975,18 @@ const setSelectionModeActive = (active: boolean) => {
   }
 
   selectionModeActive = active;
+  emit();
+};
+
+const requestShowPlayer = () => {
+  if (showPlayerRequested) return;
+  showPlayerRequested = true;
+  emit();
+};
+
+const clearShowPlayerRequest = () => {
+  if (!showPlayerRequested) return;
+  showPlayerRequested = false;
   emit();
 };
 
@@ -796,6 +1044,27 @@ const getMostPlayedArtists = async (limit: number) => {
   }
 };
 
+const moveQueueSong = (fromIndex: number, toIndex: number) => {
+  if (!queue.length) return;
+  if (fromIndex < 0 || fromIndex >= queue.length) return;
+  if (toIndex < 0 || toIndex >= queue.length) return;
+  if (fromIndex === toIndex) return;
+
+  const currentId = queue[currentIndex]?.id;
+  const [moved] = queue.splice(fromIndex, 1);
+  queue.splice(toIndex, 0, moved);
+
+  let newIndex = currentIndex;
+  if (currentId) {
+    const idx = queue.findIndex(s => s.id === currentId);
+    if (idx >= 0) newIndex = idx;
+  }
+  currentIndex = newIndex;
+
+  void persistPlaybackState();
+  emit();
+};
+
 export const musicPlayer = {
   subscribe,
   getSnapshot,
@@ -816,6 +1085,9 @@ export const musicPlayer = {
   restoreLastSession,
   getMostPlayedSongs,
   getMostPlayedArtists,
+  moveQueueSong,
+  requestShowPlayer,
+  clearShowPlayerRequest,
 };
 
 export const useMusicPlayer = () => {
@@ -843,5 +1115,8 @@ export const useMusicPlayer = () => {
     isFavoriteSong,
     toggleFavoriteSong,
     restoreLastSession,
+    moveQueueSong,
+    requestShowPlayer,
+    clearShowPlayerRequest,
   };
 };

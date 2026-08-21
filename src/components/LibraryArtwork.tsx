@@ -1,10 +1,11 @@
 import React from 'react';
-import { Image, Text, View } from 'react-native';
+import { Image, StyleProp, Text, View, ViewStyle } from 'react-native';
 
 interface LibraryArtworkProps {
   artwork?: string | null;
   fallback?: string;
   className?: string;
+  style?: StyleProp<ViewStyle>;
   fallbackTextClassName?: string;
 }
 
@@ -13,8 +14,9 @@ const LibraryArtwork = ({
   fallback = '♪',
   className = 'rounded-2xl',
   fallbackTextClassName = 'text-4xl font-bold text-[#b64400]',
+  style,
 }: LibraryArtworkProps) => (
-  <View className={`items-center justify-center overflow-hidden bg-[#333333] ${className}`}>
+  <View style={style} className={`items-center justify-center overflow-hidden bg-[#333333] ${className}`}>
     {artwork ? (
       <Image source={{ uri: artwork }} className="h-full w-full" resizeMode="cover" />
     ) : (

@@ -116,6 +116,10 @@ export const VolumeHighIcon = ({ size, color }: IconProps) => (
     <Ionicons name="volume-high" size={size} color={color} />
 );
 
+export const DragHandleIcon = ({ size, color }: IconProps) => (
+  <Ionicons name="menu-outline" size={size} color={color} />
+);
+
 
 
 

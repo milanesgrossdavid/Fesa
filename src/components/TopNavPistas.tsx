@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, View } from 'react-native';
 import { PlayIcon, ShuffleIcon } from '../Icons';
 import TopNavSortFilter, { TrackSortDirection, TrackSortOption } from './TopNavSortFilter';
+import { useAppSettings } from '../settings/appSettings';
 
 export type { TrackSortDirection, TrackSortOption };
 
@@ -28,7 +29,9 @@ const TopNavPistas = ({
   onShufflePress,
   onPlayPress,
   disabled = false,
-}: TopNavPistasProps) => (
+}: TopNavPistasProps) => {
+  const { theme } = useAppSettings();
+  return (
   <TopNavSortFilter
     selectedSort={selectedSort}
     selectedDirection={selectedDirection}
@@ -37,23 +40,25 @@ const TopNavPistas = ({
     rightContent={(
       <View className="flex-row items-center gap-3">
         <Pressable
-          className={`h-10 w-10 items-center justify-center rounded-full ${disabled ? 'bg-[#252525]' : 'bg-[#333333]'}`}
+          className={`h-10 w-10 items-center justify-center rounded-full`}
+          style={{ backgroundColor: theme.surface, }}
           disabled={disabled}
           onPress={onShufflePress}
         >
-          <ShuffleIcon size={20} color={disabled ? '#f5f5f5' : 'white'} />
+          <ShuffleIcon size={20} color={theme.text} />
         </Pressable>
 
         <Pressable
-          className={`h-10 w-10 items-center justify-center rounded-full ${disabled ? 'bg-[#252525]' : 'bg-[#f5f5f5]'}`}
+          className={`h-10 w-10 items-center justify-center rounded-full`}
+          style={{ backgroundColor: theme.surface, }}
           disabled={disabled}
           onPress={onPlayPress}
         >
-          <PlayIcon size={20} color={disabled ? '#707070' : '#050505'} />
+          <PlayIcon size={20} color={theme.text} />
         </Pressable>
       </View>
     )}
   />
-);
+)};
 
 export default TopNavPistas;

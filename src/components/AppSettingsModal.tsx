@@ -876,15 +876,15 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
               </Text>
 
               <View className="mt-5 flex-row justify-end gap-3">
-                <Pressable className="rounded-full px-4 py-3" onPress={() => setCustomSleepVisible(false)}>
-                  <Text className="font-bold" style={{ color: theme.mutedText }}>Cancelar</Text>
+                <Pressable className="rounded-full px-4 py-3" style={{backgroundColor: theme.background}} onPress={() => setCustomSleepVisible(false)}>
+                  <Text className="font-bold" style={{ color: theme.text }}>Cancelar</Text>
                 </Pressable>
                 <Pressable
                   className="rounded-full px-5 py-3"
-                  style={{ backgroundColor: SETTINGS_ACCENT }}
+                  style={{ backgroundColor: theme.background }}
                   onPress={applyCustomSleepTimer}
                 >
-                  <Text className="font-bold" style={{ color: theme.background }}>Aplicar</Text>
+                  <Text className="font-bold" style={{ color: theme.text }}>Aplicar</Text>
                 </Pressable>
               </View>
             </View>
