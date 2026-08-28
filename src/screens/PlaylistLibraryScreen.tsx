@@ -86,6 +86,12 @@ const getFolderName = (url: string) => {
   return parts[parts.length - 2] || UNKNOWN_FOLDER;
 };
 
+const getSongFolderName = (song: Song) => {
+  const folderName = normalizeValue(song.folder, '');
+
+  return folderName || getFolderName(song.url);
+};
+
 const buildGroups = (songs: Song[], mode: 'artists' | 'albums' | 'folders') => {
   const groups = new Map<string, SongGroup>();
 
@@ -94,7 +100,7 @@ const buildGroups = (songs: Song[], mode: 'artists' | 'albums' | 'folders') => {
       ? normalizeValue(song.artist, UNKNOWN_ARTIST)
       : mode === 'albums'
         ? normalizeValue(song.album, UNKNOWN_ALBUM)
-        : getFolderName(song.url);
+        : getSongFolderName(song);
 
     const currentGroup = groups.get(name);
 

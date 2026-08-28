@@ -28,6 +28,7 @@ import QueuePlaylistModal from "../components/QueuePlaylistModal";
 import RelatedTracksModal from "../components/RelatedTracksModal";
 import SongDetailsModal from "../components/SongDetailsModal";
 import LyricsModal from "../components/LyricsModal";
+import AutoScrollingText from "../components/AutoScrollingText";
 import {
   BackIcon,
   BackwardIcon,
@@ -63,10 +64,11 @@ type RelatedSongsState = {
   songs: Song[];
 } | null;
 
-const LOCK_DATE_FONT = "SFNSText-Regular";
+const LOCK_DATE_FONT = "BlackOpsOne-Regular";
 const LOCK_TIME_FONT = "BlackOpsOne-Regular";
 const UNKNOWN_ALBUM = "Álbum Desconocido";
 const UNKNOWN_ARTIST = "Artista Desconocido";
+const DEFAULT_MUSIC_ARTWORK = require("../../assets/musicNotFound.jpg");
 const normalizeValue = (value: string | null | undefined, fallback: string) =>
   value?.trim() || fallback;
 
@@ -123,14 +125,22 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
   const dominantColor = useDominantColor(currentSong?.artwork ?? null);
 
   useEffect(() => {
+    let isMounted = true;
+
     Font.loadAsync({
       [LOCK_DATE_FONT]: require("../../assets/fonts/SFNSText-Regular.otf"),
-      [LOCK_TIME_FONT]: require("../../assets/fonts/BlackOpsOne-Regular.ttf"),
     })
-      .then(() => setLockFontsLoaded(true))
-      .catch((error) =>
-        console.warn("No se pudieron cargar las fuentes del lock screen:", error),
-      );
+      .then(() => {
+        if (isMounted) setLockFontsLoaded(true);
+      })
+      .catch((error) => {
+        console.warn("No se pudieron cargar las fuentes del lock screen:", error);
+        if (isMounted) setLockFontsLoaded(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -332,13 +342,48 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
       <View
         className="flex-1 px-6"
         style={{
+          backgroundColor: "#0a0a0a",
           paddingTop: Math.max(insets.top, 12),
           paddingBottom: Math.max(insets.bottom, 16),
         }}
       >
+        {currentSong.artwork ? (
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              top: 0,
+              right: 0,
+              bottom: 0,
+              left: 0,
+            }}
+          >
+            <Image
+              source={{ uri: currentSong.artwork }}
+              blurRadius={32}
+              resizeMode="cover"
+              style={{
+                position: "absolute",
+                top: -48,
+                right: -48,
+                bottom: -48,
+                left: -48,
+                opacity: 0.3,
+              }}
+            />
+          </View>
+        ) : null}
         <LinearGradient
           pointerEvents="none"
-          colors={[dominantColor, withAlpha(dominantColor, 0.55), "#0a0a0a"]}
+          colors={[withAlpha(dominantColor, 0.94), withAlpha(dominantColor, 0.62), "#0a0a0a"]}
+          locations={[0, 0.68, 1]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+        />
+        <LinearGradient
+          pointerEvents="none"
+          colors={[withAlpha(dominantColor, 0.2), "transparent", "rgba(0,0,0,0.42)"]}
           locations={[0, 0.45, 1]}
           style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
         />
@@ -382,7 +427,11 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                 resizeMode="cover"
               />
             ) : (
-              <Ionicons name="musical-notes" size={96} color="#5a5a5a" />
+              <Image
+                source={DEFAULT_MUSIC_ARTWORK}
+                className="h-full w-full"
+                resizeMode="cover"
+              />
             )}
           </View>
 
@@ -390,12 +439,12 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
           <View>
             <View className="flex-row items-center">
               <View className="flex-1 pr-4">
-                <Text className="text-2xl font-bold text-white" numberOfLines={1}>
+                <AutoScrollingText className="text-2xl font-bold text-white">
                   {currentSong.title}
-                </Text>
-                <Text className="mt-1 text-base text-white/60" numberOfLines={1}>
+                </AutoScrollingText>
+                <AutoScrollingText className="mt-1 text-base text-white/60">
                   {normalizeValue(currentSong.artist, UNKNOWN_ARTIST)}
-                </Text>
+                </AutoScrollingText>
               </View>
               <View className="flex-row items-center gap-5">
                 <Pressable onPress={() => setQueueVisible(true)}>
@@ -424,7 +473,8 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
               <View className="h-9 justify-center">
                 <View
                   ref={mainProgressBarRef}
-                  className="relative h-2 justify-center rounded-full bg-white/15"
+                  className="relative h-2 justify-center rounded-full"
+                  style={{ backgroundColor: withAlpha(dominantColor, 0.45) }}
                   onLayout={handleMainProgressLayout}
                 >
                   <View
@@ -628,7 +678,6 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                 shadowOpacity: 0.35,
                 shadowOffset: { width: 0, height: 8 },
                 shadowRadius: 18,
-                elevation: 10,
               }}
             >
               {/* sheen + depth overlays to simulate liquid glass */}
@@ -651,18 +700,22 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                     resizeMode="cover"
                   />
                 ) : (
-                  <Ionicons name="musical-notes" size={70} color="#5a5a5a" />
+                  <Image
+                    source={DEFAULT_MUSIC_ARTWORK}
+                    className="h-full w-full"
+                    resizeMode="cover"
+                  />
                 )}
               </View>
 
               <View className="mt-4 flex-row items-center justify-between">
                 <View className="flex-1 pr-3">
-                  <Text className="text-base font-bold text-white" numberOfLines={1}>
+                  <AutoScrollingText className="text-base font-bold text-white">
                     {currentSong.title}
-                  </Text>
-                  <Text className="mt-1 text-xs text-white/55" numberOfLines={1}>
+                  </AutoScrollingText>
+                  <AutoScrollingText className="mt-1 text-xs text-white/55">
                     {normalizeValue(currentSong.artist, UNKNOWN_ARTIST)}
-                  </Text>
+                  </AutoScrollingText>
                 </View>
                 <Pressable onPress={() => void toggleFavoriteSong(currentSong.id)}>
                   {isCurrentSongFavorite ? (
@@ -771,13 +824,12 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
             <View className="items-center">
               <Text
                 className="text-3xl capitalize text-white/70"
-                style={lockFontsLoaded ? { fontFamily: LOCK_DATE_FONT } : undefined}
+                style={{ fontFamily: LOCK_DATE_FONT }}
               >
                 {lockScreenDate}
               </Text>
               <Text
-                className="mt-1 text-6xl tracking-[-2px] text-white"
-                style={lockFontsLoaded ? { fontFamily: LOCK_TIME_FONT } : undefined}
+                className="mt-1 text-6xl font-black tracking-[-2px] text-white"
               >
                 {lockScreenTime}
               </Text>
@@ -791,19 +843,23 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                   resizeMode="cover"
                 />
               ) : (
-                <Ionicons name="musical-notes" size={90} color="#5a5a5a" />
+                <Image
+                  source={DEFAULT_MUSIC_ARTWORK}
+                  className="h-full w-full"
+                  resizeMode="cover"
+                />
               )}
             </View>
 
             <View className="mt-14 rounded-[32px] border border-white/10 bg-white/10 px-5 py-5">
               <View className="flex-row items-center justify-between">
                 <View className="flex-1 pr-4">
-                  <Text className="text-lg font-bold text-white" numberOfLines={1}>
+                  <AutoScrollingText className="text-lg font-bold text-white">
                     {currentSong.title}
-                  </Text>
-                  <Text className="mt-1 text-sm text-white/60" numberOfLines={1}>
+                  </AutoScrollingText>
+                  <AutoScrollingText className="mt-1 text-sm text-white/60">
                     {normalizeValue(currentSong.artist, UNKNOWN_ARTIST)}
-                  </Text>
+                  </AutoScrollingText>
                 </View>
                 <View className="flex-row items-center gap-5">
                   <AudioWaveBars playing={playing} color="#f5f5f5" size="md" />

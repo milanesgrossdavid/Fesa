@@ -32,6 +32,8 @@ import type { Song } from "../../modules/local-music";
 
 import { FontAwesome5 } from "@expo/vector-icons";
 
+const DEFAULT_MUSIC_ARTWORK = require("../../assets/musicNotFound.jpg");
+
 interface LyricsModalProps {
   song: Song | null;
   visible: boolean;
@@ -614,21 +616,14 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
                         resizeMode="cover"
                       />
                     ) : (
-                      <View
+                      <Image
+                        source={DEFAULT_MUSIC_ARTWORK}
                         style={{
-                          flex: 1,
-                          alignItems: "center",
-                          justifyContent: "center",
-                          backgroundColor:
-                            "rgba(255,255,255,0.12)",
+                          width: "100%",
+                          height: "100%",
                         }}
-                      >
-                        <FontAwesome5
-                          name="music"
-                          size={38}
-                          color="#ffffff"
-                        />
-                      </View>
+                        resizeMode="cover"
+                      />
                     )}
                   </View>
 

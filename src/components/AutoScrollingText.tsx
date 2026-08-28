@@ -1,0 +1,100 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Easing, Text, View } from 'react-native';
+
+interface AutoScrollingTextProps {
+  children: string;
+  className?: string;
+  style?: object;
+}
+
+const AutoScrollingText = ({
+  children,
+  className,
+  style,
+}: AutoScrollingTextProps) => {
+  const offset = useRef(new Animated.Value(0)).current;
+  const [containerWidth, setContainerWidth] = useState(0);
+  const [textWidth, setTextWidth] = useState(0);
+
+  useEffect(() => {
+    setTextWidth(0);
+    offset.stopAnimation();
+    offset.setValue(0);
+  }, [children, offset]);
+
+  useEffect(() => {
+    offset.stopAnimation();
+    offset.setValue(0);
+
+    if (!textWidth || !containerWidth) return;
+
+    const overflow = textWidth - containerWidth;
+    if (overflow <= 1) return;
+
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.delay(1400),
+        Animated.timing(offset, {
+          toValue: -overflow,
+          duration: Math.max(2400, overflow * 35),
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.delay(1400),
+        Animated.timing(offset, {
+          toValue: 0,
+          duration: Math.max(2400, overflow * 35),
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    animation.start();
+    return () => animation.stop();
+  }, [children, containerWidth, offset, textWidth]);
+
+  return (
+    <View
+      className="overflow-hidden"
+      onLayout={({ nativeEvent }) => setContainerWidth(nativeEvent.layout.width)}
+    >
+      <Animated.Text
+        className={className}
+        numberOfLines={1}
+        style={[
+          style,
+          {
+            width: textWidth || undefined,
+            transform: [{ translateX: offset }],
+          },
+        ]}
+      >
+        {children}
+      </Animated.Text>
+      <Text
+        className={className}
+        key={children}
+        numberOfLines={1}
+        onTextLayout={({ nativeEvent }) => {
+          const nextWidth = nativeEvent.lines[0]?.width ?? 0;
+          if (nextWidth !== textWidth) setTextWidth(nextWidth);
+        }}
+        style={[
+          style,
+          {
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            width: 10000,
+            opacity: 0,
+          },
+        ]}
+      >
+        {children}
+      </Text>
+    </View>
+  );
+};
+
+export default AutoScrollingText;

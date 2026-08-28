@@ -2,6 +2,7 @@ import React from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { Song } from "../../modules/local-music";
 import LibraryArtwork from "./LibraryArtwork";
+import AutoScrollingText from "./AutoScrollingText";
 import { PlayIcon } from "../Icons";
 import { useAppSettings } from "../settings/appSettings";
 
@@ -40,40 +41,34 @@ const HomeMostPlayedSection = ({
   const remainingSongs = featuredSongs.slice(1);
 
   return (
-    <View className="pt-2">
-      <View className="mb-3 flex-row items-center justify-between px-5">
-        <Text className="text-lg font-bold" style={{ color: theme.text }}>Más escuchadas</Text>
+    <View className="px-4 py-4">
+      <View className="mb-2">
+        <Text className="text-2xl text-center font-bold" style={{ color: theme.text }}>Más escuchadas</Text>
       </View>
 
       {topSong ? (
         <>
-          <View className="mx-5 mb-4">
+          <View className="mx-4">
             <View className="aspect-[1.75] w-full overflow-hidden rounded-3xl" style={{ backgroundColor: theme.surface }}>
               <LibraryArtwork
                 artwork={topSong.artwork}
                 className="h-full w-full rounded-3xl"
               />
               <View className="absolute bottom-0 left-0 right-0 py-2 px-4 bg-black/25 flex flex-row justify-between items-center">
-                <View className="flex flex-col">
-                  <Text
-                    className="text-xl font-bold text-white"
-                    numberOfLines={1}
-                  >
+                <View className="mr-3 flex-1 flex-col">
+                  <AutoScrollingText className="text-xl font-bold text-white">
                     {topSong.title}
-                  </Text>
-                  <Text
-                    className="mt-1 text-sm text-white/90"
-                    numberOfLines={1}
-                  >
+                  </AutoScrollingText>
+                  <AutoScrollingText className="mt-2 text-sm text-white/90">
                     {normalizeValue(topSong.artist, UNKNOWN_ARTIST)}
-                  </Text>
+                  </AutoScrollingText>
                 </View>
                 <Pressable
                   className="rounded-full p-4"
-                  style={{ backgroundColor: theme.accent }}
+                  style={{ backgroundColor: theme.background }}
                   onPress={() => onPlaySong(0)}
                 >
-                  <PlayIcon size={24} color={theme.background} />
+                  <PlayIcon size={24} color={theme.text} />
                 </Pressable>
               </View>
             </View>
@@ -94,22 +89,16 @@ const HomeMostPlayedSection = ({
                     />
                     <View className="absolute bottom-0 left-0 right-0 flex flex-row items-center justify-between py-2 px-4 bg-black/25">
                       <View className="mr-3 flex-1 flex-col">
-                        <Text
-                          className="text-base font-bold text-white"
-                          numberOfLines={1}
-                        >
+                        <AutoScrollingText className="text-base font-bold text-white">
                           {song.title}
-                        </Text>
-                        <Text
-                          className="mt-1 text-xs text-white/90"
-                          numberOfLines={1}
-                        >
+                        </AutoScrollingText>
+                        <AutoScrollingText className="mt-1 text-xs text-white/90">
                           {normalizeValue(song.artist, UNKNOWN_ARTIST)}
-                        </Text>
+                        </AutoScrollingText>
                       </View>
                       <Pressable
                         className="rounded-full p-3"
-                        style={{ backgroundColor: theme.surface }}
+                        style={{ backgroundColor: theme.background }}
                         onPress={() => onPlaySong(index + 1)}
                       >
                         <PlayIcon size={20} color={theme.text} />

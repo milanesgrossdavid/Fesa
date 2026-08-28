@@ -1,4 +1,4 @@
-import { requireNativeModule } from 'expo-modules-core';
+import { EventEmitter, requireNativeModule } from 'expo-modules-core';
 import { PermissionsAndroid, Platform } from 'react-native';
 
 export type Song = {
@@ -8,6 +8,7 @@ export type Song = {
   album: string;
   duration: number;
   url: string;
+  folder?: string | null;
   dateAdded?: number;
   dateModified?: number;
   artwork?: string | null;
@@ -27,6 +28,7 @@ export type MusicNotificationState = {
 };
 
 const LocalMusic = requireNativeModule('LocalMusic');
+const localMusicEmitter = new EventEmitter(LocalMusic);
 
 let audioFilesRequest: Promise<Song[]> | null = null;
 
@@ -105,7 +107,7 @@ export function stopMusicNotification(): void {
 export function addNotificationActionListener(
   listener: (action: MusicNotificationAction, positionMs?: number) => void
 ): { remove: () => void } {
-  const subscription = LocalMusic.addListener('onNotificationAction', (event: {
+  const subscription = (localMusicEmitter.addListener as any)('onNotificationAction', (event: {
     action: MusicNotificationAction;
     positionMs?: number;
   }) => {

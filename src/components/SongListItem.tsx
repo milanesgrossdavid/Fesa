@@ -6,6 +6,8 @@ import { formatDuration } from '../utils/time';
 import AudioWaveBars from './AudioWaveBars';
 import { useAppSettings } from '../settings/appSettings';
 
+const DEFAULT_MUSIC_ARTWORK = require('../../assets/musicNotFound.jpg');
+
 interface SongListItemProps {
   item: Song;
   isActive?: boolean;
@@ -37,21 +39,21 @@ const SongListItem = ({
 
   return (
     <Pressable
-      className={`mx-4 mb-2 flex-row items-center rounded-2xl border px-3 py-3`}
+      className={`mx-4 mb-2 flex-row items-center rounded-2xl border px-2 py-2`}
       style={{
-        backgroundColor: isSelected ? 'rgba(255,255,255,0.1)' : isActive ? 'rgba(255,255,255,0.05)' : 'transparent',
+        backgroundColor: isSelected ? 'rgba(255,255,255,0.1)' : isActive ? 'rgba(255,255,255,0.045)' : 'transparent',
         borderColor: isSelected ? 'rgba(255,255,255,0.4)' : isActive ? 'rgba(255,255,255,0.2)' : 'transparent',
       }}
       onPress={onPress}
       onLongPress={onLongPress}
-      delayLongPress={350}
+      delayLongPress={200}
     >
       {showSelectionIndicator ? (
         <View
           className="mr-3 h-6 w-6 items-center justify-center rounded-full"
           style={{
             borderColor: isSelected ? 'transparent' : theme.mutedText,
-            borderWidth: isSelected ? 0 : 1,
+            borderWidth: isSelected ? 0 : 0.5,
             backgroundColor: isSelected ? theme.accent : 'transparent',
           }}
         >
@@ -66,7 +68,7 @@ const SongListItem = ({
         {item.artwork ? (
           <Image source={{ uri: item.artwork }} className="h-full w-full rounded-lg" resizeMode="cover" />
         ) : (
-          <Text className="text-2xl" style={{ color: isActive ? theme.text : theme.mutedText }}>♪</Text>
+          <Image source={DEFAULT_MUSIC_ARTWORK} className="h-full w-full rounded-lg" resizeMode="cover" />
         )}
       </Pressable>
       <View className="flex-1 pr-3">

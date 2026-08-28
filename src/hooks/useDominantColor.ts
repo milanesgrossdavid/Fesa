@@ -1,6 +1,28 @@
 import { useEffect, useState } from 'react';
-import { ImageColorsResult, getColors } from 'react-native-image-colors';
+import { getColors } from 'react-native-image-colors';
+import type { ImageColorsResult } from 'react-native-image-colors';
 import { useAppSettings } from '../settings/appSettings';
+
+const isHexColor = (value: unknown): value is string =>
+  typeof value === 'string' && /^#[0-9A-Fa-f]{6}$/.test(value);
+
+const getDominantResultColor = (result: ImageColorsResult, fallback: string) => {
+  if ('dominant' in result) {
+    if (isHexColor(result.dominant) && result.dominant.toLowerCase() !== fallback.toLowerCase()) {
+      return result.dominant;
+    }
+
+    if ('average' in result && isHexColor(result.average)) {
+      return result.average;
+    }
+
+    return fallback;
+  }
+
+  const color = result.platform === 'ios' ? result.background || result.primary : fallback;
+
+  return isHexColor(color) ? color : fallback;
+};
 
 /**
  * Hook para extraer el color dominante de una imagen (URI local o remota).
@@ -13,6 +35,8 @@ export const useDominantColor = (uri: string | null | undefined, fallbackColor?:
 
   useEffect(() => {
     let isMounted = true;
+
+    setDominantColor(defaultFallback);
 
     const fetchColors = async () => {
       if (!uri) {
@@ -29,17 +53,7 @@ export const useDominantColor = (uri: string | null | undefined, fallbackColor?:
 
         if (!isMounted) return;
 
-        // Extraer el color según la plataforma
-        let color = defaultFallback;
-        if (result.platform === 'android') {
-          color = result.dominant || result.vibrant || defaultFallback;
-        } else if (result.platform === 'ios') {
-          color = result.background || result.primary || defaultFallback;
-        } else if (result.platform === 'web') {
-          color = result.dominant || defaultFallback;
-        }
-
-        setDominantColor(color);
+        setDominantColor(getDominantResultColor(result, defaultFallback));
       } catch (error) {
         console.warn('Error al extraer color dominante:', error);
         if (isMounted) setDominantColor(defaultFallback);

@@ -24,8 +24,8 @@ const HomeRecommendedArtistsSection = ({
   const { theme } = useAppSettings();
 
   return (
-  <View className="px-5 pt-7">
-    <Text className="mb-3 text-lg font-bold" style={{ color: theme.text }}>Artistas recomendados</Text>
+  <View className="mx-4 px-4 py-4">
+    <Text className="mb-2 text-2xl text-center font-bold" style={{ color: theme.text }}>Artistas recomendados</Text>
     <View className="flex-row flex-wrap gap-4">
       {artists.map(artist => (
         <Pressable key={artist.id} className="w-[47%]" onPress={() => onOpenArtist(artist)}>

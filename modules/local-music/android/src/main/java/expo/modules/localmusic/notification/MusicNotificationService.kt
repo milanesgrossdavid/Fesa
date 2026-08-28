@@ -13,12 +13,14 @@ import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
 import android.os.IBinder
+import android.os.SystemClock
 import android.util.Log
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
+import androidx.media.app.NotificationCompat.MediaStyle
 import expo.modules.localmusic.R
 import java.io.InputStream
 import java.util.concurrent.Executors
@@ -103,6 +105,32 @@ class MusicNotificationService : Service() {
       .setCustomContentView(small)
       .setCustomBigContentView(big)
       .setCustomHeadsUpContentView(small)
+      .setStyle(
+        MediaStyle()
+          .setMediaSession(mediaSession?.sessionToken)
+          .setShowActionsInCompactView(0, 1, 2)
+      )
+      .addAction(
+        NotificationCompat.Action(
+          R.drawable.ic_notif_prev,
+          "Anterior",
+          actionPendingIntent(ACTION_PREVIOUS)
+        )
+      )
+      .addAction(
+        NotificationCompat.Action(
+          if (state.playing) R.drawable.ic_notif_pause else R.drawable.ic_notif_play,
+          if (state.playing) "Pausar" else "Reproducir",
+          actionPendingIntent(ACTION_TOGGLE)
+        )
+      )
+      .addAction(
+        NotificationCompat.Action(
+          R.drawable.ic_notif_next,
+          "Siguiente",
+          actionPendingIntent(ACTION_NEXT)
+        )
+      )
 
     val notification = builder.build()
 
@@ -311,7 +339,7 @@ class MusicNotificationService : Service() {
         if (state.playing) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED,
         positionMs,
         if (state.playing) 1.0f else 0.0f,
-        System.currentTimeMillis()
+        SystemClock.elapsedRealtime()
       )
       .setBufferedPosition(durationMs)
       .build()

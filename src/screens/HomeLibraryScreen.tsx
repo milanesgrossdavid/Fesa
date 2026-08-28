@@ -468,10 +468,20 @@ const HomeLibraryScreen = () => {
   const deleteTrack = (song: Song) => {
     closeTrackMenu();
     void deleteAudioFile(song.id).then(deleted => {
-      if (deleted) {
-        setSongs(currentSongs => currentSongs.filter(currentSong => currentSong.id !== song.id));
-        setMostPlayedSongs(currentSongs => currentSongs.filter(currentSong => currentSong.id !== song.id));
-        setRecommendedSongs(currentSongs => currentSongs.filter(currentSong => currentSong.id !== song.id));
+      if (!deleted) return;
+
+      setSongs(currentSongs => currentSongs.filter(currentSong => currentSong.id !== song.id));
+      setMostPlayedSongs(currentSongs => currentSongs.filter(currentSong => currentSong.id !== song.id));
+      setRecommendedSongs(currentSongs => currentSongs.filter(currentSong => currentSong.id !== song.id));
+
+      if (selectedGroup?.songs.some(currentSong => currentSong.id === song.id)) {
+        const remainingSongs = selectedGroup.songs.filter(currentSong => currentSong.id !== song.id);
+
+        if (remainingSongs.length === 0) {
+          closeSelectedGroup();
+        } else {
+          setSelectedGroup({ ...selectedGroup, songs: remainingSongs });
+        }
       }
     });
   };

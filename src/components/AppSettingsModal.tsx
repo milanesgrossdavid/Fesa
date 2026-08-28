@@ -12,12 +12,12 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   acceptTerms,
   APP_THEMES,
   DEFAULT_TABS,
   reorderTabs,
-  setCrossfadeEnabled,
   setLockScreenControlsEnabled,
   setPlaybackRate,
   setSleepTimer,
@@ -56,6 +56,13 @@ const CUSTOM_SLEEP_MAX = 23 * 60 + 59;
 const WHEEL_ITEM_HEIGHT = 44;
 const WHEEL_VISIBLE_ITEMS = 5;
 const WHEEL_HEIGHT = WHEEL_ITEM_HEIGHT * WHEEL_VISIBLE_ITEMS;
+const SUPPORT_EMAIL = 'davmilgross@gmail.com';
+const FACEBOOK_APP_URL = 'fb://facewebmodal/f?href=https%3A%2F%2Fwww.facebook.com%2Fdavid.milanes.10';
+const FACEBOOK_WEB_URL = 'https://www.facebook.com/david.milanes.10';
+const INSTAGRAM_APP_URL = 'instagram://user?username=davmilanes';
+const INSTAGRAM_WEB_URL = 'https://www.instagram.com/davmilanes/';
+const WHATSAPP_APP_URL = 'whatsapp://send?phone=5354776027';
+const WHATSAPP_WEB_URL = 'https://wa.me/5354776027';
 const HOUR_OPTIONS = Array.from({ length: 24 }, (_, index) => index);
 const MINUTE_OPTIONS = Array.from({ length: 60 }, (_, index) => index);
 
@@ -68,6 +75,7 @@ const TERMS_TEXT = [
   '6. Puedes cambiar tus ajustes, temas y pestañas visibles en cualquier momento desde el panel de Ajustes.',
   '7. El contacto y las redes sociales están disponibles solo para soporte y consultas relacionadas con la aplicación.',
   '8. Aceptar estos términos implica que conoces el alcance de la app y su funcionamiento dentro de tu dispositivo.',
+  '9. FESA fue desarrollada por su programador con apoyo de herramientas de inteligencia artificial como asistencia durante el proceso de creación.',
 ];
 
 const formatSpeedLabel = (speed: number) => `${speed}x`;
@@ -313,14 +321,11 @@ const OptionSheet = ({
         <SheetHandle />
         <View className="mb-5 flex-row items-start justify-between">
           <View className="flex-1 pr-4">
-            <Text className="text-xl font-bold" style={{ color: textColor }}>{title}</Text>
+            <Text className="text-xl font-bold text-center" style={{ color: textColor }}>{title}</Text>
             {subtitle ? (
-              <Text className="mt-1 text-sm" style={{ color: mutedColor }}>{subtitle}</Text>
+              <Text className="mt-1 text-sm text-center" style={{ color: mutedColor }}>{subtitle}</Text>
             ) : null}
           </View>
-          <Pressable onPress={onClose}>
-            <Text className="font-bold" style={{ color: SETTINGS_ACCENT }}>Cerrar</Text>
-          </Pressable>
         </View>
         <View style={{ backgroundColor: surface, borderRadius: 20, overflow: 'hidden' }}>
           {children}
@@ -538,16 +543,9 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
   };
 
   const openMail = async (email: string) => {
-    const mailUrl = `mailto:${encodeURIComponent(email)}?subject=Soporte%20FESA`;
+    const mailUrl = `mailto:${email}?subject=${encodeURIComponent('Soporte FESA')}`;
 
     try {
-      const supported = await Linking.canOpenURL(mailUrl);
-
-      if (!supported) {
-        Alert.alert('Correo no disponible', `Escríbenos a ${email}.`);
-        return;
-      }
-
       await Linking.openURL(mailUrl);
     } catch {
       Alert.alert('Correo no disponible', `Escríbenos a ${email}.`);
@@ -571,18 +569,15 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
     }
   };
 
-  const openURL = async (url: string, fallbackMessage: string) => {
+  const openAppLink = async (appUrl: string, webUrl: string, fallbackMessage: string) => {
     try {
-      const supported = await Linking.canOpenURL(url);
-
-      if (!supported) {
-        Alert.alert('Enlace no disponible', fallbackMessage);
-        return;
-      }
-
-      await Linking.openURL(url);
+      await Linking.openURL(appUrl);
     } catch {
-      Alert.alert('Enlace no disponible', fallbackMessage);
+      try {
+        await Linking.openURL(webUrl);
+      } catch {
+        Alert.alert('Enlace no disponible', fallbackMessage);
+      }
     }
   };
 
@@ -629,6 +624,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
   };
 
   const theme = settings.theme;
+  const termsAccepted = Boolean(settings.termsAcceptedAt);
   const rowProps = {
     borderColor: theme.border,
     textColor: theme.text,
@@ -676,13 +672,6 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 showChevron
                 {...rowProps}
               />
-              <SettingsRow
-                label="Transición gradual"
-                subtitle="Crossfade entre canciones"
-                onPress={() => setCrossfadeEnabled(!settings.crossfadeEnabled)}
-                toggleValue={settings.crossfadeEnabled}
-                {...rowProps}
-              />
             </View>
           </View>
 
@@ -692,8 +681,8 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
             </Text>
             <View className="overflow-hidden rounded-3xl" style={{ backgroundColor: theme.surface }}>
               <SettingsRow
-                label="Controles en bloqueo"
-                subtitle="Desde la pantalla de bloqueo"
+                label="Controles externos"
+                subtitle="Desde la pantalla de bloqueo y notificaciones"
                 onPress={() => setLockScreenControlsEnabled(!settings.lockScreenControlsEnabled)}
                 toggleValue={settings.lockScreenControlsEnabled}
                 {...rowProps}
@@ -743,7 +732,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
               />
               <SettingsRow
                 label="Términos y condiciones"
-                subtitle={settings.termsAcceptedAt ? 'Aceptados' : 'Pendientes de revisar'}
+                subtitle={termsAccepted ? 'Aceptados' : 'Pendientes de revisar'}
                 onPress={() => setTermsVisible(true)}
                 showChevron
                 {...rowProps}
@@ -765,7 +754,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
         <OptionSheet
           visible={sleepTimerVisible}
           title="Temporizador de apagado"
-          subtitle="La reproducción se pausará automáticamente cuando se cumpla el tiempo."
+          subtitle="La reproducción se pausará automáticamente cuando se cumpla el tiempo"
           background={theme.background}
           surface={theme.surface}
           textColor={theme.text}
@@ -894,7 +883,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
         <OptionSheet
           visible={playbackSpeedVisible}
           title="Velocidad de reproducción"
-          subtitle="El cambio se aplica al instante en la canción actual y en las siguientes."
+          subtitle="El cambio se aplica al instante en la canción actual y en las siguientes"
           background={theme.background}
           surface={theme.surface}
           textColor={theme.text}
@@ -937,14 +926,11 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
               <SheetHandle />
               <View className="mb-4 flex-row items-center justify-between">
                 <View className="flex-1 pr-4">
-                  <Text className="text-xl font-bold" style={{ color: theme.text }}>Administrar pestañas</Text>
-                  <Text className="mt-1 text-sm" style={{ color: theme.mutedText }}>
-                    Arrastra el asa para reordenar. Siempre debe quedar una visible.
+                  <Text className="text-xl font-bold text-center" style={{ color: theme.text }}>Administrar pestañas</Text>
+                  <Text className="mt-1 text-sm text-center" style={{ color: theme.mutedText }}>
+                    Arrastra el asa para reordenar. Siempre debe quedar una visible
                   </Text>
                 </View>
-                <Pressable onPress={() => setTabsVisible(false)}>
-                  <Text className="font-bold" style={{ color: SETTINGS_ACCENT }}>Cerrar</Text>
-                </Pressable>
               </View>
 
               <ScrollView scrollEnabled={false}>
@@ -966,7 +952,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
         <OptionSheet
           visible={themesVisible}
           title="Temas"
-          subtitle="Cambia el color de acento y el estilo principal de la app."
+          subtitle="Cambia el color de acento y el estilo principal de la app"
           background={theme.background}
           surface={theme.surface}
           textColor={theme.text}
@@ -1015,16 +1001,13 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
               style={{ backgroundColor: theme.background, paddingBottom: Math.max(insets.bottom, 24) }}
             >
               <SheetHandle />
-              <View className="mb-4 flex-row items-center justify-between">
-                <Text className="text-xl font-bold" style={{ color: theme.text }}>Términos y condiciones</Text>
-                <Pressable onPress={() => setTermsVisible(false)}>
-                  <Text className="font-bold" style={{ color: SETTINGS_ACCENT }}>Cerrar</Text>
-                </Pressable>
+              <View className="mb-4">
+                <Text className="text-xl font-bold text-center" style={{ color: theme.text }}>Términos y condiciones</Text>
               </View>
 
               <ScrollView>
-                <Text className="mb-4 text-sm leading-6" style={{ color: theme.mutedText }}>
-                  Estos términos resumen el uso y las responsabilidades de FESA como aplicación de reproducción y gestión de audio local.
+                <Text className="mb-4 text-sm text-center leading-6" style={{ color: theme.mutedText }}>
+                  Estos términos resumen el uso y las responsabilidades de FESA como aplicación de reproducción y gestión de audio local
                 </Text>
                 {TERMS_TEXT.map(item => (
                   <View key={item} className="mb-3 rounded-2xl px-4 py-4" style={{ backgroundColor: theme.surface }}>
@@ -1032,14 +1015,24 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                   </View>
                 ))}
                 <Pressable
-                  className="mt-2 rounded-full py-4"
-                  style={{ backgroundColor: SETTINGS_ACCENT }}
+                  className="mt-2 flex-row items-center justify-center rounded-full py-4"
+                  disabled={termsAccepted}
+                  style={{ backgroundColor: termsAccepted ? SETTINGS_ACCENT_SOFT : SETTINGS_ACCENT }}
                   onPress={() => {
+                    if (termsAccepted) {
+                      return;
+                    }
+
                     acceptTerms();
-                    setTermsVisible(false);
                   }}
                 >
-                  <Text className="text-center font-bold" style={{ color: theme.background }}>Aceptar términos</Text>
+                  {termsAccepted ? <CheckIcon size={20} color={SETTINGS_ACCENT} /> : null}
+                  <Text
+                    className="text-center font-bold"
+                    style={{ color: termsAccepted ? SETTINGS_ACCENT : theme.background, marginLeft: termsAccepted ? 8 : 0 }}
+                  >
+                    {termsAccepted ? 'Aceptado' : 'Aceptar términos'}
+                  </Text>
                 </Pressable>
               </ScrollView>
             </View>
@@ -1050,60 +1043,93 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
           <View className="flex-1 justify-end">
             <Pressable className="absolute inset-0 bg-black/70" onPress={() => setContactVisible(false)} />
             <View
-              className="max-h-[72%] rounded-t-[32px] px-5 pb-6 pt-3"
+              className="max-h-[88%] rounded-t-[32px] px-5 pb-6 pt-3"
               style={{ backgroundColor: theme.background, paddingBottom: Math.max(insets.bottom, 24) }}
             >
               <SheetHandle />
               <View className="mb-4 flex-row items-center justify-between">
-                <Text className="text-xl font-bold" style={{ color: theme.text }}>Contacto</Text>
-                <Pressable onPress={() => setContactVisible(false)}>
-                  <Text className="font-bold" style={{ color: SETTINGS_ACCENT }}>Cerrar</Text>
+                <View>
+                  <Text className="text-xl font-bold ml-2" style={{ color: theme.text }}>Contacto</Text>
+                </View>
+                <Pressable
+                  className="h-9 w-9 items-center justify-center rounded-full"
+                  onPress={() => setContactVisible(false)}
+                  accessibilityLabel="Cerrar contacto"
+                >
+                  <Ionicons name="close" size={20} color={theme.text} />
                 </Pressable>
               </View>
 
               <ScrollView>
-                <View className="mb-4 rounded-2xl px-4 py-4" style={{ backgroundColor: theme.surface }}>
-                  <Text className="mb-3 text-sm font-bold" style={{ color: theme.text }}>Autor</Text>
-                  <Text className="text-sm" style={{ color: theme.mutedText }}>David Milanes Gross</Text>
-                </View>
+                <View className="mb-4 overflow-hidden rounded-[28px]" style={{ backgroundColor: theme.surface }}>
+                  <LinearGradient
+                    colors={[theme.accent, theme.background]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    className="h-32 items-center justify-center"
+                  >
+                    <Ionicons name="musical-notes" size={58} color={theme.text} />
+                    <View className="absolute -right-5 -top-8 h-28 w-28 rounded-full border-2 border-white/10" />
+                    <View className="absolute -bottom-16 -left-8 h-36 w-36 rounded-full border-2 border-white/10" />
+                  </LinearGradient>
 
-                <View className="mb-4 rounded-2xl px-4 py-4" style={{ backgroundColor: theme.surface }}>
-                  <Text className="mb-3 text-sm font-bold" style={{ color: theme.text }}>Información de contacto</Text>
-                  <Pressable onPress={() => void openPhone('55574125')} className="mb-3 rounded-2xl px-3 py-3" style={{ backgroundColor: theme.background }}>
-                    <Text className="text-sm font-bold" style={{ color: theme.text }}>Teléfono</Text>
-                    <Text className="mt-1 text-xs" style={{ color: theme.mutedText }}>55574125</Text>
-                  </Pressable>
-                  <Pressable onPress={() => void openMail('davmilgross@gmail.com')} className="rounded-2xl px-3 py-3" style={{ backgroundColor: theme.background }}>
-                    <Text className="text-sm font-bold" style={{ color: theme.text }}>Correo</Text>
-                    <Text className="mt-1 text-xs" style={{ color: theme.mutedText }}>davmilgross@gmail.com</Text>
-                  </Pressable>
-                </View>
-
-                <View className="rounded-2xl px-4 py-4" style={{ backgroundColor: theme.surface }}>
-                  <Text className="mb-3 text-sm font-bold" style={{ color: theme.text }}>Redes sociales</Text>
-                  <View className="flex-row items-center justify-between px-1">
-                    <Pressable
-                      className="items-center rounded-2xl px-4 py-4"
-                      onPress={() => void openURL('https://www.facebook.com', 'Abre Facebook para contactar al autor.')}
-                    >
-                      <Ionicons name="logo-facebook" size={28} color={SETTINGS_ACCENT} />
-                      <Text className="mt-2 text-xs" style={{ color: theme.mutedText }}>Facebook</Text>
-                    </Pressable>
-                    <Pressable
-                      className="items-center rounded-2xl px-4 py-4"
-                      onPress={() => void openURL('https://www.instagram.com', 'Abre Instagram para contactar al autor.')}
-                    >
-                      <Ionicons name="logo-instagram" size={28} color={SETTINGS_ACCENT} />
-                      <Text className="mt-2 text-xs" style={{ color: theme.mutedText }}>Instagram</Text>
-                    </Pressable>
-                    <Pressable
-                      className="items-center rounded-2xl px-4 py-4"
-                      onPress={() => void openURL('https://wa.me/55574125', 'Abre WhatsApp para enviar un mensaje al autor.')}
-                    >
-                      <Ionicons name="logo-whatsapp" size={28} color={SETTINGS_ACCENT} />
-                      <Text className="mt-2 text-xs" style={{ color: theme.mutedText }}>WhatsApp</Text>
-                    </Pressable>
+                  <View className="-mt-12 items-center pb-4">
+                    <View className="h-24 w-24 items-center justify-center rounded-full p-1" style={{ backgroundColor: theme.accent }}>
+                      <View className="h-full w-full items-center justify-center rounded-full" style={{ backgroundColor: theme.background }}>
+                        <Ionicons name="person" size={38} color={theme.text} />
+                      </View>
+                    </View>
+                    <Text className="mt-3 text-2xl font-bold" style={{ color: theme.text }}>David Milanes Gross</Text>
                   </View>
+
+                
+                </View>
+
+                <Text className="mb-3 ml-2 text-xs font-bold uppercase tracking-[1.5px]" style={{ color: theme.mutedText }}>
+                  Escríbenos
+                </Text>
+                <View className="mb-5 overflow-hidden rounded-2xl" style={{ backgroundColor: theme.surface }}>
+                  
+                  <Pressable
+                    className="flex-row items-center px-4 py-3.5"
+                    onPress={() => void openMail(SUPPORT_EMAIL)}
+                  >
+                    <View className="h-10 w-10 items-center justify-center rounded-full" style={{ backgroundColor: getAccentOverlay(theme.accent) }}>
+                      <Ionicons name="mail-outline" size={20} color={theme.accent} />
+                    </View>
+                    <View className="ml-3 flex-1">
+                      <Text className="text-sm font-bold" style={{ color: theme.text }}>Correo electrónico</Text>
+                      <Text className="mt-0.5 text-xs" style={{ color: theme.mutedText }}>{SUPPORT_EMAIL}</Text>
+                    </View>
+                    <Ionicons name="arrow-up-outline" size={18} color={theme.mutedText} />
+                  </Pressable>
+                </View>
+
+                <Text className="mb-3 text-xs font-bold uppercase tracking-[1.5px]" style={{ color: theme.mutedText }}>
+                  También estamos aquí
+                </Text>
+                <View className="mb-2 flex-row justify-between rounded-2xl px-2 py-2" style={{ backgroundColor: theme.surface }}>
+                  <Pressable
+                    className="flex-1 items-center rounded-xl py-3"
+                    onPress={() => void openAppLink(FACEBOOK_APP_URL, FACEBOOK_WEB_URL, 'Abre Facebook para contactar al autor.')}
+                  >
+                    <Ionicons name="logo-facebook" size={24} color={theme.accent} />
+                    <Text className="mt-1.5 text-xs" style={{ color: theme.mutedText }}>Facebook</Text>
+                  </Pressable>
+                  <Pressable
+                    className="flex-1 items-center rounded-xl py-3"
+                    onPress={() => void openAppLink(INSTAGRAM_APP_URL, INSTAGRAM_WEB_URL, 'Abre Instagram para contactar al autor.')}
+                  >
+                    <Ionicons name="logo-instagram" size={24} color={theme.accent} />
+                    <Text className="mt-1.5 text-xs" style={{ color: theme.mutedText }}>Instagram</Text>
+                  </Pressable>
+                  <Pressable
+                    className="flex-1 items-center rounded-xl py-3"
+                    onPress={() => void openAppLink(WHATSAPP_APP_URL, WHATSAPP_WEB_URL, 'Abre WhatsApp para enviar un mensaje al autor.')}
+                  >
+                    <Ionicons name="logo-whatsapp" size={24} color={theme.accent} />
+                    <Text className="mt-1.5 text-xs" style={{ color: theme.mutedText }}>WhatsApp</Text>
+                  </Pressable>
                 </View>
               </ScrollView>
             </View>

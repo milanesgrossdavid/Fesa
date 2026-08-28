@@ -78,7 +78,8 @@ index c76a9fd2a53743a691782e0f67d0d71401df58f6..a6e3e004abe1db6321506db60fec8d0a
 @@ -37,6 +39,7 @@ class AudioPlayer(
    player = ExoPlayer.Builder(context)
      .setLooper(context.mainLooper)
-     .setAudioAttributes(AudioAttributes.DEFAULT, false)
+-     .setAudioAttributes(AudioAttributes.DEFAULT, false)
++     .setAudioAttributes(AudioAttributes.DEFAULT, true)
 +    .setWakeMode(C.WAKE_MODE_NETWORK)
      .setSeekForwardIncrementMs(SEEK_JUMP_INTERVAL_MS)
      .setSeekBackIncrementMs(SEEK_JUMP_INTERVAL_MS)
@@ -113,7 +114,8 @@ index f3536d571535db7d6af57f568fce0d7c0b3fb674..8bd08ad7817d79da89bb7e09556d56be
 @@ -25,6 +26,7 @@ class AudioPlaylist(
    player = ExoPlayer.Builder(context)
      .setLooper(context.mainLooper)
-     .setAudioAttributes(AudioAttributes.DEFAULT, false)
+-     .setAudioAttributes(AudioAttributes.DEFAULT, false)
++     .setAudioAttributes(AudioAttributes.DEFAULT, true)
 +    .setWakeMode(C.WAKE_MODE_NETWORK)
      .setMediaSourceFactory(DefaultMediaSourceFactory(context).setDataSourceFactory(dataSourceFactory))
      .build(),

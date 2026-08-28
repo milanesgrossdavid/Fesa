@@ -1,6 +1,15 @@
 import React from 'react';
-import { Modal, Pressable, Text, TextInput, View } from 'react-native';
-import { PlusIcon } from '../Icons';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { PlaylistIcon, PlusIcon } from '../Icons';
 import { useAppSettings } from '../settings/appSettings';
 
 interface CreatePlaylistModalProps {
@@ -22,32 +31,62 @@ const CreatePlaylistModal = ({
   const canContinue = Boolean(playlistName.trim());
 
   return (
-    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
-      <View className="flex-1 items-center justify-center px-6">
+    <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView
+        className="flex-1 items-center justify-center px-6"
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <Pressable className="absolute inset-0 bg-black/70" onPress={onClose} />
         <View
           className="w-full max-w-[400px] rounded-[28px] p-5"
-          style={{ backgroundColor: theme.surface }}
+          style={{ backgroundColor: theme.background }}
         >
-          <Text className="text-xl font-bold" style={{ color: theme.text }}>
-            Crear playlist
-          </Text>
-          <Text className="mt-2 text-sm" style={{ color: theme.mutedText }}>
-            Ponle un nombre para continuar y elegir canciones.
-          </Text>
+          <View className="mb-6 flex-row items-start justify-between">
+            <View className="flex-1 flex-row items-center pr-4">
+              <View
+                className="mr-3 h-14 w-14 items-center justify-center rounded-2xl"
+                style={{ backgroundColor: theme.text }}
+              >
+                <PlaylistIcon size={28} color={theme.background} />
+              </View>
+              <View className="flex-1">
+                <Text className="text-2xl font-bold" style={{ color: theme.text }}>
+                  Nueva playlist
+                </Text>
+                <Text className="mt-1 text-sm" style={{ color: theme.mutedText }}>
+                  Tu música, a tu manera
+                </Text>
+              </View>
+            </View>
+            <Pressable
+              className="h-9 w-9 items-center justify-center rounded-full"
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel="Cerrar"
+            >
+              <Ionicons name="close" size={20} color={theme.mutedText} />
+            </Pressable>
+          </View>
 
-          <View
-            className="mt-5 overflow-hidden rounded-3xl px-4 py-4"
-            style={{ backgroundColor: theme.background }}
-          >
-            <Text className="mb-2 text-xs font-bold uppercase tracking-[1.2px]" style={{ color: theme.mutedText }}>
-              Nombre
-            </Text>
+          <View className="rounded-3xl p-4" style={{ backgroundColor: theme.surface }}>
+            <View className="mb-3 flex-row items-center justify-between">
+              <Text className="text-base font-bold ml-2" style={{ color: theme.text }}>
+                Nombre
+              </Text>
+              <Text className="text-xs font-bold" style={{ color: theme.mutedText }}>
+                {playlistName.trim().length}/60
+              </Text>
+            </View>
             <TextInput
               autoFocus
-              className="rounded-2xl px-4 py-3.5 text-base font-bold"
-              style={{ backgroundColor: theme.surface, color: theme.text }}
-              placeholder="Mi playlist"
+              className="rounded-2xl px-4 py-4 text-base font-bold"
+              style={{
+                backgroundColor: theme.background,
+                borderColor: canContinue ? theme.text : theme.border,
+                borderWidth: 1,
+                color: theme.text,
+              }}
+              placeholder="Ej. Viaje de verano"
               placeholderTextColor={theme.mutedText}
               cursorColor={theme.text}
               value={playlistName}
@@ -60,18 +99,15 @@ const CreatePlaylistModal = ({
                 }
               }}
             />
-            <Text className="mt-2 text-right text-xs" style={{ color: theme.mutedText }}>
-              {playlistName.trim().length}/60
-            </Text>
           </View>
 
           <View className="mt-5 flex-row gap-3">
             <Pressable
-              className="flex-1 rounded-full py-4"
-              style={{ backgroundColor: theme.background }}
+              className="flex-1 items-center justify-center rounded-full py-4"
+              style={{ backgroundColor: theme.surface }}
               onPress={onClose}
             >
-              <Text className="text-center font-bold" style={{ color: theme.mutedText }}>
+              <Text className="font-bold" style={{ color: theme.text }}>
                 Cancelar
               </Text>
             </Pressable>
@@ -85,16 +121,13 @@ const CreatePlaylistModal = ({
               onPress={onNext}
             >
               <PlusIcon size={18} color={canContinue ? theme.background : theme.mutedText} />
-              <Text
-                className="text-center font-bold"
-                style={{ color: canContinue ? theme.background : theme.mutedText }}
-              >
-                Siguiente
+              <Text className="font-bold" style={{ color: canContinue ? theme.background : theme.mutedText }}>
+                Elegir canciones
               </Text>
             </Pressable>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };

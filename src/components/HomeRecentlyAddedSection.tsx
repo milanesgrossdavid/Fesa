@@ -43,9 +43,9 @@ const HomeRecentlyAddedSection = ({
 }: HomeRecentlyAddedSectionProps) => {
   const { theme } = useAppSettings();
    return (
-  <View className="px-2 pt-7">
-    <View className="mb-3 flex-row items-center justify-between px-5">
-      <Text className="text-lg font-bold " style={{ color: theme.text }}>Recién añadidas</Text>
+  <View className="px-4 py-4">
+    <View className="mb-2">
+      <Text className="text-2xl text-center font-bold " style={{ color: theme.text }}>Recién añadidas</Text>
     </View>
 
     {songs.map((song, index) => {

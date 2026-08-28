@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, Text } from 'react-native';
 import LibraryArtwork from './LibraryArtwork';
+import AutoScrollingText from './AutoScrollingText';
 import { useAppSettings } from '../settings/appSettings';
 
 type LibraryGroupCardData = {
@@ -26,12 +27,12 @@ const LibraryGroupGridCard = ({ group, isArtist, onPress }: LibraryGroupGridCard
       className={`aspect-square w-full ${isArtist ? 'rounded-full' : 'rounded-2xl'}`}
       fallbackTextClassName={isArtist ? 'text-5xl font-bold text-[#b64400]' : 'text-4xl text-[#b64400]'}
     />
-    <Text className="mt-2 text-center text-base font-bold" numberOfLines={1} style={{ color: theme.text }}>
+    <AutoScrollingText className="mt-2 text-center text-base font-bold" style={{ color: theme.text }}>
       {group.name}
-    </Text>
-    <Text className="mt-1 text-center text-xs" numberOfLines={1} style={{ color: theme.mutedText }}>
+    </AutoScrollingText>
+    <AutoScrollingText className="mt-1 text-center text-xs" style={{ color: theme.mutedText }}>
       {group.subtitle}
-    </Text>
+    </AutoScrollingText>
   </Pressable>
 )};
 

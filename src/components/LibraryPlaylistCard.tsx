@@ -24,7 +24,7 @@ const LibraryPlaylistCard = ({ playlist, onPress }: LibraryPlaylistCardProps) =>
         artwork={playlist.songs[0]?.artwork}
         className="aspect-square w-full rounded-2xl"
         fallbackTextClassName="text-4xl"
-        style={{ color: theme.accent }}
+        fallbackTextStyle={{ color: theme.accent }}
       />
       <Text className="mt-2 text-center text-base font-bold" style={{ color: theme.text }} numberOfLines={1}>
         {playlist.name}

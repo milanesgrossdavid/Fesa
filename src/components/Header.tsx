@@ -134,7 +134,13 @@ const Header = () => {
             paddingBottom: insets.bottom,
           }}
         >
-          <View className="mb-3 flex-row items-center px-5 py-2">
+          <View className="mb-3 flex-row items-center px-7 py-2">
+            <Pressable
+                        className="mr-2 h-10 w-10 items-center justify-center rounded-full"
+                        onPress={closeSearch}
+                      >
+                        <BackIcon size={24} color={theme.text} />
+                      </Pressable>
             <Text className="text-2xl font-bold" style={{ color: theme.text }}>Buscar</Text>
           </View>
 

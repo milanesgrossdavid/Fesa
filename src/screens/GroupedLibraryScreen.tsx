@@ -90,6 +90,12 @@ const getFolderName = (url: string) => {
   return parts[parts.length - 2] || UNKNOWN_FOLDER;
 };
 
+const getSongFolderName = (song: Song) => {
+  const folderName = normalizeValue(song.folder, '');
+
+  return folderName || getFolderName(song.url);
+};
+
 const getGroupName = (song: Song, mode: GroupedLibraryMode) => {
   if (mode === 'albums') {
     return normalizeValue(song.album, UNKNOWN_ALBUM);
@@ -99,7 +105,7 @@ const getGroupName = (song: Song, mode: GroupedLibraryMode) => {
     return normalizeValue(song.artist, UNKNOWN_ARTIST);
   }
 
-  return getFolderName(song.url);
+  return getSongFolderName(song);
 };
 
 const getSongDate = (song: Song) => song.dateModified ?? song.dateAdded ?? 0;
@@ -408,7 +414,19 @@ const GroupedLibraryScreen = ({ mode, title }: GroupedLibraryScreenProps) => {
   const deleteTrack = (song: Song) => {
     closeTrackMenu();
     void deleteAudioFile(song.id).then(deleted => {
-      if (deleted) setSongs(currentSongs => currentSongs.filter(currentSong => currentSong.id !== song.id));
+      if (!deleted) return;
+
+      setSongs(currentSongs => currentSongs.filter(currentSong => currentSong.id !== song.id));
+
+      if (selectedGroup?.songs.some(currentSong => currentSong.id === song.id)) {
+        const remainingSongs = selectedGroup.songs.filter(currentSong => currentSong.id !== song.id);
+
+        if (remainingSongs.length === 0) {
+          closeSelectedGroup();
+        } else {
+          setSelectedGroup({ ...selectedGroup, songs: remainingSongs });
+        }
+      }
     });
   };
 

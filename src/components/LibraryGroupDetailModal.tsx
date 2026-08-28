@@ -144,7 +144,6 @@ const LibraryGroupDetailModal = ({
 
                 {headerExtra}
 
-                <View className="mx-5 mb-3 h-px" style={{ backgroundColor: theme.border }} />
               </View>
             }
             contentContainerStyle={{ paddingBottom: contentBottomPadding + insets.bottom }}

@@ -3,6 +3,7 @@ import { Animated, Dimensions, Pressable, Text, View } from 'react-native';
 import { Song } from '../../modules/local-music';
 import { PlayIcon } from '../Icons';
 import LibraryArtwork from './LibraryArtwork';
+import AutoScrollingText from './AutoScrollingText';
 import { useAppSettings } from '../settings/appSettings';
 
 interface HomeRecommendedSongsCarouselProps {
@@ -35,8 +36,8 @@ const HomeRecommendedSongsCarousel = ({
   
 
   return (
-    <View className="pt-8 pb-16">
-      <Text className="mb-3 px-5 text-lg font-bold" style={{ color: theme.text }}>Canciones recomendadas</Text>
+    <View className="px-2 py-2">
+      <Text className="mb-2 text-2xl text-center font-bold" style={{ color: theme.text }}>Canciones recomendadas</Text>
       {circularSongs.length ? (
         <Animated.FlatList
           horizontal
@@ -85,18 +86,20 @@ const HomeRecommendedSongsCarousel = ({
                   <View className="aspect-[1.55] w-full">
                     <LibraryArtwork artwork={song.artwork} className="h-full w-full rounded-[34px]" />
                     <View className="absolute bottom-0 left-0 right-0 flex flex-row items-center justify-between py-2 px-4 bg-black/30">
-                      <View className="mr-3 flex-1 flex-col">
-                        <Text className="text-lg font-bold text-white" numberOfLines={1}>{song.title}</Text>
-                        <Text className="mt-1 text-sm text-white/90" numberOfLines={1}>
+                      <View className="mr-2 flex-1 flex-col">
+                        <AutoScrollingText className="text-lg font-bold text-white">
+                          {song.title}
+                        </AutoScrollingText>
+                        <AutoScrollingText className="mt-1 text-sm text-white/90">
                           {normalizeValue(song.artist, UNKNOWN_ARTIST)}
-                        </Text>
+                        </AutoScrollingText>
                       </View>
                       <Pressable
                         className="rounded-full p-4"
-                        style={{ backgroundColor: theme.accent }}
+                        style={{ backgroundColor: theme.background }}
                         onPress={() => onPlaySong(playIndex)}
                       >
-                        <PlayIcon size={22} color={theme.background} />
+                        <PlayIcon size={22} color={theme.text} />
                       </Pressable>
                     </View>
                   </View>

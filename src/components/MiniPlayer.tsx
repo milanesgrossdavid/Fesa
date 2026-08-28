@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useMusicPlayer } from '../audio/musicPlayer';
 import { useAppSettings } from '../settings/appSettings';
 import PlayerScreen from '../screens/PlayerScreen';
+import AutoScrollingText from './AutoScrollingText';
 import LibraryArtwork from './LibraryArtwork';
 import QueuePlaylistModal from './QueuePlaylistModal';
 
@@ -57,12 +58,18 @@ const MiniPlayer = () => {
           />
 
           <View className="min-w-0 flex-1">
-            <Text className="text-sm font-bold" style={{ color: theme.text }} numberOfLines={1}>
+            <AutoScrollingText
+              className="text-sm font-bold"
+              style={{ color: theme.text }}
+            >
               {currentSong.title}
-            </Text>
-            <Text className="mt-0.5 text-xs" style={{ color: theme.mutedText }} numberOfLines={1}>
+            </AutoScrollingText>
+            <AutoScrollingText
+              className="mt-0.5 text-xs"
+              style={{ color: theme.mutedText }}
+            >
               {currentSong.artist || 'Artista Desconocido'}
-            </Text>
+            </AutoScrollingText>
           </View>
 
           <View className="ml-2 flex-row items-center gap-2">
