@@ -36,8 +36,7 @@ const HomeRecommendedSongsCarousel = ({
   
 
   return (
-    <View className="px-2 py-2">
-      <Text className="mb-2 text-2xl text-center font-bold" style={{ color: theme.text }}>Canciones recomendadas</Text>
+    <View className="py-4">
       {circularSongs.length ? (
         <Animated.FlatList
           horizontal
@@ -87,10 +86,10 @@ const HomeRecommendedSongsCarousel = ({
                     <LibraryArtwork artwork={song.artwork} className="h-full w-full rounded-[34px]" />
                     <View className="absolute bottom-0 left-0 right-0 flex flex-row items-center justify-between py-2 px-4 bg-black/30">
                       <View className="mr-2 flex-1 flex-col">
-                        <AutoScrollingText className="text-lg font-bold text-white">
+                        <AutoScrollingText key={`${song.id}-title`} className="text-lg font-bold text-white">
                           {song.title}
                         </AutoScrollingText>
-                        <AutoScrollingText className="mt-1 text-sm text-white/90">
+                        <AutoScrollingText key={`${song.id}-artist`} className="mt-1 text-sm text-white/90">
                           {normalizeValue(song.artist, UNKNOWN_ARTIST)}
                         </AutoScrollingText>
                       </View>

@@ -28,6 +28,7 @@ type PersistedAppSettings = {
   themeId: AppThemeId;
   tabs: TabPreference[];
   termsAcceptedAt: number | null;
+  hiddenSongIds: string[];
 };
 
 export type AppSettingsSnapshot = PersistedAppSettings & {
@@ -117,6 +118,7 @@ const DEFAULT_SETTINGS: PersistedAppSettings = {
   themeId: 'fesa',
   tabs: DEFAULT_TABS,
   termsAcceptedAt: null,
+  hiddenSongIds: [],
 };
 
 let hydrated = false;
@@ -338,6 +340,19 @@ export const setTabEnabled = (tabId: TabId, enabled: boolean) => {
 
 export const acceptTerms = () => {
   updatePersistedState({ termsAcceptedAt: Date.now() });
+};
+
+export const getHiddenSongIds = () => [...persistedState.hiddenSongIds];
+
+export const isSongHidden = (songId: string) => persistedState.hiddenSongIds.includes(songId);
+
+export const toggleHiddenSongId = (songId: string) => {
+  const nextHiddenSongIds = persistedState.hiddenSongIds.includes(songId)
+    ? persistedState.hiddenSongIds.filter(id => id !== songId)
+    : [...persistedState.hiddenSongIds, songId];
+
+  updatePersistedState({ hiddenSongIds: nextHiddenSongIds });
+  return nextHiddenSongIds;
 };
 
 export const registerSleepTimerListener = (listener: () => void) => {

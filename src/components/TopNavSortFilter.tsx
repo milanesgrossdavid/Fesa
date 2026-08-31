@@ -38,12 +38,27 @@ const TopNavSortFilter = ({
   };
 
   return (
-    <View className="px-5 py-4" style={{ backgroundColor: theme.background }}>
-      <View className="flex-row items-center justify-between">
+    <View
+      className="px-4 pb-3 pt-4"
+      style={{
+        backgroundColor: theme.background,
+      }}
+    >
+      <View className="flex-row items-center justify-between gap-3">
         <Pressable
-          className="flex-row items-center gap-2 rounded-full px-3 py-2"
+          className="flex-row items-center gap-2 rounded-full border px-3 py-2.5"
           onPress={() => setModalVisible(true)}
+          style={{
+            backgroundColor: theme.surface,
+            borderColor: theme.border,
+            shadowColor: '#000000',
+            shadowOpacity: 0.08,
+            shadowRadius: 8,
+            shadowOffset: { width: 0, height: 2 },
+            elevation: 2,
+          }}
         >
+          <FilterIcon size={14} color={theme.mutedText} />
           <Text className="text-sm font-bold" style={{ color: theme.text }}>{selectedLabel}</Text>
           {selectedDirection === 'desc' ? (
             <SortDescIcon size={16} color={theme.mutedText} />
@@ -56,11 +71,19 @@ const TopNavSortFilter = ({
       </View>
 
       <Modal transparent visible={modalVisible} animationType="fade" onRequestClose={() => setModalVisible(false)}>
-        <View className="flex-1 items-center justify-center px-6">
-          <Pressable className="absolute inset-0 bg-black/70" onPress={() => setModalVisible(false)} />
+        <View className="flex-1 items-center justify-center px-5">
+          <Pressable className="absolute inset-0 bg-black/50" onPress={() => setModalVisible(false)} />
           <View
-            className="w-full max-w-[400px] overflow-hidden rounded-[28px] p-2"
-            style={{ backgroundColor: theme.surface }}
+            className="w-full max-w-[420px] overflow-hidden rounded-[30px] border p-2"
+            style={{
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+              shadowColor: '#000000',
+              shadowOpacity: 0.18,
+              shadowRadius: 24,
+              shadowOffset: { width: 0, height: 10 },
+              elevation: 8,
+            }}
           >
             <View className="px-4 pb-2 pt-3">
               <Text className="text-lg font-bold" style={{ color: theme.text }}>Ordenar por</Text>
@@ -75,9 +98,10 @@ const TopNavSortFilter = ({
               return (
                 <Pressable
                   key={option.value}
-                  className="mx-2 mb-1 flex-row items-center justify-between rounded-2xl px-4 py-4"
+                  className="mx-2 flex-row items-center justify-between rounded-2xl border px-4 py-4"
                   style={{
                     backgroundColor: isSelected ? theme.background : 'transparent',
+                    borderColor: isSelected ? theme.accent : 'transparent',
                     marginBottom: index === sortOptions.length - 1 ? 8 : 4,
                   }}
                   onPress={() => handleSelectSort(option.value)}
@@ -90,9 +114,9 @@ const TopNavSortFilter = ({
                   </Text>
                   {isSelected ? (
                     selectedDirection === 'desc' ? (
-                      <SortDescIcon size={18} color={theme.text} />
+                      <SortDescIcon size={18} color={theme.accent} />
                     ) : (
-                      <SortAscIcon size={18} color={theme.text} />
+                      <SortAscIcon size={18} color={theme.accent} />
                     )
                   ) : null}
                 </Pressable>

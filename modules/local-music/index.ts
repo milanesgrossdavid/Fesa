@@ -1,5 +1,6 @@
 import { EventEmitter, requireNativeModule } from 'expo-modules-core';
 import { PermissionsAndroid, Platform } from 'react-native';
+import { getAppSettingsSnapshot } from '../../src/settings/appSettings';
 
 export type Song = {
   id: string;
@@ -31,9 +32,13 @@ const LocalMusic = requireNativeModule('LocalMusic');
 const localMusicEmitter = new EventEmitter(LocalMusic);
 
 let audioFilesRequest: Promise<Song[]> | null = null;
+let metadataWritePermissionStatus: 'unknown' | 'granted' | 'denied' = 'unknown';
 
 export async function getAudioFiles(): Promise<Song[]> {
-  return await LocalMusic.getAudioFiles();
+  const songs = await LocalMusic.getAudioFiles();
+  const hiddenSongIds = new Set(getAppSettingsSnapshot().hiddenSongIds ?? []);
+
+  return songs.filter(song => !hiddenSongIds.has(song.id));
 }
 
 export async function getAudioFilesWithPermission(): Promise<Song[]> {
@@ -79,6 +84,90 @@ export async function getAudioFilesWithPermission(): Promise<Song[]> {
 
 export async function deleteAudioFile(songId: string): Promise<boolean> {
   return await LocalMusic.deleteAudioFile(songId);
+}
+
+export type EqualizerBandState = {
+  index: number;
+  frequency: number;
+  level: number;
+  minLevel: number;
+  maxLevel: number;
+};
+
+export type EqualizerState = {
+  enabled: boolean;
+  bands: EqualizerBandState[];
+};
+
+export async function ensureAudioMetadataWritePermission(): Promise<boolean> {
+  if (Platform.OS !== 'android') {
+    return true;
+  }
+
+  if (metadataWritePermissionStatus === 'granted') {
+    return true;
+  }
+
+  if (metadataWritePermissionStatus === 'denied') {
+    return false;
+  }
+
+  const version = typeof Platform.Version === 'string'
+    ? parseInt(Platform.Version, 10)
+    : Platform.Version;
+
+  const permissionsToRequest: string[] = [];
+
+  if (version >= 33) {
+    permissionsToRequest.push(PermissionsAndroid.PERMISSIONS.READ_MEDIA_AUDIO);
+  } else if (version >= 29) {
+    permissionsToRequest.push(PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE);
+  } else {
+    permissionsToRequest.push(
+      PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+      PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+    );
+  }
+
+  if (!permissionsToRequest.length) {
+    metadataWritePermissionStatus = 'granted';
+    return true;
+  }
+
+  const results = await PermissionsAndroid.requestMultiple(permissionsToRequest);
+  const granted = permissionsToRequest.every((permission) => {
+    const result = results[permission];
+    return result === PermissionsAndroid.RESULTS.GRANTED;
+  });
+
+  metadataWritePermissionStatus = granted ? 'granted' : 'denied';
+  return granted;
+}
+
+export async function updateAudioMetadata(_songId: string, _metadata: {
+  title?: string | null;
+  artist?: string | null;
+  album?: string | null;
+  artworkUri?: string | null;
+}): Promise<boolean> {
+  console.warn('Metadata editing is disabled because the Android media write path is unstable in this build.');
+  return false;
+}
+
+export async function getEqualizerState(audioSessionId: number): Promise<EqualizerState | null> {
+  return await LocalMusic.getEqualizerState(audioSessionId);
+}
+
+export async function setEqualizerState(
+  audioSessionId: number,
+  enabled: boolean,
+  levels: number[]
+): Promise<boolean> {
+  return await LocalMusic.setEqualizerState(audioSessionId, enabled, levels);
+}
+
+export async function releaseEqualizer(audioSessionId: number): Promise<boolean> {
+  return await LocalMusic.releaseEqualizer(audioSessionId);
 }
 
 export async function shareAudioFile(songId: string): Promise<void> {

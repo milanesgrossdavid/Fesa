@@ -2,8 +2,10 @@ package expo.modules.localmusic
 
 import android.app.PendingIntent
 import android.content.ContentUris
+import android.content.ContentValues
 import android.content.Intent
 import android.media.RingtoneManager
+import android.media.audiofx.Equalizer
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
@@ -13,10 +15,30 @@ import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.localmusic.notification.MusicNotificationActionReceiver
 import expo.modules.localmusic.notification.MusicNotificationService
 import expo.modules.localmusic.notification.NotificationState
+import java.io.File
 
 class LocalMusicModule : Module() {
+  private val equalizersBySessionId = mutableMapOf<Int, Equalizer>()
+
   private fun audioUri(songId: String): Uri {
     return ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, songId.toLong())
+  }
+
+  private fun getOrCreateEqualizer(audioSessionId: Int): Equalizer? {
+    val existing = equalizersBySessionId[audioSessionId]
+    if (existing != null) {
+      return existing
+    }
+
+    return try {
+      val sessionId = audioSessionId.coerceAtLeast(0)
+      val equalizer = Equalizer(sessionId, 0)
+      equalizer.enabled = true
+      equalizersBySessionId[audioSessionId] = equalizer
+      equalizer
+    } catch (error: Exception) {
+      null
+    }
   }
 
   private fun folderFromRelativePath(relativePath: String?): String? {
@@ -174,6 +196,141 @@ class LocalMusicModule : Module() {
       }
 
       return@AsyncFunction context.contentResolver.delete(uri, null, null) > 0
+    }
+
+    AsyncFunction("updateAudioMetadata") { songId: String, title: String?, artist: String?, album: String?, artworkUri: String? ->
+      val context = appContext.reactContext ?: return@AsyncFunction false
+      val uri = audioUri(songId)
+
+      val values = ContentValues().apply {
+        if (title != null) {
+          put(MediaStore.Audio.Media.TITLE, title)
+        }
+        if (artist != null) {
+          put(MediaStore.Audio.Media.ARTIST, artist)
+        }
+        if (album != null) {
+          put(MediaStore.Audio.Media.ALBUM, album)
+        }
+      }
+
+      if (values.size() > 0) {
+        val updatedRows = try {
+          context.contentResolver.update(uri, values, null, null)
+        } catch (_: SecurityException) {
+          return@AsyncFunction false
+        } catch (_: Exception) {
+          return@AsyncFunction false
+        }
+
+        if (updatedRows <= 0) {
+          return@AsyncFunction false
+        }
+      }
+
+      if (!artworkUri.isNullOrBlank()) {
+        val albumId = context.contentResolver.query(
+          uri,
+          arrayOf(MediaStore.Audio.Media.ALBUM_ID),
+          null,
+          null,
+          null
+        )?.use { cursor ->
+          if (cursor.moveToFirst()) {
+            val albumIdColumnIndex = cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM_ID)
+            if (albumIdColumnIndex >= 0) {
+              cursor.getLong(albumIdColumnIndex)
+            } else {
+              -1L
+            }
+          } else {
+            -1L
+          }
+        } ?: -1L
+
+        if (albumId > 0L) {
+          val artUri = Uri.parse("content://media/external/audio/albumart/$albumId")
+          val sourceUri = Uri.parse(artworkUri)
+          val sourceStream = try {
+            when (sourceUri.scheme) {
+              "content" -> context.contentResolver.openInputStream(sourceUri)
+              "file" -> File(sourceUri.path ?: return@AsyncFunction true).inputStream()
+              else -> null
+            }
+          } catch (_: Exception) {
+            null
+          }
+          val outputStream = try {
+            context.contentResolver.openOutputStream(artUri, "w")
+          } catch (_: Exception) {
+            null
+          }
+
+          if (sourceStream != null && outputStream != null) {
+            try {
+              sourceStream.use { input ->
+                outputStream.use { output ->
+                  input.copyTo(output)
+                }
+              }
+            } catch (_: Exception) {
+              // Save title/artist/album metadata even if the artwork write is denied.
+            }
+          }
+        }
+      }
+
+      return@AsyncFunction true
+    }
+
+    AsyncFunction("getEqualizerState") { sessionId: Double ->
+      val equalizer = getOrCreateEqualizer(sessionId.toInt()) ?: return@AsyncFunction null
+      val bandRange = equalizer.bandLevelRange
+      val bandCount = equalizer.numberOfBands
+      val bands = (0 until bandCount).map { index ->
+        val bandIndex = index.toShort()
+        val minLevel = bandRange[0].toInt()
+        val maxLevel = bandRange[1].toInt()
+        val currentLevel = equalizer.getBandLevel(bandIndex).toInt()
+
+        mapOf(
+          "index" to index,
+          "frequency" to equalizer.getCenterFreq(bandIndex),
+          "level" to currentLevel.toDouble(),
+          "minLevel" to minLevel.toDouble(),
+          "maxLevel" to maxLevel.toDouble()
+        )
+      }
+
+      mapOf(
+        "enabled" to equalizer.enabled,
+        "bands" to bands
+      )
+    }
+
+    AsyncFunction("setEqualizerState") { sessionId: Double, enabled: Boolean, levels: Array<Double> ->
+      val equalizer = getOrCreateEqualizer(sessionId.toInt()) ?: return@AsyncFunction false
+      val bandRange = equalizer.bandLevelRange
+      val minLevel = bandRange[0].toInt()
+      val maxLevel = bandRange[1].toInt()
+
+      equalizer.enabled = enabled
+      if (levels.isNotEmpty()) {
+        val limit = minOf(equalizer.numberOfBands.toInt(), levels.size)
+        for (index in 0 until limit) {
+          val bandIndex = index.toShort()
+          val clamped = levels[index].coerceIn(minLevel.toDouble(), maxLevel.toDouble()).toInt()
+          equalizer.setBandLevel(bandIndex, clamped.toShort())
+        }
+      }
+
+      true
+    }
+
+    AsyncFunction("releaseEqualizer") { sessionId: Double ->
+      val equalizer = equalizersBySessionId.remove(sessionId.toInt())
+      equalizer?.release()
+      true
     }
 
     AsyncFunction("shareAudioFile") { songId: String ->

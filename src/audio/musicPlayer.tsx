@@ -171,6 +171,16 @@ const emit = () => {
 
 const getSnapshot = (): MusicPlayerSnapshot => cachedSnapshot;
 
+export const getAudioSessionId = () => {
+  const candidate = (player as any)?.audioSessionId ?? (player as any)?.getAudioSessionId?.();
+
+  if (typeof candidate === 'number' && Number.isFinite(candidate) && candidate > 0) {
+    return candidate;
+  }
+
+  return Platform.OS === 'android' ? 0 : null;
+};
+
 const buildLockScreenArtworkUrl = (artwork?: string | null) => {
   if (!artwork) {
     return undefined;
@@ -949,6 +959,7 @@ export const musicPlayer = {
   moveQueueSong,
   requestShowPlayer,
   clearShowPlayerRequest,
+  getAudioSessionId,
 };
 
 export const useMusicPlayer = () => {

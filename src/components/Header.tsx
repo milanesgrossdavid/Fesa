@@ -3,10 +3,11 @@ import { FlatList, Modal, Pressable, Text, TextInput, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppSettingsModal from './AppSettingsModal';
 import LibraryArtwork from './LibraryArtwork';
-import { BackIcon, SearchIcon, SettingsIcon } from '../Icons';
+import { SearchIcon, SettingsIcon } from '../Icons';
 import { getAudioFilesWithPermission, Song } from '../../modules/local-music';
 import { useMusicPlayer } from '../audio/musicPlayer';
 import { useAppSettings } from '../settings/appSettings';
+import { Ionicons } from '@expo/vector-icons';
 
 const Header = () => {
   const insets = useSafeAreaInsets();
@@ -107,19 +108,27 @@ const Header = () => {
   };
 
   return (
-    <View className="flex-row items-center justify-between px-5 py-4" style={{ backgroundColor: theme.background }}>
-      <Text className="text-[32px] font-bold tracking-[1.5px]" style={{ color: theme.text }}>FESA</Text>
-      <View className="flex-row items-center gap-2">
+    <View
+      className="flex-row items-center justify-between px-4 py-2"
+      style={{ backgroundColor: theme.background }}
+    >
+      <View style={{ height: 52, justifyContent: 'center' }}>
+        <Text style={{ color: theme.text, fontSize: 34, fontWeight: '700' }}>FESA</Text>
+      </View>
+      <View className="flex-row items-center">
         <Pressable
-          className="h-10 w-10 items-center justify-center rounded-full"
-          
+          className="h-11 w-11 items-center justify-center rounded-full"
+          style={({ pressed }) => ({ backgroundColor: pressed ? theme.surface : 'transparent' })}
           onPress={() => setSearchVisible(true)}
+          accessibilityLabel="Buscar"
         >
           <SearchIcon size={22} color={theme.text} />
         </Pressable>
         <Pressable
-          className="h-10 w-10 items-center justify-center rounded-full"
+          className="h-11 w-11 items-center justify-center rounded-full"
+          style={({ pressed }) => ({ backgroundColor: pressed ? theme.surface : 'transparent' })}
           onPress={() => setSettingsVisible(true)}
+          accessibilityLabel="Ajustes"
         >
           <SettingsIcon size={22} color={theme.text} />
         </Pressable>
@@ -134,27 +143,51 @@ const Header = () => {
             paddingBottom: insets.bottom,
           }}
         >
-          <View className="mb-3 flex-row items-center px-7 py-2">
+          <View style={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8 }}>
+                    <View className="flex-row items-center" style={{ height: 44 }}>
             <Pressable
-                        className="mr-2 h-10 w-10 items-center justify-center rounded-full"
-                        onPress={closeSearch}
-                      >
-                        <BackIcon size={24} color={theme.text} />
-                      </Pressable>
-            <Text className="text-2xl font-bold" style={{ color: theme.text }}>Buscar</Text>
-          </View>
-
-          <View className="mb-4 px-5">
-            <View
-              className="flex-row items-center rounded-3xl px-4"
-              style={{ backgroundColor: theme.surface }}
+              accessibilityRole="button"
+              accessibilityLabel="Cerrar ajustes"
+              style={({ pressed }) => ({
+                height: 32,
+                minWidth: 32,
+                paddingHorizontal: 4,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: pressed ? 0.5 : 1,
+              })}
+              onPress={closeSearch}
             >
-              <SearchIcon size={18} color={theme.mutedText} />
+              <Ionicons name="chevron-back" size={26} color={theme.accent} />
+              
+            </Pressable>
+            <Text
+              style={{
+              color: theme.text,
+              fontSize: 28,
+              fontWeight: '700',
+              letterSpacing: 0.37,
+              paddingHorizontal: 4,
+            }}
+            >
+              Buscar
+            </Text>
+          </View>
+                    
+                  </View>
+
+          <View className="mb-4 px-4">
+            <View
+              className="flex-row items-center rounded-xl px-3"
+              style={{ backgroundColor: theme.surface, height: 44 }}
+            >
+              <SearchIcon size={20} color={theme.mutedText} />
               <TextInput
                 autoFocus
-                className="ml-3 flex-1 py-3.5 text-base font-bold"
-                style={{ color: theme.text }}
-                cursorColor={theme.text}
+                className="ml-2 flex-1 text-base"
+                style={{ color: theme.text, height: '100%' }}
+                cursorColor={theme.accent}
                 placeholder="Canción, artista o álbum"
                 placeholderTextColor={theme.mutedText}
                 value={query}
@@ -167,49 +200,51 @@ const Header = () => {
               <Text className="mt-3 text-xs font-bold uppercase tracking-[1.2px]" style={{ color: theme.mutedText }}>
                 {filteredSongs.length} {filteredSongs.length === 1 ? 'resultado' : 'resultados'}
               </Text>
-            ) : (
-              <Text className="mt-5 text-center text-lg font-medium" style={{ color: theme.mutedText }}>
-                No hay busquedas recientes
-              </Text>
-            )}
+            ) : null}
           </View>
 
           <FlatList
             data={filteredSongs}
             keyExtractor={item => item.id}
             keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24 }}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
             ListEmptyComponent={
-              query.trim() ? (
-                <View
-                  className="mt-6 items-center rounded-3xl px-5 py-10"
-                  style={{ backgroundColor: theme.surface }}
-                >
-                  <Text className="text-base font-bold" style={{ color: theme.text }}>
-                    Sin resultados
-                  </Text>
-                  <Text className="mt-2 text-center text-sm" style={{ color: theme.mutedText }}>
-                    No encontramos coincidencias para “{query.trim()}”.
-                  </Text>
-                </View>
-              ) : null
+              <View className="items-center justify-center pt-4 text-center">
+                {query.trim() ? (
+                  <>
+                    <SearchIcon size={48} color={theme.mutedText} style={{ opacity: 0.5, marginBottom: 16 }} />
+                    <Text className="text-xl font-bold" style={{ color: theme.text }}>Sin resultados</Text>
+                    <Text className="mt-2 max-w-[80%] text-center" style={{ color: theme.mutedText, fontSize: 15, lineHeight: 22 }}>
+                      No encontramos coincidencias para “{query.trim()}”.
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <SearchIcon size={48} color={theme.mutedText} style={{ opacity: 0.5, marginBottom: 16 }} />
+                    <Text className="text-xl font-bold" style={{ color: theme.text }}>Busca en tu música</Text>
+                    <Text className="mt-2 max-w-[80%] text-center" style={{ color: theme.mutedText, fontSize: 15, lineHeight: 22 }}>
+                      Encuentra canciones, artistas y álbumes de tu biblioteca local.
+                    </Text>
+                  </>
+                )}
+              </View>
             }
             renderItem={({ item, index }) => (
               <Pressable
-                className="mb-2 flex-row items-center rounded-3xl px-3 py-3"
-                style={{ backgroundColor: theme.surface }}
+                className="flex-row items-center"
+                style={{ paddingVertical: 6 }}
                 onPress={() => playSearchResult(index)}
               >
                 <LibraryArtwork
                   artwork={item.artwork}
-                  className="mr-3 h-12 w-12 rounded-xl"
+                  className="mr-3 h-12 w-12 rounded-lg"
                   fallbackTextClassName="text-xl text-white"
                 />
-                <View className="flex-1">
-                  <Text className="text-base font-bold" style={{ color: theme.text }} numberOfLines={1}>
+                <View className="flex-1 border-b-[0.5px] py-2" style={{ borderBottomColor: theme.border, minHeight: 52, justifyContent: 'center' }}>
+                  <Text style={{ fontSize: 17, color: theme.text }} numberOfLines={1}>
                     {item.title}
                   </Text>
-                  <Text className="mt-1 text-sm" style={{ color: theme.mutedText }} numberOfLines={1}>
+                  <Text style={{ fontSize: 13, color: theme.mutedText, marginTop: 2 }} numberOfLines={1}>
                     {item.artist || 'Artista Desconocido'} • {item.album || 'Álbum Desconocido'}
                   </Text>
                 </View>

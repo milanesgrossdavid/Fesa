@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, Text } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import LibraryArtwork from './LibraryArtwork';
 import { useAppSettings } from '../settings/appSettings';
 
@@ -19,14 +19,20 @@ const LibraryPlaylistCard = ({ playlist, onPress }: LibraryPlaylistCardProps) =>
   const { theme } = useAppSettings();
 
   return (
-    <Pressable className="mb-5 flex-1" onPress={onPress}>
-      <LibraryArtwork
-        artwork={playlist.songs[0]?.artwork}
-        className="aspect-square w-full rounded-2xl"
-        fallbackTextClassName="text-4xl"
-        fallbackTextStyle={{ color: theme.accent }}
-      />
-      <Text className="mt-2 text-center text-base font-bold" style={{ color: theme.text }} numberOfLines={1}>
+    <Pressable
+      className="mb-5 flex-1 rounded-[26px] p-3"
+      onPress={onPress}
+    >
+      <View className="overflow-hidden rounded-[22px]">
+        <LibraryArtwork
+          artwork={playlist.songs[0]?.artwork}
+          className="aspect-square w-full rounded-[20px]"
+          fallbackTextClassName="text-4xl font-bold text-white"
+          fallbackTextStyle={{ color: theme.text }}
+        />
+      </View>
+
+      <Text className="mt-3 text-center text-base font-bold" style={{ color: theme.text }} numberOfLines={1}>
         {playlist.name}
       </Text>
       {playlist.subtitle ? (

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Text, View } from 'react-native';
 
 interface AutoScrollingTextProps {
@@ -7,19 +7,21 @@ interface AutoScrollingTextProps {
   style?: object;
 }
 
-const AutoScrollingText = ({
+const AutoScrollingText = React.memo(function AutoScrollingText({
   children,
   className,
   style,
-}: AutoScrollingTextProps) => {
+}: AutoScrollingTextProps) {
   const offset = useRef(new Animated.Value(0)).current;
   const [containerWidth, setContainerWidth] = useState(0);
   const [textWidth, setTextWidth] = useState(0);
+  const lastTextWidthRef = useRef(0);
 
   useEffect(() => {
-    setTextWidth(0);
     offset.stopAnimation();
     offset.setValue(0);
+    setTextWidth(0);
+    lastTextWidthRef.current = 0;
   }, [children, offset]);
 
   useEffect(() => {
@@ -54,6 +56,17 @@ const AutoScrollingText = ({
     return () => animation.stop();
   }, [children, containerWidth, offset, textWidth]);
 
+  const hiddenTextStyle = useMemo(
+    () => ({
+      position: 'absolute' as const,
+      left: 0,
+      top: 0,
+      width: 10000,
+      opacity: 0,
+    }),
+    []
+  );
+
   return (
     <View
       className="overflow-hidden"
@@ -78,23 +91,17 @@ const AutoScrollingText = ({
         numberOfLines={1}
         onTextLayout={({ nativeEvent }) => {
           const nextWidth = nativeEvent.lines[0]?.width ?? 0;
-          if (nextWidth !== textWidth) setTextWidth(nextWidth);
+          if (nextWidth !== lastTextWidthRef.current) {
+            lastTextWidthRef.current = nextWidth;
+            setTextWidth(nextWidth);
+          }
         }}
-        style={[
-          style,
-          {
-            position: 'absolute',
-            left: 0,
-            top: 0,
-            width: 10000,
-            opacity: 0,
-          },
-        ]}
+        style={[style, hiddenTextStyle]}
       >
         {children}
       </Text>
     </View>
   );
-};
+});
 
 export default AutoScrollingText;

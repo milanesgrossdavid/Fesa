@@ -33,33 +33,42 @@ const CreatePlaylistModal = ({
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView
-        className="flex-1 items-center justify-center px-6"
+        className="flex-1 items-center justify-center px-5"
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <Pressable className="absolute inset-0 bg-black/70" onPress={onClose} />
+        <Pressable className="absolute inset-0 bg-black/55" onPress={onClose} />
         <View
-          className="w-full max-w-[400px] rounded-[28px] p-5"
-          style={{ backgroundColor: theme.background }}
+          className="w-full max-w-[420px] rounded-[30px] border p-5"
+          style={{
+            backgroundColor: theme.background,
+            borderColor: theme.border,
+            shadowColor: '#000000',
+            shadowOpacity: 0.14,
+            shadowRadius: 22,
+            shadowOffset: { width: 0, height: 8 },
+            elevation: 8,
+          }}
         >
-          <View className="mb-6 flex-row items-start justify-between">
-            <View className="flex-1 flex-row items-center pr-4">
+          <View className="mb-5 flex-row items-start justify-between">
+            <View className="flex-1 flex-row items-center pr-3">
               <View
-                className="mr-3 h-14 w-14 items-center justify-center rounded-2xl"
-                style={{ backgroundColor: theme.text }}
+                className="mr-3 h-14 w-14 items-center justify-center rounded-[18px]"
+                style={{ backgroundColor: `${theme.accent}18` }}
               >
-                <PlaylistIcon size={28} color={theme.background} />
+                <PlaylistIcon size={28} color={theme.accent} />
               </View>
               <View className="flex-1">
-                <Text className="text-2xl font-bold" style={{ color: theme.text }}>
+                <Text className="text-[28px] font-bold leading-8" style={{ color: theme.text }}>
                   Nueva playlist
                 </Text>
                 <Text className="mt-1 text-sm" style={{ color: theme.mutedText }}>
-                  Tu música, a tu manera
+                  Organiza tu música favorita
                 </Text>
               </View>
             </View>
             <Pressable
               className="h-9 w-9 items-center justify-center rounded-full"
+              style={{ backgroundColor: theme.surface }}
               onPress={onClose}
               accessibilityRole="button"
               accessibilityLabel="Cerrar"
@@ -68,22 +77,21 @@ const CreatePlaylistModal = ({
             </Pressable>
           </View>
 
-          <View className="rounded-3xl p-4" style={{ backgroundColor: theme.surface }}>
+          <View className="rounded-[26px] border p-4" style={{ backgroundColor: theme.surface, borderColor: theme.border }}>
             <View className="mb-3 flex-row items-center justify-between">
-              <Text className="text-base font-bold ml-2" style={{ color: theme.text }}>
+              <Text className="ml-2 text-base font-bold" style={{ color: theme.text }}>
                 Nombre
               </Text>
-              <Text className="text-xs font-bold" style={{ color: theme.mutedText }}>
+              <Text className="text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: theme.mutedText }}>
                 {playlistName.trim().length}/60
               </Text>
             </View>
             <TextInput
               autoFocus
-              className="rounded-2xl px-4 py-4 text-base font-bold"
+              className="rounded-[18px] border px-4 py-4 text-base font-bold"
               style={{
                 backgroundColor: theme.background,
-                borderColor: canContinue ? theme.text : theme.border,
-                borderWidth: 1,
+                borderColor: canContinue ? theme.accent : theme.border,
                 color: theme.text,
               }}
               placeholder="Ej. Viaje de verano"
@@ -103,8 +111,8 @@ const CreatePlaylistModal = ({
 
           <View className="mt-5 flex-row gap-3">
             <Pressable
-              className="flex-1 items-center justify-center rounded-full py-4"
-              style={{ backgroundColor: theme.surface }}
+              className="flex-1 items-center justify-center rounded-full border py-4"
+              style={{ backgroundColor: theme.surface, borderColor: theme.border }}
               onPress={onClose}
             >
               <Text className="font-bold" style={{ color: theme.text }}>

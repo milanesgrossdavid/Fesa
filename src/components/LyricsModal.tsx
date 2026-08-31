@@ -887,7 +887,8 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
               <View className="-mt-1 flex-row items-center justify-between">
                 <Text
                   style={{
-                    color: theme.mutedText,
+                    color: "#fff",
+                    fontWeight: "600",
                     fontSize: 12,
                   }}
                 >
@@ -900,7 +901,8 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
 
                 <Text
                   style={{
-                    color: theme.mutedText,
+                    color: "#fff",
+                    fontWeight: "600",
                     fontSize: 12,
                   }}
                 >

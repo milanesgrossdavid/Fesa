@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Easing,
   FlatList,
@@ -126,6 +127,25 @@ const buildGroups = (songs: Song[], mode: LibraryGroupMode) => {
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
+};
+
+const HomeSectionHeader = ({ title, onPress }: { title: string; onPress?: () => void; }) => {
+  const { theme } = useAppSettings();
+
+  return (
+    <View className="flex-row items-center justify-between px-4 pb-2 pt-4">
+      <Text className="text-2xl font-bold" style={{ color: theme.text }}>{title}</Text>
+      {onPress ? (
+        <Pressable
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+          onPress={onPress}
+          accessibilityLabel={`Ver todo: ${title}`}
+        >
+          <Text style={{ color: theme.accent, fontSize: 16 }}>Ver todo</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
 };
 
 const HomeLibraryScreen = () => {
@@ -492,8 +512,15 @@ const HomeLibraryScreen = () => {
   };
 
   const defineTrackAs = async (song: Song, type: ToneType) => {
-    await setAudioAsTone(song.id, type);
+    const setAsTone = await setAudioAsTone(song.id, type);
     setDefineAsSong(null);
+
+    if (!setAsTone) {
+      return;
+    }
+
+    const toneLabel = type === 'ringtone' ? 'tono del dispositivo' : 'tono de alarma';
+    Alert.alert('Listo', `“${song.title}” se definió como ${toneLabel}.`);
   };
 
   const selectedGroupModal = (
@@ -571,6 +598,7 @@ const HomeLibraryScreen = () => {
           paddingBottom: isSelectionMode ? SELECTION_BAR_BOTTOM_INSET : MINI_PLAYER_BOTTOM_INSET,
         }}
       >
+        <HomeSectionHeader title="Más escuchadas" onPress={() => openGroup(homeMostPlayed, 'playlist')} />
         <HomeMostPlayedSection
           group={homeMostPlayed}
           limit={MOST_PLAYED_HOME_LIMIT}
@@ -578,6 +606,7 @@ const HomeLibraryScreen = () => {
           onPlaySong={index => playFromList(homeMostPlayed.songs, index)}
         />
 
+        <HomeSectionHeader title="Recién añadidas" onPress={() => openGroup(homeRecentlyAdded, 'playlist')} />
         <HomeRecentlyAddedSection
           group={homeRecentlyAdded}
           songs={recentSongs}
@@ -593,12 +622,16 @@ const HomeLibraryScreen = () => {
           onOpenTrackMenu={openTrackMenu}
         />
 
+        <HomeSectionHeader title="Artistas favoritos" />
         <HomeFavoriteArtistsSection artists={favoriteArtists} onOpenArtist={group => openGroup(group, 'artist')} />
 
+        <HomeSectionHeader title="Álbumes recomendados" />
         <HomeRecommendedAlbumsSection albums={recommendedAlbums} onOpenAlbum={group => openGroup(group, 'album')} />
 
+        <HomeSectionHeader title="Artistas recomendados" />
         <HomeRecommendedArtistsSection artists={recommendedArtists} onOpenArtist={group => openGroup(group, 'artist')} />
 
+        <HomeSectionHeader title="Canciones recomendadas" />
         <HomeRecommendedSongsCarousel
           songs={recommendedSongs}
           onPlaySong={index => playFromList(recommendedSongs, index)}

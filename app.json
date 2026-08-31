@@ -17,6 +17,12 @@
         }
       ],
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Necesitamos acceder a tus fotos para cambiar la portada de una pista."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#000",
@@ -37,19 +43,21 @@
       "permissions": [
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
         "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
-      "package": "com.davidmlnsgross.Fesa"
+      "package": "com.milanesgrossdavid.fesa"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "extra": {
       "eas": {
-        "projectId": "9112957e-e5c4-4d11-a31c-71ad048d1b81"
+        "projectId": "bb4fb4b7-fdbb-4e4e-a5ad-f4453aae4026"
       }
     }
   }

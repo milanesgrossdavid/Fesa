@@ -43,11 +43,7 @@ const HomeRecentlyAddedSection = ({
 }: HomeRecentlyAddedSectionProps) => {
   const { theme } = useAppSettings();
    return (
-  <View className="px-4 py-4">
-    <View className="mb-2">
-      <Text className="text-2xl text-center font-bold " style={{ color: theme.text }}>Recién añadidas</Text>
-    </View>
-
+  <View className="py-4">
     {songs.map((song, index) => {
       const isSelected = selectedSongIds.includes(song.id);
 

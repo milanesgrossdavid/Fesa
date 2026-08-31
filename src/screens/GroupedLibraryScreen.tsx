@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Easing,
   FlatList,
@@ -436,8 +437,15 @@ const GroupedLibraryScreen = ({ mode, title }: GroupedLibraryScreenProps) => {
   };
 
   const defineTrackAs = async (song: Song, type: ToneType) => {
-    await setAudioAsTone(song.id, type);
+    const setAsTone = await setAudioAsTone(song.id, type);
     setDefineAsSong(null);
+
+    if (!setAsTone) {
+      return;
+    }
+
+    const toneLabel = type === 'ringtone' ? 'tono del dispositivo' : 'tono de alarma';
+    Alert.alert('Listo', `“${song.title}” se definió como ${toneLabel}.`);
   };
 
   const renderTopNav = () => {

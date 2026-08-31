@@ -38,37 +38,48 @@ const RelatedTracksModal = ({
       <View className="flex-1 justify-end">
         <Pressable className="absolute inset-0 bg-black/70" onPress={onClose} />
         <View
-          className="max-h-[82%] rounded-t-[32px] px-5 pt-3"
+          className="max-h-[82%] rounded-t-[32px] px-4 pt-3"
           style={{
             backgroundColor: theme.background,
             paddingBottom: Math.max(insets.bottom, 24),
+            borderTopColor: theme.border,
+            borderTopWidth: 1,
+            shadowColor: '#000',
+            shadowOpacity: 0.2,
+            shadowRadius: 20,
+            shadowOffset: { width: 0, height: -8 },
+            elevation: 16,
           }}
         >
           <View className="mb-4 items-center">
-            <View className="h-1 w-10 rounded-full bg-white/20" />
+            <View className="h-1.5 w-12 rounded-full" style={{ backgroundColor: theme.mutedText + '99' }} />
           </View>
 
-          <View className="mb-4 flex-row items-start justify-between">
+          <View className="mb-4 flex-row items-center justify-between px-1">
             <View className="flex-1 pr-4">
-              <Text className="text-xl font-bold" style={{ color: theme.text }}>
-                {isArtist ? 'Artista' : 'Álbum'}
-              </Text>
-              <Text className="mt-1 text-sm" style={{ color: theme.mutedText }}>
+              <Text className="mt-1 text-xs font-semibold uppercase tracking-[1.1px]" style={{ color: theme.mutedText }}>
                 {songs.length} {songs.length === 1 ? 'canción' : 'canciones'}
               </Text>
             </View>
-            <Pressable onPress={onClose}>
-              <Text className="font-bold" style={{ color: theme.text }}>Cerrar</Text>
+            <Pressable
+              className="rounded-full  px-3 py-2"
+              onPress={onClose}
+            >
+              <Text className="text-sm font-semibold" style={{ color: theme.text }}>Cerrar</Text>
             </Pressable>
           </View>
 
           <View className="mb-4 items-center">
-            <LibraryArtwork
-              artwork={artwork ?? songs[0]?.artwork}
-              fallback={isArtist ? title.charAt(0).toUpperCase() : '♪'}
-              className={`h-36 w-36 ${isArtist ? 'rounded-full' : 'rounded-[28px]'}`}
-              fallbackTextClassName="text-5xl font-bold text-white"
-            />
+            <View
+              className="rounded-[30px] p-2.5"
+            >
+              <LibraryArtwork
+                artwork={artwork ?? songs[0]?.artwork}
+                fallback={isArtist ? title.charAt(0).toUpperCase() : '♪'}
+                className={`h-36 w-36 ${isArtist ? 'rounded-full' : 'rounded-[28px]'}`}
+                fallbackTextClassName="text-5xl font-bold text-white"
+              />
+            </View>
             <Text
               className="mt-4 text-center text-2xl font-bold"
               style={{ color: theme.text }}
@@ -85,11 +96,12 @@ const RelatedTracksModal = ({
             {onPlayAll && songs.length > 0 ? (
               <Pressable
                 className="mt-4 flex-row items-center gap-2 rounded-full px-5 py-3"
-                style={{ backgroundColor: theme.text }}
+                style={{ backgroundColor: theme.surface
+                 }}
                 onPress={onPlayAll}
               >
-                <PlayIcon size={16} color={theme.background} />
-                <Text className="font-bold" style={{ color: theme.background }}>
+                <PlayIcon size={16} color={theme.text} />
+                <Text className="font-bold" style={{ color: theme.text }}>
                   Reproducir todo
                 </Text>
               </Pressable>
@@ -100,10 +112,10 @@ const RelatedTracksModal = ({
             data={songs}
             keyExtractor={(item, index) => `${item.id}-${index}`}
             showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 12 }}
             renderItem={({ item, index }) => (
               <Pressable
-                className="mb-2 flex-row items-center rounded-3xl px-3 py-3"
-                style={{ backgroundColor: theme.surface }}
+                className="mb-2 flex-row items-center rounded-[22px] px-3 py-3"
                 onPress={() => onSelectSong(index)}
               >
                 <LibraryArtwork

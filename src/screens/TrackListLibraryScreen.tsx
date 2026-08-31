@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, GestureResponderEvent, PermissionsAndroid, Platform, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, GestureResponderEvent, PermissionsAndroid, Platform, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { deleteAudioFile, getAudioFiles, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
@@ -20,6 +20,7 @@ import { MINI_PLAYER_BOTTOM_INSET, SELECTION_BAR_BOTTOM_INSET } from '../utils/l
 import { loadSortPreference, saveSortPreference } from '../utils/sortPreferences';
 import PlayerScreen from './PlayerScreen';
 import { Pressable } from 'react-native';
+import { FavoritedIcon } from '../Icons';
 
 type TrackListMode = 'tracks' | 'favorites';
 
@@ -328,8 +329,15 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
   };
 
   const defineTrackAs = async (song: Song, type: ToneType) => {
-    await setAudioAsTone(song.id, type);
+    const setAsTone = await setAudioAsTone(song.id, type);
     setDefineAsSong(null);
+
+    if (!setAsTone) {
+      return;
+    }
+
+    const toneLabel = type === 'ringtone' ? 'tono del dispositivo' : 'tono de alarma';
+    Alert.alert('Listo', `“${song.title}” se definió como ${toneLabel}.`);
   };
 
   const playAllTracks = () => {
@@ -357,11 +365,14 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
   const renderHeader = () => {
     if (mode === 'favorites') {
       return (
-        <TopNavFavoritos
-          selectedSort={trackSort}
-          selectedDirection={trackSortDirection}
-          onSortChange={handleTrackSortChange}
-        />
+        <View style={{ backgroundColor: theme.background }}>
+
+          <TopNavFavoritos
+            selectedSort={trackSort}
+            selectedDirection={trackSortDirection}
+            onSortChange={handleTrackSortChange}
+          />
+        </View>
       );
     }
 
@@ -419,7 +430,34 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
         keyExtractor={item => item.id}
         ListHeaderComponent={renderHeader()}
         ListEmptyComponent={
-          <Text className="px-5 py-8 text-center text-sm" style={{ color: theme.mutedText }}>{emptyMessage}</Text>
+          <View className="px-4 py-6">
+            <View
+              className="items-center rounded-[30px] border px-6 py-8"
+              style={{
+                backgroundColor: theme.surface,
+                borderColor: theme.border,
+                shadowColor: '#000000',
+                shadowOpacity: 0.06,
+                shadowRadius: 10,
+                shadowOffset: { width: 0, height: 3 },
+                elevation: 2,
+              }}
+            >
+              <View
+                className="mb-4 h-16 w-16 items-center justify-center rounded-full"
+                style={{ backgroundColor: `${theme.accent}18` }}
+              >
+                <FavoritedIcon size={28} color={theme.accent} />
+              </View>
+
+              <Text className="mb-2 text-xl font-bold" style={{ color: theme.text }}>
+                {mode === 'favorites' ? 'No hay favoritos todavía' : 'Nada por aquí'}
+              </Text>
+              <Text className="text-center text-sm leading-6" style={{ color: theme.mutedText }}>
+                {emptyMessage}
+              </Text>
+            </View>
+          </View>
         }
         contentContainerStyle={{ paddingBottom: isSelectionMode ? SELECTION_BAR_BOTTOM_INSET : MINI_PLAYER_BOTTOM_INSET }}
         renderItem={({ item, index }) => {

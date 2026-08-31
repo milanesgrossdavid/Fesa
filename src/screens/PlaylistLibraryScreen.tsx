@@ -654,8 +654,15 @@ const PlaylistLibraryScreen = () => {
   };
 
   const defineTrackAs = async (song: Song, type: ToneType) => {
-    await setAudioAsTone(song.id, type);
+    const setAsTone = await setAudioAsTone(song.id, type);
     setDefineAsSong(null);
+
+    if (!setAsTone) {
+      return;
+    }
+
+    const toneLabel = type === 'ringtone' ? 'tono del dispositivo' : 'tono de alarma';
+    Alert.alert('Listo', `“${song.title}” se definió como ${toneLabel}.`);
   };
 
   const playSelectedPlaylist = () => {

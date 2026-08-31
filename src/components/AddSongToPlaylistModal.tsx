@@ -39,44 +39,64 @@ const AddSongToPlaylistModal = ({
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
       <View className="flex-1 justify-end">
-        <Pressable className="absolute inset-0 bg-black/70" onPress={onClose} />
+        <Pressable className="absolute inset-0 bg-black/55" onPress={onClose} />
         <View
-          className="max-h-[78%] rounded-t-[32px] px-5 pt-3"
+          className="max-h-[80%] rounded-t-[30px] border px-4 pt-3"
           style={{
             backgroundColor: theme.background,
-            paddingBottom: Math.max(insets.bottom, 24),
+            borderColor: theme.border,
+            paddingBottom: Math.max(insets.bottom, 18),
+            shadowColor: '#000000',
+            shadowOpacity: 0.12,
+            shadowRadius: 18,
+            shadowOffset: { width: 0, height: -6 },
+            elevation: 8,
           }}
         >
           <View className="mb-4 items-center">
-            <View className="h-1 w-10 rounded-full bg-white/20" />
+            <View className="h-1.5 w-12 rounded-full" style={{ backgroundColor: `${theme.text}40` }} />
           </View>
 
-          <View className="mb-4 flex-row items-start justify-between">
-            <View className="flex-1 pr-4">
-              <Text className="text-xl font-bold" style={{ color: theme.text }}>
-                Añadir a playlist
-              </Text>
-              <Text className="mt-1 text-sm" style={{ color: theme.mutedText }} numberOfLines={1}>
-                {songsToAddCount > 1
-                  ? `${songsToAddCount} canciones seleccionadas`
-                  : songToAdd?.title}
-              </Text>
+          <View className="mb-5 flex-row items-center justify-between">
+            <View className="flex-row items-center gap-3">
+              <View
+                className="h-11 w-11 items-center justify-center rounded-full"
+                style={{ backgroundColor: `${theme.accent}18` }}
+              >
+                <PlusIcon size={20} color={theme.accent} />
+              </View>
+
+              <View className="flex-1 pr-3">
+                <Text className="text-xl font-bold" style={{ color: theme.text }}>
+                  Añadir a playlist
+                </Text>
+                <Text className="mt-1 text-sm" style={{ color: theme.mutedText }} numberOfLines={1}>
+                  {songsToAddCount > 1
+                    ? `${songsToAddCount} canciones seleccionadas`
+                    : songToAdd?.title ?? 'Canción'}
+                </Text>
+              </View>
             </View>
-            <Pressable onPress={onClose}>
-              <Text className="font-bold" style={{ color: theme.text }}>Cerrar</Text>
+
+            <Pressable
+              className="h-9 items-center justify-center rounded-full px-3"
+              style={{ backgroundColor: theme.surface }}
+              onPress={onClose}
+            >
+              <Text className="text-sm font-bold" style={{ color: theme.text }}>Cerrar</Text>
             </Pressable>
           </View>
 
-          <ScrollView className="mb-3" showsVerticalScrollIndicator={false}>
+          <ScrollView className="mb-4" showsVerticalScrollIndicator={false}>
             {playlists.length === 0 ? (
               <View
-                className="mb-3 items-center rounded-3xl px-4 py-8"
-                style={{ backgroundColor: theme.surface }}
+                className="items-center rounded-[26px] border px-5 py-8"
+                style={{ backgroundColor: theme.surface, borderColor: theme.border }}
               >
                 <Text className="text-base font-bold" style={{ color: theme.text }}>
                   Aún no tienes playlists
                 </Text>
-                <Text className="mt-2 text-center text-sm" style={{ color: theme.mutedText }}>
+                <Text className="mt-2 text-center text-sm leading-5" style={{ color: theme.mutedText }}>
                   Crea una lista nueva para guardar estas canciones.
                 </Text>
               </View>
@@ -90,24 +110,40 @@ const AddSongToPlaylistModal = ({
                 return (
                   <Pressable
                     key={playlist.id}
-                    className="mb-2 rounded-3xl px-4 py-4"
+                    className="mb-2 rounded-[24px] border px-4 py-3"
                     style={{
-                      backgroundColor: theme.surface,
-                      opacity: alreadyAdded ? 0.55 : 1,
+                      backgroundColor: alreadyAdded ? `${theme.surface}80` : theme.surface,
+                      borderColor: alreadyAdded ? theme.border : theme.border,
+                      opacity: alreadyAdded ? 0.7 : 1,
                     }}
                     disabled={alreadyAdded}
                     onPress={() => onAddToPlaylist(playlist.id)}
                   >
-                    <Text className="text-base font-bold" style={{ color: theme.text }}>
-                      {playlist.name}
-                    </Text>
-                    <Text className="mt-1 text-sm" style={{ color: theme.mutedText }}>
-                      {alreadyAdded
-                        ? `${songsToAddCount > 1 ? 'Estas canciones ya están' : 'Esta canción ya está'} en la lista`
-                        : songsToAddCount > 1
-                          ? `${pendingSongCount} ${pendingSongCount === 1 ? 'canción nueva' : 'canciones nuevas'} para añadir`
-                          : `${playlist.songIds.length} ${playlist.songIds.length === 1 ? 'canción' : 'canciones'}`}
-                    </Text>
+                    <View className="flex-row items-center justify-between gap-2">
+                      <View className="flex-1 pr-2">
+                        <Text className="text-base font-bold" style={{ color: theme.text }}>
+                          {playlist.name}
+                        </Text>
+                        <Text className="mt-1 text-sm" style={{ color: theme.mutedText }}>
+                          {alreadyAdded
+                            ? `${songsToAddCount > 1 ? 'Estas canciones ya están' : 'Esta canción ya está'} en la lista`
+                            : songsToAddCount > 1
+                              ? `${pendingSongCount} ${pendingSongCount === 1 ? 'canción nueva' : 'canciones nuevas'} para añadir`
+                              : `${playlist.songIds.length} ${playlist.songIds.length === 1 ? 'canción' : 'canciones'}`}
+                        </Text>
+                      </View>
+
+                      {alreadyAdded ? (
+                        <View
+                          className="h-7 w-7 items-center justify-center rounded-full"
+                          style={{ backgroundColor: `${theme.accent}20` }}
+                        >
+                          <Text className="text-xs font-bold" style={{ color: theme.accent }}>
+                            ✓
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
                   </Pressable>
                 );
               })
@@ -120,7 +156,7 @@ const AddSongToPlaylistModal = ({
             onPress={onCreatePlaylist}
           >
             <PlusIcon size={18} color={theme.background} />
-            <Text className="text-center font-bold" style={{ color: theme.background }}>
+            <Text className="text-center text-base font-bold" style={{ color: theme.background }}>
               Crear lista nueva
             </Text>
           </Pressable>

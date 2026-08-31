@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Song } from '../../modules/local-music';
 import LibraryArtwork from './LibraryArtwork';
+import AutoScrollingText from './AutoScrollingText';
 import { useAppSettings } from '../settings/appSettings';
 
 type SongGroup = {
@@ -24,19 +25,20 @@ const HomeRecommendedArtistsSection = ({
   const { theme } = useAppSettings();
 
   return (
-  <View className="mx-4 px-4 py-4">
-    <Text className="mb-2 text-2xl text-center font-bold" style={{ color: theme.text }}>Artistas recomendados</Text>
-    <View className="flex-row flex-wrap gap-4">
+  <View className="py-4">
+    <View className="flex-row flex-wrap justify-between gap-y-6 px-4">
       {artists.map(artist => (
         <Pressable key={artist.id} className="w-[47%]" onPress={() => onOpenArtist(artist)}>
           <LibraryArtwork
             artwork={artist.artwork}
             fallback={artist.name.charAt(0).toUpperCase()}
-            className="aspect-[1.15] w-full rounded-3xl"
+            className="aspect-square w-full rounded-2xl"
           />
-          <Text className="mt-2 text-sm font-bold text-center" style={{ color: theme.text }} numberOfLines={1}>
-            {artist.name}
-          </Text>
+          <View className="w-full px-1">
+            <AutoScrollingText key={`${artist.id}-name`} className="mt-2 text-center text-sm font-bold" style={{ color: theme.text }}>
+              {artist.name}
+            </AutoScrollingText>
+          </View>
         </Pressable>
       ))}
     </View>

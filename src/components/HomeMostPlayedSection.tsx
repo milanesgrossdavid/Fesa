@@ -42,13 +42,9 @@ const HomeMostPlayedSection = ({
 
   return (
     <View className="px-4 py-4">
-      <View className="mb-2">
-        <Text className="text-2xl text-center font-bold" style={{ color: theme.text }}>Más escuchadas</Text>
-      </View>
-
       {topSong ? (
         <>
-          <View className="mx-4">
+          <View className="mx-4 mb-4">
             <View className="aspect-[1.75] w-full overflow-hidden rounded-3xl" style={{ backgroundColor: theme.surface }}>
               <LibraryArtwork
                 artwork={topSong.artwork}

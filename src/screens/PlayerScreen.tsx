@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Alert,
   Image,
   Modal,
+  PanResponder,
+  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -15,12 +18,15 @@ import * as Font from "expo-font";
 import {
   deleteAudioFile,
   getAudioFilesWithPermission,
+  getEqualizerState,
+  releaseEqualizer,
   setAudioAsTone,
+  setEqualizerState,
   shareAudioFile,
   Song,
   ToneType,
 } from "../../modules/local-music";
-import { useMusicPlayer } from "../audio/musicPlayer";
+import { getAudioSessionId, useMusicPlayer } from "../audio/musicPlayer";
 import AppSettingsModal from "../components/AppSettingsModal";
 import AudioWaveBars from "../components/AudioWaveBars";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
@@ -50,7 +56,6 @@ import { formatDuration } from "../utils/time";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import { useAppSettings } from "../settings/appSettings";
 import { LinearGradient } from "expo-linear-gradient";
-import { BlurTargetView, BlurView } from "expo-blur";
 import { useDominantColor, withAlpha } from "../hooks/useDominantColor";
 import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 
@@ -64,6 +69,24 @@ type RelatedSongsState = {
   songs: Song[];
 } | null;
 
+type EqualizerBand = {
+  index: number;
+  frequency: number;
+  level: number;
+  minLevel: number;
+  maxLevel: number;
+};
+
+const EQUALIZER_PRESETS: Record<string, number[]> = {
+  Flat: [0, 0, 0, 0, 0, 0, 0],
+  Bass: [4, 7, 8, 5, 2, 1, 0],
+  Vocal: [1, 2, 5, 7, 5, 2, 1],
+  Rock: [5, 7, 6, 4, 3, 2, 1],
+  Pop: [2, 4, 6, 5, 4, 2, 1],
+  Treble: [0, 0, 2, 4, 6, 7, 8],
+  Club: [6, 8, 7, 5, 4, 3, 2],
+};
+
 const LOCK_DATE_FONT = "BlackOpsOne-Regular";
 const LOCK_TIME_FONT = "BlackOpsOne-Regular";
 const UNKNOWN_ALBUM = "Álbum Desconocido";
@@ -71,6 +94,94 @@ const UNKNOWN_ARTIST = "Artista Desconocido";
 const DEFAULT_MUSIC_ARTWORK = require("../../assets/musicNotFound.jpg");
 const normalizeValue = (value: string | null | undefined, fallback: string) =>
   value?.trim() || fallback;
+
+const VerticalEqualizerSlider = ({
+  band,
+  activeColor,
+  onChange,
+}: {
+  band: EqualizerBand;
+  activeColor: string;
+  onChange: (nextLevel: number) => void;
+}) => {
+  const trackRef = useRef<View>(null);
+
+  const updateLevelFromPointer = (pointerY: number) => {
+    if (!trackRef.current) {
+      return;
+    }
+
+    trackRef.current.measureInWindow((x, y, width, height) => {
+      const top = y;
+      const bottom = y + height;
+      const safeHeight = Math.max(height, 1);
+      const clampedY = Math.min(Math.max(pointerY, top), bottom);
+      const percent = (bottom - clampedY) / safeHeight;
+      const nextLevel = band.minLevel + (band.maxLevel - band.minLevel) * percent;
+      onChange(Math.round(nextLevel));
+    });
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (_, gestureState) => {
+        updateLevelFromPointer(gestureState.y0);
+      },
+      onPanResponderMove: (_, gestureState) => {
+        updateLevelFromPointer(gestureState.moveY);
+      },
+    })
+  ).current;
+
+  const fillPercent = Math.max(
+    6,
+    ((band.level - band.minLevel) / Math.max(1, band.maxLevel - band.minLevel)) * 100,
+  );
+
+  return (
+    <View className="items-center justify-center" style={{ width: 32 }}>
+      <View
+        ref={trackRef}
+        className="relative h-32 w-2.5 rounded-full"
+        style={{
+          backgroundColor: 'rgba(255,255,255,0.14)',
+          borderWidth: 1,
+          borderColor: activeColor + '66',
+          overflow: 'visible',
+        }}
+        {...panResponder.panHandlers}
+      >
+        <View
+          pointerEvents="none"
+          className="absolute bottom-0 left-0 right-0 rounded-full"
+          style={{
+            height: `${fillPercent}%`,
+            backgroundColor: activeColor,
+            minHeight: 10,
+          }}
+        />
+        <View
+          pointerEvents="none"
+          className="absolute rounded-full border border-white/70"
+          style={{
+            width: 18,
+            height: 18,
+            backgroundColor: activeColor,
+            left: '50%',
+            transform: [{ translateX: -9 }, {translateY: 18}],
+            bottom: `${Math.max(6, fillPercent)}%`,
+            shadowColor: '#000',
+            shadowOpacity: 0.28,
+            shadowRadius: 6,
+            shadowOffset: { width: 0, height: 3 },
+          }}
+        />
+      </View>
+    </View>
+  );
+};
 
 const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
   const {
@@ -119,6 +230,11 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
   const [defineAsVisible, setDefineAsVisible] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [lyricsVisible, setLyricsVisible] = useState(false);
+  const [equalizerVisible, setEqualizerVisible] = useState(false);
+  const [equalizerBands, setEqualizerBands] = useState<EqualizerBand[]>([]);
+  const [equalizerEnabled, setEqualizerEnabled] = useState(true);
+  const [equalizerLoading, setEqualizerLoading] = useState(false);
+  const [equalizerSessionId, setEqualizerSessionId] = useState<number | null>(null);
   const [relatedSongs, setRelatedSongs] = useState<RelatedSongsState>(null);
   const [lockFontsLoaded, setLockFontsLoaded] = useState(false);
 
@@ -151,7 +267,10 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
       );
   }, []);
 
-  const currentQueue = queue.length ? queue : currentSong ? [currentSong] : [];
+  const currentQueue = useMemo(
+    () => (queue.length ? queue : currentSong ? [currentSong] : []),
+    [queue, currentSong],
+  );
 
   const isCurrentSongFavorite = currentSong
     ? favoriteSongIds.includes(currentSong.id)
@@ -165,6 +284,107 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
 
   const repeatActive = playbackMode !== "linear";
   const closeTrackMenu = () => setTrackMenuVisible(false);
+
+  useEffect(() => {
+    return () => {
+      if (equalizerSessionId != null && equalizerSessionId > 0) {
+        void releaseEqualizer(equalizerSessionId);
+      }
+    };
+  }, [equalizerSessionId]);
+
+  const applyEqualizerBands = async (nextBands: EqualizerBand[], nextEnabled: boolean) => {
+    if (equalizerSessionId == null || equalizerSessionId <= 0) {
+      return;
+    }
+
+    const levels = nextBands.map(band => Number(band.level));
+    await setEqualizerState(equalizerSessionId, nextEnabled, levels);
+  };
+
+  const openEqualizer = async () => {
+    closeTrackMenu();
+
+    if (Platform.OS !== 'android') {
+      Alert.alert('Ecualizador', 'El ecualizador solo está disponible en Android.');
+      return;
+    }
+
+    const sessionId = getAudioSessionId() ?? 0;
+    setEqualizerSessionId(sessionId);
+    setEqualizerVisible(true);
+    setEqualizerLoading(true);
+
+    try {
+      const state = await getEqualizerState(sessionId);
+      if (!state || !state.bands.length) {
+        setEqualizerEnabled(true);
+        setEqualizerBands([
+          { index: 0, frequency: 250, level: 0, minLevel: -1500, maxLevel: 1500 },
+          { index: 1, frequency: 500, level: 0, minLevel: -1500, maxLevel: 1500 },
+          { index: 2, frequency: 1000, level: 0, minLevel: -1500, maxLevel: 1500 },
+          { index: 3, frequency: 2000, level: 0, minLevel: -1500, maxLevel: 1500 },
+          { index: 4, frequency: 4000, level: 0, minLevel: -1500, maxLevel: 1500 },
+          { index: 5, frequency: 8000, level: 0, minLevel: -1500, maxLevel: 1500 },
+          { index: 6, frequency: 16000, level: 0, minLevel: -1500, maxLevel: 1500 },
+        ]);
+        setEqualizerVisible(true);
+        return;
+      }
+      if (!state || !state.bands.length) {
+        Alert.alert("Ecualizador", "No se pudo inicializar el ecualizador para esta pista.");
+        setEqualizerVisible(false);
+        return;
+      }
+
+      setEqualizerEnabled(state.enabled);
+      setEqualizerBands(state.bands.map(band => ({
+        index: band.index,
+        frequency: Number(band.frequency),
+        level: Number(band.level),
+        minLevel: Number(band.minLevel),
+        maxLevel: Number(band.maxLevel),
+      })));
+    } catch (error) {
+      console.warn("No se pudo cargar el ecualizador:", error);
+      Alert.alert("Ecualizador", "No se pudo cargar el ecualizador del reproductor.");
+      setEqualizerVisible(false);
+    } finally {
+      setEqualizerLoading(false);
+    }
+  };
+
+  const toggleEqualizer = async () => {
+    const activeSessionId = equalizerSessionId ?? getAudioSessionId() ?? 0;
+    const nextEnabled = !equalizerEnabled;
+    setEqualizerEnabled(nextEnabled);
+
+    if (equalizerBands.length) {
+      await setEqualizerState(activeSessionId, nextEnabled, equalizerBands.map(band => Number(band.level)));
+    }
+  };
+
+  const applyPreset = async (presetName: string) => {
+    if (!equalizerBands.length) {
+      return;
+    }
+
+    const presetLevels = EQUALIZER_PRESETS[presetName] ?? EQUALIZER_PRESETS.Flat;
+    const nextBands = equalizerBands.map((band, index) => {
+      const min = band.minLevel;
+      const max = band.maxLevel;
+      const target = presetLevels[index] ?? presetLevels[presetLevels.length - 1] ?? 0;
+      const normalizedTarget = target * 150;
+
+      return {
+        ...band,
+        level: Math.max(min, Math.min(max, normalizedTarget)),
+      };
+    });
+
+    setEqualizerBands(nextBands);
+    await applyEqualizerBands(nextBands, equalizerEnabled);
+  };
 
   const openRelatedSongs = (type: "album" | "artist") => {
     if (!currentSong) return;
@@ -189,7 +409,14 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
   const defineSongAs = async (type: ToneType) => {
     if (!currentSong) return;
     setDefineAsVisible(false);
-    await setAudioAsTone(currentSong.id, type);
+
+    const setAsTone = await setAudioAsTone(currentSong.id, type);
+    if (!setAsTone) {
+      return;
+    }
+
+    const toneLabel = type === 'ringtone' ? 'tono del dispositivo' : 'tono de alarma';
+    Alert.alert('Listo', `“${currentSong.title}” se definió como ${toneLabel}.`);
   };
 
   const deleteCurrentSong = async () => {
@@ -319,16 +546,26 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
     setVolume(nextVolume);
   };
 
-  const now = new Date();
-  const lockScreenDate = now.toLocaleDateString("es-ES", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
-  const lockScreenTime = now.toLocaleTimeString("es-ES", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const formatFrequencyLabel = (frequency: number) =>
+    frequency >= 1000 ? `${Math.round(frequency / 1000)}k` : `${Math.round(frequency)}`;
+
+  const lockScreenDate = useMemo(
+    () =>
+      new Date().toLocaleDateString("es-ES", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+      }),
+    [],
+  );
+  const lockScreenTime = useMemo(
+    () =>
+      new Date().toLocaleTimeString("es-ES", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    [],
+  );
 
   return (
     <Modal
@@ -375,16 +612,10 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
         ) : null}
         <LinearGradient
           pointerEvents="none"
-          colors={[withAlpha(dominantColor, 0.94), withAlpha(dominantColor, 0.62), "#0a0a0a"]}
-          locations={[0, 0.68, 1]}
+          colors={[withAlpha(dominantColor, 0.7), withAlpha(dominantColor, 0.28), "#0a0a0a"]}
+          locations={[0, 0.65, 1]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
-        />
-        <LinearGradient
-          pointerEvents="none"
-          colors={[withAlpha(dominantColor, 0.2), "transparent", "rgba(0,0,0,0.42)"]}
-          locations={[0, 0.45, 1]}
           style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
         />
         {/* Header */}
@@ -552,18 +783,21 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
           </View>
         </View>
 
-        <QueuePlaylistModal
-          visible={queueVisible}
-          queue={currentQueue}
-          currentIndex={currentIndex}
-          onClose={() => setQueueVisible(false)}
-          onSelectSong={index => {
-            setQueueVisible(false);
-            void playSong(currentQueue, index);
-          }}
-        />
+        {queueVisible ? (
+          <QueuePlaylistModal
+            visible={queueVisible}
+            queue={currentQueue}
+            currentIndex={currentIndex}
+            onClose={() => setQueueVisible(false)}
+            onSelectSong={index => {
+              setQueueVisible(false);
+              void playSong(currentQueue, index);
+            }}
+          />
+        ) : null}
 
-        <Modal transparent visible={trackMenuVisible} animationType="fade" onRequestClose={closeTrackMenu}>
+        {trackMenuVisible ? (
+          <Modal transparent visible={trackMenuVisible} animationType="fade" onRequestClose={closeTrackMenu}>
           <View className="flex-1 justify-end">
             <Pressable className="absolute inset-0 bg-black/70" onPress={closeTrackMenu} />
             <View
@@ -574,6 +808,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                 ["Eliminar", () => { closeTrackMenu(); setDeleteConfirmVisible(true); }],
                 ["Compartir", () => { closeTrackMenu(); void shareAudioFile(currentSong.id); }],
                 ["Detalles de la pista", () => { closeTrackMenu(); setDetailsVisible(true); }],
+                ["Ecualizador", () => { void openEqualizer(); }],
                 ["Álbum", () => openRelatedSongs("album")],
                 ["Artista", () => openRelatedSongs("artist")],
                 ["Definir como", () => { closeTrackMenu(); setDefineAsVisible(true); }],
@@ -585,113 +820,161 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
               ))}
             </View>
           </View>
-        </Modal>
+          </Modal>
+        ) : null}
 
-        <SongDetailsModal
-          song={detailsVisible ? currentSong : null}
-          onClose={() => setDetailsVisible(false)}
-        />
+        {detailsVisible ? (
+          <SongDetailsModal
+            song={currentSong}
+            onClose={() => setDetailsVisible(false)}
+          />
+        ) : null}
 
-        <LyricsModal
-          song={lyricsVisible ? currentSong : null}
-          visible={lyricsVisible}
-          onClose={() => setLyricsVisible(false)}
-        />
+        {lyricsVisible ? (
+          <LyricsModal
+            song={currentSong}
+            visible={lyricsVisible}
+            onClose={() => setLyricsVisible(false)}
+          />
+        ) : null}
 
-        <ConfirmDeleteModal
-          visible={deleteConfirmVisible}
-          title="Eliminar canción"
-          message={`¿Quieres eliminar “${currentSong.title}”? Esta acción no se puede deshacer.`}
-          itemName={currentSong.title}
-          artwork={currentSong.artwork}
-          accent="white"
-          onClose={() => setDeleteConfirmVisible(false)}
-          onConfirm={() => {
-            setDeleteConfirmVisible(false);
-            void deleteCurrentSong();
-          }}
-        />
+        {deleteConfirmVisible ? (
+          <ConfirmDeleteModal
+            visible={deleteConfirmVisible}
+            title="Eliminar canción"
+            message={`¿Quieres eliminar “${currentSong.title}”? Esta acción no se puede deshacer.`}
+            itemName={currentSong.title}
+            artwork={currentSong.artwork}
+            accent="white"
+            onClose={() => setDeleteConfirmVisible(false)}
+            onConfirm={() => {
+              setDeleteConfirmVisible(false);
+              void deleteCurrentSong();
+            }}
+          />
+        ) : null}
 
-        <Modal transparent visible={defineAsVisible} animationType="fade" onRequestClose={() => setDefineAsVisible(false)}>
+        {defineAsVisible ? (
+          <Modal transparent visible={defineAsVisible} animationType="fade" onRequestClose={() => setDefineAsVisible(false)}>
           <View className="flex-1 justify-end">
             <Pressable className="absolute inset-0 bg-black/70" onPress={() => setDefineAsVisible(false)} />
-            <View className="rounded-t-[32px] bg-[#202020] px-6 pb-8 pt-6">
-              {[["Tono del dispositivo", "ringtone"], ["Tono de alarma", "alarm"]].map(([label, type]) => (
-                <Pressable key={label} className="mt-3 rounded-2xl bg-white/5 px-4 py-4" onPress={() => void defineSongAs(type as ToneType)}>
-                  <Text className="font-bold text-white">{label}</Text>
+            <View
+              className="rounded-t-[32px] px-4 pt-3"
+              style={{
+                backgroundColor: theme.background,
+                borderTopColor: theme.border,
+                borderTopWidth: 1,
+                paddingBottom: Math.max(insets.bottom, 24),
+                shadowColor: '#000',
+                shadowOpacity: 0.22,
+                shadowRadius: 18,
+                shadowOffset: { width: 0, height: -8 },
+                elevation: 12,
+              }}
+            >
+              <View className="mb-4 items-center">
+                <View className="h-1.5 w-12 rounded-full" style={{ backgroundColor: theme.mutedText + '99' }} />
+              </View>
+
+              <View className="mb-4 flex-row items-center justify-between px-1">
+                <View className="flex-1 pr-3">
+                  <Text className="text-2xl font-bold" style={{ color: theme.text }}>
+                    Definir como
+                  </Text>
+                  <Text className="mt-1 text-sm" style={{ color: theme.mutedText }} numberOfLines={1}>
+                    {currentSong.title}
+                  </Text>
+                </View>
+                <Pressable
+                  className="rounded-full px-3 py-2"
+                  onPress={() => setDefineAsVisible(false)}
+                >
+                  <Text className="text-sm font-semibold" style={{ color: theme.text }}>
+                    Cerrar
+                  </Text>
                 </Pressable>
-              ))}
+              </View>
+
+              <View
+                className="mb-4 flex-row items-center rounded-[24px] px-3 py-3"
+              >
+                {currentSong.artwork ? (
+                  <Image
+                    source={{ uri: currentSong.artwork }}
+                    className="mr-3 h-12 w-12 rounded-xl"
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View className="mr-3 h-12 w-12 items-center justify-center rounded-xl bg-white/10">
+                    <MaterialCommunityIcons name="music-note" size={22} color={theme.text} />
+                  </View>
+                )}
+                <View className="flex-1">
+                  <Text className="text-sm font-bold" style={{ color: theme.text }} numberOfLines={1}>
+                    {currentSong.title}
+                  </Text>
+                  <Text className="mt-1 text-xs" style={{ color: theme.mutedText }} numberOfLines={1}>
+                    {normalizeValue(currentSong.artist, UNKNOWN_ARTIST)}
+                  </Text>
+                </View>
+              </View>
+
+              <View className="gap-2">
+                {[
+                  { label: 'Tono del dispositivo', value: 'ringtone' as ToneType, description: 'Usar como tono de llamada' },
+                  { label: 'Tono de alarma', value: 'alarm' as ToneType, description: 'Usar como alarma' },
+                ].map(option => (
+                  <Pressable
+                    key={option.value}
+                    className="rounded-[22px] border px-4 py-4"
+                    style={{ backgroundColor: theme.surface + 'CC', borderColor: theme.border }}
+                    onPress={() => void defineSongAs(option.value)}
+                  >
+                    <Text className="text-base font-bold" style={{ color: theme.text }}>
+                      {option.label}
+                    </Text>
+                    <Text className="mt-1 text-sm" style={{ color: theme.mutedText }}>
+                      {option.description}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
             </View>
           </View>
-        </Modal>
+          </Modal>
+        ) : null}
 
-        <Modal
-          transparent
-          visible={miniPlayerVisible}
-          animationType="fade"
-          statusBarTranslucent
-          navigationBarTranslucent
-          onRequestClose={() => setMiniPlayerVisible(false)}
-        >
+        {miniPlayerVisible ? (
+          <Modal
+            transparent
+            visible={miniPlayerVisible}
+            animationType="fade"
+            statusBarTranslucent
+            navigationBarTranslucent
+            onRequestClose={() => setMiniPlayerVisible(false)}
+          >
           <View className="flex-1 items-center justify-center px-6">
-            <BlurTargetView
-              ref={miniPlayerBlurTargetRef}
-              style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
-            >
-              {currentSong.artwork ? (
-                <Image
-                  source={{ uri: currentSong.artwork }}
-                  style={{ position: "absolute", top: -32, left: -32, right: -32, bottom: -32 }}
-                  resizeMode="cover"
-                  blurRadius={18}
-                />
-              ) : null}
-              <LinearGradient
-                colors={[dominantColor, "#050505"]}
-                style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
-              />
-            </BlurTargetView>
-            <BlurView
-              blurTarget={miniPlayerBlurTargetRef}
-              blurMethod="dimezisBlurView"
-              intensity={100}
-              tint="dark"
-              style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
-            />
-            <LinearGradient
-              pointerEvents="none"
-              colors={[withAlpha(dominantColor, 0.45), "rgba(0,0,0,0.82)"]}
-              style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
-            />
             <Pressable
-              className="absolute inset-0"
+              className="absolute inset-0 bg-black/60"
               onPress={() => setMiniPlayerVisible(false)}
             />
             <View
-              className="w-full max-w-[380px] rounded-[34px] p-6"
+              className="w-full max-w-[380px] overflow-hidden rounded-[34px] p-6"
               style={{
-                backgroundColor: 'rgba(255,255,255,0.04)',
+                backgroundColor: 'rgba(10,10,10,0.82)',
                 borderColor: 'rgba(255,255,255,0.08)',
                 borderWidth: 1,
-                overflow: 'hidden',
                 shadowColor: '#000',
-                shadowOpacity: 0.35,
+                shadowOpacity: 0.28,
                 shadowOffset: { width: 0, height: 8 },
                 shadowRadius: 18,
               }}
             >
-              {/* sheen + depth overlays to simulate liquid glass */}
               <LinearGradient
                 pointerEvents="none"
-                colors={["rgba(255,255,255,0.12)", "rgba(255,255,255,0)"]}
-                style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 90, borderTopLeftRadius: 34, borderTopRightRadius: 34 }}
+                colors={[withAlpha(dominantColor, 0.22), 'rgba(0,0,0,0.2)']}
+                style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
               />
-              <LinearGradient
-                pointerEvents="none"
-                colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.18)"]}
-                style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 80 }}
-              />
-              <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 34, borderWidth: 1, borderColor: 'rgba(255,255,255,0.03)' }} pointerEvents="none" />
               <View className="aspect-square w-full items-center justify-center overflow-hidden rounded-[24px] bg-[#2a2a2a]">
                 {currentSong.artwork ? (
                   <Image
@@ -801,16 +1084,18 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
               </View>
             </View>
           </View>
-        </Modal>
+          </Modal>
+        ) : null}
         
-        <Modal
-          transparent
-          visible={lockScreenVisible}
-          animationType="fade"
-          statusBarTranslucent
-          navigationBarTranslucent
-          onRequestClose={() => setLockScreenVisible(false)}
-        >
+        {lockScreenVisible ? (
+          <Modal
+            transparent
+            visible={lockScreenVisible}
+            animationType="fade"
+            statusBarTranslucent
+            navigationBarTranslucent
+            onRequestClose={() => setLockScreenVisible(false)}
+          >
           <View
             className="flex-1 px-6 pt-20"
           >
@@ -919,31 +1204,159 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
               </View>
             </View>
           </View>
-        </Modal>
+          </Modal>
+        ) : null}
 
-        <RelatedTracksModal
-          visible={Boolean(relatedSongs)}
-          title={relatedSongs?.title ?? ""}
-          songs={relatedSongs?.songs ?? []}
-          variant={relatedSongs?.type ?? "album"}
-          artwork={relatedSongs?.songs[0]?.artwork}
-          onClose={() => setRelatedSongs(null)}
-          onPlayAll={() => {
-            if (!relatedSongs?.songs.length) return;
-            setRelatedSongs(null);
-            void playSong(relatedSongs.songs, 0);
-          }}
-          onSelectSong={(index) => {
-            if (!relatedSongs) return;
-            setRelatedSongs(null);
-            void playSong(relatedSongs.songs, index);
-          }}
-        />
+        {equalizerVisible ? (
+          <Modal transparent visible={equalizerVisible} animationType="fade" onRequestClose={() => setEqualizerVisible(false)}>
+          <View className="flex-1 justify-end">
+            <Pressable className="absolute inset-0 bg-black/70" onPress={() => setEqualizerVisible(false)} />
+            <View
+              className="rounded-t-[32px] px-4 pb-8 pt-4"
+              style={{
+                backgroundColor: theme.background,
+                borderTopColor: theme.border,
+                borderTopWidth: 1,
+                paddingBottom: Math.max(insets.bottom, 24),
+              }}
+            >
+              <View className="mb-4 items-center">
+                <View className="h-1.5 w-12 rounded-full" style={{ backgroundColor: theme.mutedText + "99" }} />
+              </View>
 
-        <AppSettingsModal
-          visible={settingsVisible}
-          onClose={() => setSettingsVisible(false)}
-        />
+              <View className="mb-4 flex-row items-center justify-between">
+                <Text className="text-2xl font-bold" style={{ color: theme.text }}>
+                  Ecualizador
+                </Text>
+                <Pressable
+                  className="rounded-full px-3 py-2"
+                  onPress={() => setEqualizerVisible(false)}
+                >
+                  <Text className="text-sm font-semibold" style={{ color: theme.text }}>
+                    Cerrar
+                  </Text>
+                </Pressable>
+              </View>
+
+              <View className="mb-4 flex-row items-center justify-between rounded-full border px-3 py-2" style={{ backgroundColor: theme.surface, borderColor: theme.border }}>
+                <Text className="text-sm font-semibold" style={{ color: theme.text }}>
+                  Activado
+                </Text>
+                <Pressable
+                  onPress={() => { void toggleEqualizer(); }}
+                  className="h-8 w-14 items-center justify-center rounded-full px-1"
+                  style={{ backgroundColor: equalizerEnabled ? theme.background : theme.mutedText }}
+                >
+                  <View
+                    className="h-6 w-6 rounded-full"
+                    style={{
+                      backgroundColor: equalizerEnabled ? theme.accent : theme.mutedText,
+                      alignSelf: equalizerEnabled ? 'flex-end' : 'flex-start',
+                      marginHorizontal: 2,
+                    }}
+                  />
+                </Pressable>
+              </View>
+
+              <View className="mb-5 flex-row flex-wrap justify-center gap-2">
+                {Object.keys(EQUALIZER_PRESETS).map((presetName) => (
+                  <Pressable
+                    key={presetName}
+                    onPress={() => { void applyPreset(presetName); }}
+                    className="rounded-full px-3 py-2"
+                    style={{
+                      backgroundColor: theme.surface,
+                      borderWidth: 1,
+                      borderColor: theme.border,
+                      minWidth: 74,
+                    }}
+                  >
+                    <Text className="text-xs font-bold text-center uppercase tracking-[0.12em]" style={{ color: theme.text }}>
+                      {presetName}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              {equalizerLoading ? (
+                <Text className="py-6 text-center text-sm" style={{ color: theme.mutedText }}>
+                  Cargando ecualizador…
+                </Text>
+              ) : equalizerBands.length ? (
+                <View className="flex-row items-end justify-between gap-1.5">
+                  {equalizerBands.map((band, index) => {
+                    const handleSliderChange = async (nextLevel: number) => {
+                      const clampedLevel = Math.max(band.minLevel, Math.min(band.maxLevel, nextLevel));
+
+                      setEqualizerBands((currentBands) => {
+                        const nextBands = currentBands.map((item) =>
+                          item.index === band.index
+                            ? { ...item, level: clampedLevel }
+                            : item
+                        );
+
+                        void applyEqualizerBands(nextBands, equalizerEnabled);
+                        return nextBands;
+                      });
+                    };
+
+                    return (
+                      <View key={band.index} className="items-center" style={{ width: `${100 / Math.min(equalizerBands.length || 1, 7)}%` }}>
+                        <Text className="mb-2 text-[10px] font-bold" style={{ color: theme.mutedText }}>
+                          {formatFrequencyLabel(band.frequency)}
+                        </Text>
+
+                        <VerticalEqualizerSlider
+                          band={band}
+                          activeColor={theme.accent}
+                          onChange={(nextLevel) => {
+                            void handleSliderChange(nextLevel);
+                          }}
+                        />
+
+                        <Text className="mt-2 text-[10px] font-bold" style={{ color: theme.text }}>
+                          {band.level} dB
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              ) : (
+                <Text className="py-6 text-center text-sm" style={{ color: theme.mutedText }}>
+                  No hay bandas disponibles para este audio.
+                </Text>
+              )}
+            </View>
+          </View>
+          </Modal>
+        ) : null}
+
+        {relatedSongs ? (
+          <RelatedTracksModal
+            visible={Boolean(relatedSongs)}
+            title={relatedSongs.title}
+            songs={relatedSongs.songs}
+            variant={relatedSongs.type}
+            artwork={relatedSongs.songs[0]?.artwork}
+            onClose={() => setRelatedSongs(null)}
+            onPlayAll={() => {
+              if (!relatedSongs.songs.length) return;
+              setRelatedSongs(null);
+              void playSong(relatedSongs.songs, 0);
+            }}
+            onSelectSong={(index) => {
+              setRelatedSongs(null);
+              void playSong(relatedSongs.songs, index);
+            }}
+          />
+        ) : null}
+
+        {settingsVisible ? (
+          <AppSettingsModal
+            visible={settingsVisible}
+            onClose={() => setSettingsVisible(false)}
+          />
+        ) : null}
       </View>
     </Modal>
   );

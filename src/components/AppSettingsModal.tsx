@@ -13,10 +13,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { getAudioFilesWithPermission, Song } from '../../modules/local-music';
 import {
   acceptTerms,
   APP_THEMES,
   DEFAULT_TABS,
+  getHiddenSongIds,
   reorderTabs,
   setLockScreenControlsEnabled,
   setPlaybackRate,
@@ -25,9 +27,13 @@ import {
   setThemeId,
   TabId,
   TabPreference,
+  toggleHiddenSongId,
   useAppSettings,
 } from '../settings/appSettings';
-import { BackIcon, CheckIcon } from '../Icons';
+import { CheckIcon } from '../Icons';
+import HideMusicModal from './HideMusicModal';
+import PrivacyPolicyModal from './PrivacyPolicyModal';
+import OpenSourceLicensesModal from './OpenSourceLicensesModal';
 
 interface AppSettingsModalProps {
   visible: boolean;
@@ -36,6 +42,20 @@ interface AppSettingsModalProps {
 
 const SETTINGS_ACCENT = '#ffffff';
 const SETTINGS_ACCENT_SOFT = 'rgba(255,255,255,0.12)';
+const IOS_TOGGLE_ON = '#34C759';
+
+// Paleta iOS "Settings.app": cada fila tiene un icono con contenedor tintado
+// para transmitir jerarquía visual (Clarity + Depth del HIG).
+const IOS_ICON_COLORS = {
+  moon: '#5E5CE6',       // Indigo iOS
+  speed: '#FF9F0A',      // Orange iOS
+  lock: '#8E8E93',       // Gray iOS
+  tabs: '#0A84FF',       // Blue iOS
+  palette: '#FF375F',    // Pink iOS
+  shield: '#30D158',     // Green iOS
+  doc: '#FFD60A',        // Yellow iOS
+  contact: '#64D2FF',    // Teal iOS
+};
 
 const getAccentOverlay = (hex: string) => `${hex}22`;
 const TAB_ROW_HEIGHT = 72;
@@ -108,29 +128,46 @@ const SheetHandle = () => (
   </View>
 );
 
+// Switch estilo iOS: track verde sistema cuando está activo, knob blanco
+// con sombra sutil (HIG - "Depth"). Tamaño 51x31 como UISwitch nativo.
 const SettingsToggle = ({
   value,
   trackOff,
-  knobOn,
 }: {
   value: boolean;
   trackOff: string;
-  knobOn: string;
+  knobOn?: string;
 }) => (
   <View
-    className="h-7 w-12 justify-center rounded-full px-0.5"
-    style={{ backgroundColor: value ? SETTINGS_ACCENT : trackOff }}
+    style={{
+      width: 51,
+      height: 31,
+      borderRadius: 31,
+      justifyContent: 'center',
+      paddingHorizontal: 2,
+      backgroundColor: value ? IOS_TOGGLE_ON : trackOff,
+    }}
   >
     <View
-      className="h-6 w-6 rounded-full"
       style={{
-        backgroundColor: value ? knobOn : SETTINGS_ACCENT,
+        width: 27,
+        height: 27,
+        borderRadius: 27,
+        backgroundColor: '#FFFFFF',
         alignSelf: value ? 'flex-end' : 'flex-start',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 2,
+        elevation: 2,
       }}
     />
   </View>
 );
 
+// Fila estilo Settings.app: icono tintado en contenedor cuadrado redondeado,
+// título en peso semibold, valor en color secundario, chevron `chevron.forward`.
+// Separadores insertados que respetan el padding del icono (HIG - Clarity).
 const SettingsRow = ({
   label,
   subtitle,
@@ -141,7 +178,9 @@ const SettingsRow = ({
   mutedColor,
   showChevron,
   toggleValue,
-  knobOn,
+  icon,
+  iconColor,
+  isLast,
 }: {
   label: string;
   subtitle?: string;
@@ -152,32 +191,75 @@ const SettingsRow = ({
   mutedColor: string;
   showChevron?: boolean;
   toggleValue?: boolean;
-  knobOn: string;
+  knobOn?: string;
+  icon?: keyof typeof Ionicons.glyphMap;
+  iconColor?: string;
+  isLast?: boolean;
 }) => (
   <Pressable
-    className="flex-row items-center px-4 py-4"
-    style={{ borderBottomWidth: 1, borderBottomColor: borderColor }}
+    android_ripple={{ color: SETTINGS_ACCENT_SOFT }}
+    accessibilityRole={typeof toggleValue === 'boolean' ? 'switch' : 'button'}
+    accessibilityState={typeof toggleValue === 'boolean' ? { checked: toggleValue } : undefined}
+    accessibilityLabel={label}
+    accessibilityHint={subtitle}
+    className="flex-row items-center px-4"
+    style={({ pressed }) => ({
+      paddingVertical: 12,
+      minHeight: 56,
+      opacity: pressed ? 0.6 : 1,
+    })}
     onPress={onPress}
   >
-    <View className="flex-1 pr-3">
-      <Text className="text-base font-bold" style={{ color: textColor }}>{label}</Text>
+    {icon ? (
+      <View
+        style={{
+          width: 30,
+          height: 30,
+          borderRadius: 7,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginRight: 12,
+        }}
+      >
+        <Ionicons name={icon} size={18} color="#FFFFFF" />
+      </View>
+    ) : null}
+    <View
+      className="flex-1 pr-3"
+      style={
+        !isLast
+          ? { borderBottomWidth: 0.5, borderBottomColor: borderColor, paddingVertical: 6 }
+          : { paddingVertical: 6 }
+      }
+    >
+      <Text
+        style={{ color: textColor, fontSize: 17, fontWeight: '500', letterSpacing: -0.2 }}
+      >
+        {label}
+      </Text>
       {subtitle ? (
-        <Text className="mt-0.5 text-xs" style={{ color: mutedColor }} numberOfLines={1}>
+        <Text
+          style={{ color: mutedColor, fontSize: 13, marginTop: 2, letterSpacing: -0.1 }}
+          numberOfLines={1}
+        >
           {subtitle}
         </Text>
       ) : null}
     </View>
     {typeof toggleValue === 'boolean' ? (
-      <SettingsToggle value={toggleValue} trackOff={borderColor} knobOn={knobOn} />
+      <SettingsToggle value={toggleValue} trackOff={borderColor} />
     ) : (
-      <View className="flex-row items-center gap-1">
+      <View className="flex-row items-center" style={{ gap: 6 }}>
         {value ? (
-          <Text className="max-w-[140px] text-sm font-bold" style={{ color: SETTINGS_ACCENT }} numberOfLines={1}>
+          <Text
+            style={{ color: mutedColor, fontSize: 15, maxWidth: 160, letterSpacing: -0.2 }}
+            numberOfLines={1}
+          >
             {value}
           </Text>
         ) : null}
         {showChevron ? (
-          <Ionicons name="chevron-forward" size={18} color={mutedColor} />
+          <Ionicons name="chevron-forward" size={16} color={mutedColor} style={{ opacity: 0.6 }} />
         ) : null}
       </View>
     )}
@@ -509,8 +591,12 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
   const [playbackSpeedVisible, setPlaybackSpeedVisible] = useState(false);
   const [tabsVisible, setTabsVisible] = useState(false);
   const [themesVisible, setThemesVisible] = useState(false);
+  const [hideMusicVisible, setHideMusicVisible] = useState(false);
+  const [privacyVisible, setPrivacyVisible] = useState(false);
+  const [licensesVisible, setLicensesVisible] = useState(false);
   const [termsVisible, setTermsVisible] = useState(false);
   const [contactVisible, setContactVisible] = useState(false);
+  const [librarySongs, setLibrarySongs] = useState<Song[]>([]);
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
@@ -524,6 +610,28 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
 
     return () => clearInterval(timer);
   }, [settings.sleepTimerEndsAt, visible]);
+
+  useEffect(() => {
+    if (!visible || !hideMusicVisible) {
+      return;
+    }
+
+    let active = true;
+
+    getAudioFilesWithPermission()
+      .then(music => {
+        if (active) {
+          setLibrarySongs(music);
+        }
+      })
+      .catch(error => {
+        console.error('Error al cargar la música para ocultar:', error);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [hideMusicVisible, visible]);
 
   const visibleTabs = useMemo(
     () => settings.tabs.filter(tab => tab.enabled).map(tab => tab.id),
@@ -625,11 +733,11 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
 
   const theme = settings.theme;
   const termsAccepted = Boolean(settings.termsAcceptedAt);
+  const hiddenSongIds = getHiddenSongIds();
   const rowProps = {
     borderColor: theme.border,
     textColor: theme.text,
     mutedColor: theme.mutedText,
-    knobOn: theme.background,
   };
 
   return (
@@ -642,91 +750,221 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
           paddingBottom: insets.bottom,
         }}
       >
-        <View className="mb-2 flex-row items-center px-4 py-2">
-          <Pressable
-            className="mr-2 h-10 w-10 items-center justify-center rounded-full"
-            onPress={onClose}
+        {/* Barra de navegación estilo iOS con Large Title (HIG - Deference) */}
+        <View style={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8 }}>
+          <View className="flex-row items-center" style={{ height: 44 }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Cerrar ajustes"
+              style={({ pressed }) => ({
+                height: 32,
+                minWidth: 32,
+                paddingHorizontal: 4,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: pressed ? 0.5 : 1,
+              })}
+              onPress={onClose}
+            >
+              <Ionicons name="chevron-back" size={26} color={theme.accent} />
+              
+            </Pressable>
+            <Text
+            style={{
+              color: theme.text,
+              fontSize: 28,
+              fontWeight: '700',
+              letterSpacing: 0.37,
+              paddingHorizontal: 4,
+            }}
           >
-            <BackIcon size={24} color={theme.text} />
-          </Pressable>
-          <Text className="text-2xl font-bold" style={{ color: theme.text }}>Ajustes</Text>
+            Ajustes
+          </Text>
+          </View>
+          
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32 }}>
-          <View className="mb-6">
-            <Text className="mb-3 text-xs font-bold uppercase tracking-[1.5px]" style={{ color: theme.mutedText }}>
+        <ScrollView
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32, paddingTop: 8 }}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={{ marginBottom: 24 }}>
+            <Text
+              style={{
+                color: theme.mutedText,
+                fontSize: 13,
+                fontWeight: '400',
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+                marginBottom: 8,
+                marginLeft: 16,
+              }}
+            >
               Reproducción
             </Text>
-            <View className="overflow-hidden rounded-3xl" style={{ backgroundColor: theme.surface }}>
+            <View
+              style={{
+                backgroundColor: theme.surface,
+                borderRadius: 12,
+                overflow: 'hidden',
+              }}
+            >
               <SettingsRow
                 label="Temporizador de apagado"
                 subtitle={formatRemainingTime(settings.sleepTimerEndsAt, now)}
                 onPress={() => setSleepTimerVisible(true)}
+                icon="moon"
+                iconColor={IOS_ICON_COLORS.moon}
                 showChevron
                 {...rowProps}
               />
               <SettingsRow
                 label="Velocidad de reproducción"
+                subtitle="Ajusta el ritmo de la canción actual"
                 value={formatSpeedLabel(settings.playbackRate)}
                 onPress={() => setPlaybackSpeedVisible(true)}
+                icon="speedometer"
+                iconColor={IOS_ICON_COLORS.speed}
                 showChevron
+                isLast
                 {...rowProps}
               />
             </View>
           </View>
 
-          <View className="mb-6">
-            <Text className="mb-3 text-xs font-bold uppercase tracking-[1.5px]" style={{ color: theme.mutedText }}>
+          <View style={{ marginBottom: 24 }}>
+            <Text
+              style={{
+                color: theme.mutedText,
+                fontSize: 13,
+                fontWeight: '400',
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+                marginBottom: 8,
+                marginLeft: 16,
+              }}
+            >
               Control y navegación
             </Text>
-            <View className="overflow-hidden rounded-3xl" style={{ backgroundColor: theme.surface }}>
+            <View
+              style={{
+                backgroundColor: theme.surface,
+                borderRadius: 12,
+                overflow: 'hidden',
+              }}
+            >
               <SettingsRow
                 label="Controles externos"
                 subtitle="Desde la pantalla de bloqueo y notificaciones"
                 onPress={() => setLockScreenControlsEnabled(!settings.lockScreenControlsEnabled)}
                 toggleValue={settings.lockScreenControlsEnabled}
+                icon="lock-closed"
+                iconColor={IOS_ICON_COLORS.lock}
                 {...rowProps}
               />
               <SettingsRow
                 label="Administrar pestañas"
                 subtitle={`${visibleTabs.length}/${DEFAULT_TABS.length} visibles`}
                 onPress={() => setTabsVisible(true)}
-                borderColor="transparent"
-                textColor={theme.text}
-                mutedColor={theme.mutedText}
-                knobOn={theme.background}
+                icon="grid"
+                iconColor={IOS_ICON_COLORS.tabs}
                 showChevron
+                isLast
+                {...rowProps}
               />
             </View>
           </View>
 
-          <View className="mb-6">
-            <Text className="mb-3 text-xs font-bold uppercase tracking-[1.5px]" style={{ color: theme.mutedText }}>
+          <View style={{ marginBottom: 24 }}>
+            <Text
+              style={{
+                color: theme.mutedText,
+                fontSize: 13,
+                fontWeight: '400',
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+                marginBottom: 8,
+                marginLeft: 16,
+              }}
+            >
               Apariencia
             </Text>
-            <View className="overflow-hidden rounded-3xl" style={{ backgroundColor: theme.surface }}>
+            <View
+              style={{
+                backgroundColor: theme.surface,
+                borderRadius: 12,
+                overflow: 'hidden',
+              }}
+            >
               <SettingsRow
                 label="Tema"
+                subtitle="Personaliza colores y estilo visual"
                 value={theme.name}
                 onPress={() => setThemesVisible(true)}
-                borderColor="transparent"
-                textColor={theme.text}
-                mutedColor={theme.mutedText}
-                knobOn={theme.background}
+                icon="color-palette"
+                iconColor={IOS_ICON_COLORS.palette}
                 showChevron
+                isLast
+                {...rowProps}
               />
             </View>
           </View>
 
-          <View className="mb-6">
-            <Text className="mb-3 text-xs font-bold uppercase tracking-[1.5px]" style={{ color: theme.mutedText }}>
+          <View style={{ marginBottom: 24 }}>
+            <Text
+              style={{
+                color: theme.mutedText,
+                fontSize: 13,
+                fontWeight: '400',
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+                marginBottom: 8,
+                marginLeft: 16,
+              }}
+            >
               Privacidad y soporte
             </Text>
-            <View className="overflow-hidden rounded-3xl" style={{ backgroundColor: theme.surface }}>
+            <View
+              style={{
+                backgroundColor: theme.surface,
+                borderRadius: 12,
+                overflow: 'hidden',
+              }}
+            >
+              <SettingsRow
+                label="Ocultar música"
+                subtitle={`${hiddenSongIds.length} ${hiddenSongIds.length === 1 ? 'archivo oculto' : 'archivos ocultos'}`}
+                onPress={() => setHideMusicVisible(true)}
+                icon="eye-off"
+                iconColor={IOS_ICON_COLORS.shield}
+                showChevron
+                {...rowProps}
+              />
               <SettingsRow
                 label="Permisos"
                 subtitle="Abrir ajustes del sistema"
                 onPress={() => { void openPermissions(); }}
+                icon="shield-checkmark"
+                iconColor={IOS_ICON_COLORS.shield}
+                showChevron
+                {...rowProps}
+              />
+              <SettingsRow
+                label="Política de privacidad"
+                subtitle="Cómo usamos tu música y ajustes"
+                onPress={() => setPrivacyVisible(true)}
+                icon="shield-checkmark"
+                iconColor={IOS_ICON_COLORS.shield}
+                showChevron
+                {...rowProps}
+              />
+              <SettingsRow
+                label="Licencias de código abierto"
+                subtitle="Dependencias de la app"
+                onPress={() => setLicensesVisible(true)}
+                icon="library"
+                iconColor={IOS_ICON_COLORS.doc}
                 showChevron
                 {...rowProps}
               />
@@ -734,6 +972,8 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 label="Términos y condiciones"
                 subtitle={termsAccepted ? 'Aceptados' : 'Pendientes de revisar'}
                 onPress={() => setTermsVisible(true)}
+                icon="document-text"
+                iconColor={IOS_ICON_COLORS.doc}
                 showChevron
                 {...rowProps}
               />
@@ -741,11 +981,11 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 label="Contacto"
                 subtitle="Soporte y redes sociales"
                 onPress={openContact}
-                borderColor="transparent"
-                textColor={theme.text}
-                mutedColor={theme.mutedText}
-                knobOn={theme.background}
+                icon="person-circle"
+                iconColor={IOS_ICON_COLORS.contact}
                 showChevron
+                isLast
+                {...rowProps}
               />
             </View>
           </View>
@@ -993,6 +1233,30 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
           })}
         </OptionSheet>
 
+        <HideMusicModal
+          visible={hideMusicVisible}
+          songs={librarySongs}
+          hiddenSongIds={hiddenSongIds}
+          onClose={() => setHideMusicVisible(false)}
+          onToggleHidden={songId => {
+            toggleHiddenSongId(songId);
+            setLibrarySongs(currentSongs => currentSongs.map(song => ({
+              ...song,
+              hidden: hiddenSongIds.includes(song.id) ? false : song.id === songId ? true : false,
+            })));
+          }}
+        />
+
+        <PrivacyPolicyModal
+          visible={privacyVisible}
+          onClose={() => setPrivacyVisible(false)}
+        />
+
+        <OpenSourceLicensesModal
+          visible={licensesVisible}
+          onClose={() => setLicensesVisible(false)}
+        />
+
         <Modal transparent visible={termsVisible} animationType="slide" onRequestClose={() => setTermsVisible(false)}>
           <View className="flex-1 justify-end">
             <Pressable className="absolute inset-0 bg-black/70" onPress={() => setTermsVisible(false)} />
@@ -1009,27 +1273,39 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 <Text className="mb-4 text-sm text-center leading-6" style={{ color: theme.mutedText }}>
                   Estos términos resumen el uso y las responsabilidades de FESA como aplicación de reproducción y gestión de audio local
                 </Text>
-                {TERMS_TEXT.map(item => (
-                  <View key={item} className="mb-3 rounded-2xl px-4 py-4" style={{ backgroundColor: theme.surface }}>
-                    <Text className="text-sm leading-6" style={{ color: theme.text }}>{item}</Text>
-                  </View>
-                ))}
+                <View className="overflow-hidden rounded-2xl" style={{ backgroundColor: theme.surface }}>
+                  {TERMS_TEXT.map((item, index) => (
+                    <View
+                      key={item}
+                      className="px-4 py-4"
+                      style={{
+                        borderBottomWidth: index === TERMS_TEXT.length - 1 ? 0 : 0.5,
+                        borderBottomColor: theme.border,
+                      }}
+                    >
+                      <Text className="text-sm leading-6" style={{ color: theme.text }}>{item}</Text>
+                    </View>
+                  ))}
+                </View>
                 <Pressable
-                  className="mt-2 flex-row items-center justify-center rounded-full py-4"
+                  className="mt-4 flex-row items-center justify-center rounded-xl py-3.5"
                   disabled={termsAccepted}
                   style={{ backgroundColor: termsAccepted ? SETTINGS_ACCENT_SOFT : SETTINGS_ACCENT }}
                   onPress={() => {
                     if (termsAccepted) {
                       return;
                     }
-
                     acceptTerms();
                   }}
                 >
                   {termsAccepted ? <CheckIcon size={20} color={SETTINGS_ACCENT} /> : null}
                   <Text
                     className="text-center font-bold"
-                    style={{ color: termsAccepted ? SETTINGS_ACCENT : theme.background, marginLeft: termsAccepted ? 8 : 0 }}
+                    style={{
+                      color: termsAccepted ? SETTINGS_ACCENT : theme.background,
+                      marginLeft: termsAccepted ? 8 : 0,
+                      fontSize: 16,
+                    }}
                   >
                     {termsAccepted ? 'Aceptado' : 'Aceptar términos'}
                   </Text>
@@ -1060,75 +1336,73 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 </Pressable>
               </View>
 
-              <ScrollView>
-                <View className="mb-4 overflow-hidden rounded-[28px]" style={{ backgroundColor: theme.surface }}>
-                  <LinearGradient
-                    colors={[theme.accent, theme.background]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    className="h-32 items-center justify-center"
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <View className="mb-4 items-center py-4">
+                  <View
+                    className="h-32 w-32 items-center justify-center rounded-full p-1"
+                    style={{ backgroundColor: theme.accent, opacity: 0.5 }}
                   >
-                    <Ionicons name="musical-notes" size={58} color={theme.text} />
-                    <View className="absolute -right-5 -top-8 h-28 w-28 rounded-full border-2 border-white/10" />
-                    <View className="absolute -bottom-16 -left-8 h-36 w-36 rounded-full border-2 border-white/10" />
-                  </LinearGradient>
-
-                  <View className="-mt-12 items-center pb-4">
-                    <View className="h-24 w-24 items-center justify-center rounded-full p-1" style={{ backgroundColor: theme.accent }}>
-                      <View className="h-full w-full items-center justify-center rounded-full" style={{ backgroundColor: theme.background }}>
-                        <Ionicons name="person" size={38} color={theme.text} />
-                      </View>
+                    <View
+                      className="h-full w-full items-center justify-center rounded-full"
+                      style={{ backgroundColor: theme.background }}
+                    >
+                      <Ionicons name="person" size={68} color={theme.text} />
                     </View>
-                    <Text className="mt-3 text-2xl font-bold" style={{ color: theme.text }}>David Milanes Gross</Text>
                   </View>
-
-                
+                  <Text className="mt-4 text-2xl font-bold" style={{ color: theme.text }}>David Milanes Gross</Text>
                 </View>
 
-                <Text className="mb-3 ml-2 text-xs font-bold uppercase tracking-[1.5px]" style={{ color: theme.mutedText }}>
+                <Text className="mb-2 ml-4 text-xs font-bold uppercase tracking-[1px]" style={{ color: theme.mutedText }}>
                   Escríbenos
                 </Text>
                 <View className="mb-5 overflow-hidden rounded-2xl" style={{ backgroundColor: theme.surface }}>
-                  
                   <Pressable
                     className="flex-row items-center px-4 py-3.5"
                     onPress={() => void openMail(SUPPORT_EMAIL)}
                   >
-                    <View className="h-10 w-10 items-center justify-center rounded-full" style={{ backgroundColor: getAccentOverlay(theme.accent) }}>
+                    <View
+                      className="h-10 w-10 items-center justify-center rounded-full"
+                      style={{ backgroundColor: getAccentOverlay(theme.accent) }}
+                    >
                       <Ionicons name="mail-outline" size={20} color={theme.accent} />
                     </View>
                     <View className="ml-3 flex-1">
                       <Text className="text-sm font-bold" style={{ color: theme.text }}>Correo electrónico</Text>
                       <Text className="mt-0.5 text-xs" style={{ color: theme.mutedText }}>{SUPPORT_EMAIL}</Text>
                     </View>
-                    <Ionicons name="arrow-up-outline" size={18} color={theme.mutedText} />
+                    <Ionicons name="arrow-up-outline" size={18} color={theme.mutedText} style={{ transform: [{ rotate: '45deg' }] }} />
                   </Pressable>
                 </View>
 
-                <Text className="mb-3 text-xs font-bold uppercase tracking-[1.5px]" style={{ color: theme.mutedText }}>
+                <Text className="mb-2 ml-4 text-xs font-bold uppercase tracking-[1px]" style={{ color: theme.mutedText }}>
                   También estamos aquí
                 </Text>
-                <View className="mb-2 flex-row justify-between rounded-2xl px-2 py-2" style={{ backgroundColor: theme.surface }}>
+                <View className="overflow-hidden rounded-2xl" style={{ backgroundColor: theme.surface }}>
                   <Pressable
-                    className="flex-1 items-center rounded-xl py-3"
+                    className="flex-row items-center px-4 py-3.5"
+                    style={{ borderBottomWidth: 0.5, borderBottomColor: theme.border }}
                     onPress={() => void openAppLink(FACEBOOK_APP_URL, FACEBOOK_WEB_URL, 'Abre Facebook para contactar al autor.')}
                   >
-                    <Ionicons name="logo-facebook" size={24} color={theme.accent} />
-                    <Text className="mt-1.5 text-xs" style={{ color: theme.mutedText }}>Facebook</Text>
+                    <Ionicons name="logo-facebook" size={24} color="#1877F2" />
+                    <Text className="ml-3 flex-1 text-sm font-bold" style={{ color: theme.text }}>Facebook</Text>
+                    <Ionicons name="arrow-up-outline" size={18} color={theme.mutedText} style={{ transform: [{ rotate: '45deg' }] }} />
                   </Pressable>
                   <Pressable
-                    className="flex-1 items-center rounded-xl py-3"
+                    className="flex-row items-center px-4 py-3.5"
+                    style={{ borderBottomWidth: 0.5, borderBottomColor: theme.border }}
                     onPress={() => void openAppLink(INSTAGRAM_APP_URL, INSTAGRAM_WEB_URL, 'Abre Instagram para contactar al autor.')}
                   >
-                    <Ionicons name="logo-instagram" size={24} color={theme.accent} />
-                    <Text className="mt-1.5 text-xs" style={{ color: theme.mutedText }}>Instagram</Text>
+                    <Ionicons name="logo-instagram" size={24} color="#E4405F" />
+                    <Text className="ml-3 flex-1 text-sm font-bold" style={{ color: theme.text }}>Instagram</Text>
+                    <Ionicons name="arrow-up-outline" size={18} color={theme.mutedText} style={{ transform: [{ rotate: '45deg' }] }} />
                   </Pressable>
                   <Pressable
-                    className="flex-1 items-center rounded-xl py-3"
+                    className="flex-row items-center px-4 py-3.5"
                     onPress={() => void openAppLink(WHATSAPP_APP_URL, WHATSAPP_WEB_URL, 'Abre WhatsApp para enviar un mensaje al autor.')}
                   >
-                    <Ionicons name="logo-whatsapp" size={24} color={theme.accent} />
-                    <Text className="mt-1.5 text-xs" style={{ color: theme.mutedText }}>WhatsApp</Text>
+                    <Ionicons name="logo-whatsapp" size={24} color="#25D366" />
+                    <Text className="ml-3 flex-1 text-sm font-bold" style={{ color: theme.text }}>WhatsApp</Text>
+                    <Ionicons name="arrow-up-outline" size={18} color={theme.mutedText} style={{ transform: [{ rotate: '45deg' }] }} />
                   </Pressable>
                 </View>
               </ScrollView>

@@ -268,6 +268,8 @@ const QueuePlaylistModal = ({
     }
   }, [dragActive, shiftAnims]);
 
+  const queueCountLabel = `${queue.length} ${queue.length === 1 ? 'canción' : 'canciones'}`;
+
   const renderItem = ({ item, index }: { item: Song; index: number }) => {
     const isActive = index === currentIndex;
     const isDragging = dragActive && dragStartIndexState === index;
@@ -312,18 +314,14 @@ const QueuePlaylistModal = ({
         }}
       >
         <Pressable
-          className="mb-2 flex-row items-center rounded-3xl px-3 py-3"
+          className="mb-2 flex-row items-center rounded-[22px] px-3 py-2.5"
           style={{
-            backgroundColor: isDragging
-              ? theme.accent + '33'
-              : theme.surface,
-            borderWidth: isActive ? 1 : 0,
-            borderColor: isActive ? 'rgba(255,255,255,0.18)' : 'transparent',
+          
             shadowColor: isDragging ? '#000' : 'transparent',
-            shadowOpacity: isDragging ? 0.3 : 0,
-            shadowRadius: isDragging ? 14 : 0,
+            shadowOpacity: isDragging ? 0.22 : 0,
+            shadowRadius: isDragging ? 12 : 0,
             shadowOffset: { width: 0, height: isDragging ? 6 : 0 },
-            elevation: isDragging ? 10 : 0,
+            elevation: isDragging ? 8 : 0,
           }}
           onPress={() => {
             if (dragActive) return;
@@ -331,7 +329,7 @@ const QueuePlaylistModal = ({
           }}
         >
           <View
-            className="mr-1 h-12 w-8 items-center justify-center"
+            className="mr-2 h-12 w-8 items-center justify-center rounded-xl"
             hitSlop={{ left: 10, right: 10, top: 10, bottom: 10 }}
             {...panResponder.panHandlers}
             onTouchStart={(e) => {
@@ -343,7 +341,7 @@ const QueuePlaylistModal = ({
 
           <LibraryArtwork
             artwork={item.artwork}
-            className="mr-3 h-12 w-12 rounded-xl"
+            className="mr-3 h-12 w-12 rounded-2xl"
             fallbackTextClassName="text-xl text-white"
           />
           <View className="flex-1 pr-2">
@@ -359,7 +357,14 @@ const QueuePlaylistModal = ({
             </Text>
           </View>
           {isActive ? (
-            <AudioWaveBars playing={playing} color={theme.text} />
+            <View
+              style={{
+                opacity: playing ? 1 : 0.72,
+              }}
+              className="items-center justify-center rounded-full px-2 py-1"
+            >
+              <AudioWaveBars playing={playing} color={theme.text} />
+            </View>
           ) : null}
         </Pressable>
       </Animated.View>
@@ -371,20 +376,36 @@ const QueuePlaylistModal = ({
       <View className="flex-1 justify-end">
         <Pressable className="absolute inset-0 bg-black/70" onPress={onClose} />
         <View
-          className="max-h-[78%] rounded-t-[32px] px-5 pt-3"
+          className="max-h-[78%] rounded-t-[32px] px-4 pt-3"
           style={{
             backgroundColor: theme.background,
             paddingBottom: Math.max(insets.bottom, 24),
+            borderTopColor: theme.border,
+            borderTopWidth: 1,
+            shadowColor: '#000',
+            shadowOpacity: 0.2,
+            shadowRadius: 20,
+            shadowOffset: { width: 0, height: -8 },
+            elevation: 16,
           }}
         >
           <View className="mb-4 items-center">
-            <View className="h-1 w-10 rounded-full bg-white/20" />
+            <View className="h-1.5 w-12 rounded-full" style={{ backgroundColor: theme.mutedText + '99' }} />
           </View>
 
-          <View className="mb-4 flex-row items-start justify-between">
-            <View className="flex-1 pr-4">
-              <Text className="text-xl font-bold text-center" style={{ color: theme.text }}>
-                Lista de reproducción
+          <View className="mb-4 flex-row items-center justify-between px-1">
+            <Text className="text-2xl font-bold" style={{ color: theme.text }}>
+              Playlist
+            </Text>
+            <View
+              className="rounded-full border px-2.5 py-1"
+              style={{
+                backgroundColor: theme.surface + 'CC',
+                borderColor: theme.border,
+              }}
+            >
+              <Text className="text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: theme.mutedText }}>
+                {queueCountLabel}
               </Text>
             </View>
           </View>
@@ -401,6 +422,7 @@ const QueuePlaylistModal = ({
               data={queue}
               keyExtractor={(item, index) => `${item.id}-${index}`}
               showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingTop: 4, paddingBottom: 12 }}
               getItemLayout={(_data, index) => ({
                 length: ITEM_HEIGHT,
                 offset: ITEM_HEIGHT * index,

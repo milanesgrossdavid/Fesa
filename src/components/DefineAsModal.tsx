@@ -13,7 +13,6 @@ interface DefineAsModalProps {
 
 const TONE_OPTIONS: { label: string; value: ToneType; description: string }[] = [
   { label: 'Tono del dispositivo', value: 'ringtone', description: 'Usar como tono de llamada' },
-  { label: 'Tono del contacto', value: 'contact', description: 'Asignar a un contacto' },
   { label: 'Tono de alarma', value: 'alarm', description: 'Usar como alarma' },
 ];
 
@@ -24,34 +23,43 @@ const DefineAsModal = ({ song, onClose, onDefineAs }: DefineAsModalProps) => {
   return (
     <Modal transparent visible={Boolean(song)} animationType="slide" onRequestClose={onClose}>
       <View className="flex-1 justify-end">
-        <Pressable className="absolute inset-0 bg-black/70" onPress={onClose} />
+        <Pressable className="absolute inset-0 bg-black/65" onPress={onClose} />
         {song ? (
           <View
-            className="rounded-t-[32px] px-5 pt-3"
+            className="rounded-t-[32px] px-4 pt-3"
             style={{
               backgroundColor: theme.background,
-              paddingBottom: Math.max(insets.bottom, 24),
+              borderTopColor: theme.border,
+              borderTopWidth: 1,
+              paddingBottom: Math.max(insets.bottom, 22),
+              shadowColor: '#000000',
+              shadowOpacity: 0.2,
+              shadowRadius: 20,
+              shadowOffset: { width: 0, height: -8 },
+              elevation: 12,
             }}
           >
             <View className="mb-4 items-center">
-              <View className="h-1 w-10 rounded-full bg-white/20" />
+              <View className="h-1.5 w-12 rounded-full" style={{ backgroundColor: theme.mutedText + '99' }} />
             </View>
 
-            <View className="mb-4 flex-row items-start justify-between">
-              <View className="flex-1 pr-4">
-                <Text className="text-xl font-bold" style={{ color: theme.text }}>Definir como</Text>
+            <View className="mb-4 flex-row items-center justify-between px-1">
+              <View className="flex-1 pr-3">
+                <Text className="text-2xl font-bold" style={{ color: theme.text }}>Definir como</Text>
                 <Text className="mt-1 text-sm" style={{ color: theme.mutedText }} numberOfLines={1}>
                   {song.title}
                 </Text>
               </View>
-              <Pressable onPress={onClose}>
-                <Text className="font-bold" style={{ color: theme.text }}>Cerrar</Text>
+              <Pressable
+                className="rounded-full  px-3 py-2"
+                onPress={onClose}
+              >
+                <Text className="text-sm font-semibold" style={{ color: theme.text }}>Cerrar</Text>
               </Pressable>
             </View>
 
             <View
-              className="mb-4 flex-row items-center rounded-3xl px-3 py-3"
-              style={{ backgroundColor: theme.surface }}
+              className="mb-4 flex-row items-center rounded-[24px] px-3 py-3"
             >
               <LibraryArtwork
                 artwork={song.artwork}
@@ -72,8 +80,8 @@ const DefineAsModal = ({ song, onClose, onDefineAs }: DefineAsModalProps) => {
               {TONE_OPTIONS.map(option => (
                 <Pressable
                   key={option.value}
-                  className="rounded-3xl px-4 py-4"
-                  style={{ backgroundColor: theme.surface }}
+                  className="rounded-[22px] border px-4 py-4"
+                  style={{ backgroundColor: theme.surface + 'CC', borderColor: theme.border }}
                   onPress={() => onDefineAs(song, option.value)}
                 >
                   <Text className="text-base font-bold" style={{ color: theme.text }}>
