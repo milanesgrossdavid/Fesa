@@ -453,14 +453,14 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
           }}
         >
           <Text className="mb-6 text-center text-base" style={{ color: theme.mutedText }}>
-            No hay ninguna canción seleccionada.
+            {t('player_no_song_selected', 'No song selected.')}
           </Text>
           <Pressable
             className="rounded-full px-6 py-3"
             style={{ backgroundColor: theme.surface }}
             onPress={onBack}
           >
-            <Text className="font-bold" style={{ color: theme.text }}>Volver</Text>
+            <Text className="font-bold" style={{ color: theme.text }}>{t('player_back', 'Back')}</Text>
           </Pressable>
         </View>
       </Modal>
@@ -551,22 +551,34 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
   const formatFrequencyLabel = (frequency: number) =>
     frequency >= 1000 ? `${Math.round(frequency / 1000)}k` : `${Math.round(frequency)}`;
 
+  const lockScreenLocale = useMemo(() => {
+    const locales: Record<string, string> = {
+      es: 'es-ES',
+      en: 'en-US',
+      pt: 'pt-BR',
+      fr: 'fr-FR',
+      it: 'it-IT',
+    };
+
+    return locales[language.id] ?? 'en-US';
+  }, [language.id]);
+
   const lockScreenDate = useMemo(
     () =>
-      new Date().toLocaleDateString("es-ES", {
+      new Date().toLocaleDateString(lockScreenLocale, {
         weekday: "long",
         day: "numeric",
         month: "long",
       }),
-    [],
+    [lockScreenLocale],
   );
   const lockScreenTime = useMemo(
     () =>
-      new Date().toLocaleTimeString("es-ES", {
+      new Date().toLocaleTimeString(lockScreenLocale, {
         hour: "2-digit",
         minute: "2-digit",
       }),
-    [],
+    [lockScreenLocale],
   );
 
   return (
@@ -810,7 +822,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                 [t('track_action_delete', 'Delete'), () => { closeTrackMenu(); setDeleteConfirmVisible(true); }],
                 [t('track_action_share', 'Share'), () => { closeTrackMenu(); void shareAudioFile(currentSong.id); }],
                 [t('track_action_details', 'Track details'), () => { closeTrackMenu(); setDetailsVisible(true); }],
-                ["Equalizer", () => { void openEqualizer(); }],
+                [t('player_equalizer', 'Equalizer'), () => { void openEqualizer(); }],
                 [t('track_action_album', 'Album'), () => openRelatedSongs("album")],
                 [t('track_action_artist', 'Artist'), () => openRelatedSongs("artist")],
                 [t('track_action_define_as', 'Set as'), () => { closeTrackMenu(); setDefineAsVisible(true); }],
@@ -881,7 +893,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
               <View className="mb-4 flex-row items-center justify-between px-1">
                 <View className="flex-1 pr-3">
                   <Text className="text-2xl font-bold" style={{ color: theme.text }}>
-                    Definir como
+                    {t('player_define_as_title', 'Set as')}
                   </Text>
                   <Text className="mt-1 text-sm" style={{ color: theme.mutedText }} numberOfLines={1}>
                     {currentSong.title}
@@ -892,7 +904,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                   onPress={() => setDefineAsVisible(false)}
                 >
                   <Text className="text-sm font-semibold" style={{ color: theme.text }}>
-                    Cerrar
+                    {t('close', 'Close')}
                   </Text>
                 </Pressable>
               </View>
@@ -923,8 +935,8 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
 
               <View className="gap-2">
                 {[
-                  { label: 'Tono del dispositivo', value: 'ringtone' as ToneType, description: 'Usar como tono de llamada' },
-                  { label: 'Tono de alarma', value: 'alarm' as ToneType, description: 'Usar como alarma' },
+                  { label: t('tone_option_ringtone', 'Device tone'), value: 'ringtone' as ToneType, description: t('tone_option_ringtone_desc', 'Use as ringtone') },
+                  { label: t('tone_option_alarm', 'Alarm tone'), value: 'alarm' as ToneType, description: t('tone_option_alarm_desc', 'Use as alarm') },
                 ].map(option => (
                   <Pressable
                     key={option.value}
@@ -1228,21 +1240,21 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
 
               <View className="mb-4 flex-row items-center justify-between">
                 <Text className="text-2xl font-bold" style={{ color: theme.text }}>
-                  Ecualizador
+                  {t('player_equalizer', 'Equalizer')}
                 </Text>
                 <Pressable
                   className="rounded-full px-3 py-2"
                   onPress={() => setEqualizerVisible(false)}
                 >
                   <Text className="text-sm font-semibold" style={{ color: theme.text }}>
-                    Cerrar
+                    {t('close', 'Close')}
                   </Text>
                 </Pressable>
               </View>
 
               <View className="mb-4 flex-row items-center justify-between rounded-full border px-3 py-2" style={{ backgroundColor: theme.surface, borderColor: theme.border }}>
                 <Text className="text-sm font-semibold" style={{ color: theme.text }}>
-                  Activado
+                  {t('player_equalizer_enabled', 'Enabled')}
                 </Text>
                 <Pressable
                   onPress={() => { void toggleEqualizer(); }}
@@ -1274,7 +1286,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                     }}
                   >
                     <Text className="text-xs font-bold text-center uppercase tracking-[0.12em]" style={{ color: theme.text }}>
-                      {presetName}
+                      {equalizerPresetLabels[presetName] ?? presetName}
                     </Text>
                   </Pressable>
                 ))}
@@ -1282,7 +1294,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
 
               {equalizerLoading ? (
                 <Text className="py-6 text-center text-sm" style={{ color: theme.mutedText }}>
-                  Cargando ecualizador…
+                  {t('player_equalizer_loading', 'Loading equalizer…')}
                 </Text>
               ) : equalizerBands.length ? (
                 <View className="flex-row items-end justify-between gap-1.5">
@@ -1325,7 +1337,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                 </View>
               ) : (
                 <Text className="py-6 text-center text-sm" style={{ color: theme.mutedText }}>
-                  No hay bandas disponibles para este audio.
+                  {t('player_equalizer_no_bands', 'No bands available for this audio.')}
                 </Text>
               )}
             </View>

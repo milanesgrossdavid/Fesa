@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Song } from '../../modules/local-music';
 import { useMusicPlayer } from '../audio/musicPlayer';
 import { useAppSettings } from '../settings/appSettings';
+import { getTranslation } from '../i18n/translations';
 import { DragHandleIcon } from '../Icons';
 import AudioWaveBars from './AudioWaveBars';
 import LibraryArtwork from './LibraryArtwork';
@@ -34,7 +35,8 @@ const QueuePlaylistModal = ({
   onSelectSong,
 }: QueuePlaylistModalProps) => {
   const insets = useSafeAreaInsets();
-  const { theme } = useAppSettings();
+  const { theme, language } = useAppSettings();
+  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const { playing, moveQueueSong } = useMusicPlayer();
 
   const flatListRef = useRef<FlatList>(null);
@@ -268,7 +270,7 @@ const QueuePlaylistModal = ({
     }
   }, [dragActive, shiftAnims]);
 
-  const queueCountLabel = `${queue.length} ${queue.length === 1 ? 'canción' : 'canciones'}`;
+  const queueCountLabel = `${queue.length} ${queue.length === 1 ? t('song_count_one', 'song') : t('song_count_many', 'songs')}`;
 
   const renderItem = ({ item, index }: { item: Song; index: number }) => {
     const isActive = index === currentIndex;
@@ -350,10 +352,10 @@ const QueuePlaylistModal = ({
               style={{ color: theme.text }}
               numberOfLines={1}
             >
-              {item.title}
+              {item.title || t('player_no_title', 'Untitled')}
             </Text>
             <Text className="mt-1 text-xs" style={{ color: theme.mutedText }} numberOfLines={1}>
-              {item.artist?.trim() || 'Artista Desconocido'}
+              {item.artist?.trim() || t('player_unknown_artist', 'Unknown artist')}
             </Text>
           </View>
           {isActive ? (
@@ -395,7 +397,7 @@ const QueuePlaylistModal = ({
 
           <View className="mb-4 flex-row items-center justify-between px-1">
             <Text className="text-2xl font-bold" style={{ color: theme.text }}>
-              Playlist
+              {t('player_queue_title', 'Queue')}
             </Text>
             <View
               className="rounded-full border px-2.5 py-1"

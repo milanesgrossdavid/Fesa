@@ -329,8 +329,8 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
     setRelatedTracks({
       title: groupName,
       subtitle: groupMode === 'albums'
-        ? normalizeValue(song.artist, UNKNOWN_ARTIST)
-        : `${relatedSongs.length} ${relatedSongs.length === 1 ? 'canción' : 'canciones'}`,
+        ? normalizeValue(song.artist, t('unknown_artist', 'Unknown Artist'))
+        : `${relatedSongs.length} ${relatedSongs.length === 1 ? t('song_count_one', 'song') : t('song_count_many', 'songs')}`,
       songs: relatedSongs,
       artwork: song.artwork,
       variant: groupMode === 'albums' ? 'album' : 'artist',

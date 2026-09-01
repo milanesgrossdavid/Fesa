@@ -93,14 +93,14 @@ const getSongFolderName = (song: Song) => {
   return folderName || getFolderName(song.url);
 };
 
-const buildGroups = (songs: Song[], mode: 'artists' | 'albums' | 'folders') => {
+const buildGroups = (songs: Song[], mode: 'artists' | 'albums' | 'folders', t: (key: string, fallback?: string) => string) => {
   const groups = new Map<string, SongGroup>();
 
   songs.forEach(song => {
     const name = mode === 'artists'
-      ? normalizeValue(song.artist, UNKNOWN_ARTIST)
+      ? normalizeValue(song.artist, t('unknown_artist', 'Unknown Artist'))
       : mode === 'albums'
-        ? normalizeValue(song.album, UNKNOWN_ALBUM)
+        ? normalizeValue(song.album, t('unknown_album', 'Unknown Album'))
         : getSongFolderName(song);
 
     const currentGroup = groups.get(name);
@@ -121,9 +121,9 @@ const buildGroups = (songs: Song[], mode: 'artists' | 'albums' | 'folders') => {
 
   return Array.from(groups.values())
     .map(group => {
-      const songCount = `${group.songs.length} ${group.songs.length === 1 ? 'canción' : 'canciones'}`;
+      const songCount = `${group.songs.length} ${group.songs.length === 1 ? t('song_count_one', 'song') : t('song_count_many', 'songs')}`;
       const subtitle = mode === 'albums'
-        ? `${normalizeValue(group.songs[0]?.artist, UNKNOWN_ARTIST)} | ${songCount}`
+        ? `${normalizeValue(group.songs[0]?.artist, t('unknown_artist', 'Unknown Artist'))} | ${songCount}`
         : songCount;
 
       return {
@@ -258,9 +258,9 @@ const PlaylistLibraryScreen = () => {
   }, [groupModalTranslateY, selectedGroup]);
 
   const songsById = useMemo(() => new Map(songs.map(song => [song.id, song])), [songs]);
-  const artistGroups = useMemo(() => buildGroups(songs, 'artists'), [songs]);
-  const albumGroups = useMemo(() => buildGroups(songs, 'albums'), [songs]);
-  const folderGroups = useMemo(() => buildGroups(songs, 'folders'), [songs]);
+  const artistGroups = useMemo(() => buildGroups(songs, 'artists', t), [songs, t]);
+  const albumGroups = useMemo(() => buildGroups(songs, 'albums', t), [songs, t]);
+  const folderGroups = useMemo(() => buildGroups(songs, 'folders', t), [songs, t]);
 
   const defaultPlaylists = useMemo<SongGroup[]>(() => {
     const recentlyAddedSongs = [...songs]

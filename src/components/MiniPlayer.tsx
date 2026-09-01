@@ -3,6 +3,7 @@ import { Pressable, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useMusicPlayer } from '../audio/musicPlayer';
+import { getTranslation } from '../i18n/translations';
 import { useAppSettings } from '../settings/appSettings';
 import PlayerScreen from '../screens/PlayerScreen';
 import AutoScrollingText from './AutoScrollingText';
@@ -12,7 +13,8 @@ import QueuePlaylistModal from './QueuePlaylistModal';
 const MiniPlayer = () => {
   const [showPlayer, setShowPlayer] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
-  const { theme } = useAppSettings();
+  const { theme, language } = useAppSettings();
+  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const {
     queue,
     currentIndex,
@@ -68,7 +70,7 @@ const MiniPlayer = () => {
               className="mt-0.5 text-xs"
               style={{ color: theme.mutedText }}
             >
-              {currentSong.artist || 'Artista Desconocido'}
+              {currentSong.artist || t('unknown_artist', 'Unknown Artist')}
             </AutoScrollingText>
           </View>
 

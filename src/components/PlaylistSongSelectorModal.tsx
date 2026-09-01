@@ -34,8 +34,6 @@ interface PlaylistSongSelectorModalProps {
   onSave: () => void;
 }
 
-const UNKNOWN_ARTIST = 'Artista Desconocido';
-
 const normalizeValue = (value: string | null | undefined, fallback: string) => {
   const cleanValue = value?.trim();
 
@@ -165,7 +163,7 @@ const PlaylistSongSelectorModal = ({
                       {song.title}
                     </Text>
                     <Text className="mt-1 text-xs" style={{ color: theme.mutedText }} numberOfLines={1}>
-                      {normalizeValue(song.artist, UNKNOWN_ARTIST)}
+                      {normalizeValue(song.artist, t('unknown_artist', 'Unknown Artist'))}
                     </Text>
                   </View>
                 </Pressable>

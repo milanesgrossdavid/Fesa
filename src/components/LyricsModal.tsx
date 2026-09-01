@@ -25,6 +25,7 @@ import { BackwardIcon, ForwardIcon } from "../Icons";
 import { formatDuration } from "../utils/time";
 
 import { useAppSettings } from "../settings/appSettings";
+import { getTranslation } from "../i18n/translations";
 
 import { useMusicPlayer } from "../audio/musicPlayer";
 
@@ -114,7 +115,8 @@ const saveLocalLyrics = async (
 };
 
 const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
-  const { theme } = useAppSettings();
+  const { theme, language } = useAppSettings();
+  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
 
   const {
     currentTime,
@@ -412,14 +414,14 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
 
         console.log("No lyrics found after all attempts");
 
-        setError("No se encontró la letra.");
+        setError(t('player_lyrics_not_found', 'No lyrics found.'));
 
         setLoading(false);
       } catch (e) {
         if (!aborted) {
           console.error("Error fetching lyrics:", e);
 
-          setError("No se pudo obtener la letra.");
+          setError(t('player_lyrics_error', 'Could not get the lyrics.'));
         }
 
         setLoading(false);
@@ -643,7 +645,7 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
                         lineHeight: 34,
                       }}
                     >
-                      {song?.title || "Sin título"}
+                      {song?.title || t('player_no_title', 'Untitled')}
                     </Text>
 
                     <Text
@@ -654,7 +656,7 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
                         marginTop: 8,
                       }}
                     >
-                      {song?.artist || "Artista desconocido"}
+                      {song?.artist || t('player_unknown_artist', 'Unknown artist')}
                     </Text>
                   </View>
 
@@ -714,7 +716,7 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
                         marginTop: 12,
                       }}
                     >
-                      Buscando letra de la canción...
+                      {t('player_lyrics_loading', 'Searching for song lyrics...')}
                     </Text>
                   </View>
                 ) : error ? (
@@ -775,7 +777,7 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
                 ) : (
                   <View className="flex-1 items-center justify-center px-4">
                     <Text style={{ color: theme.mutedText }}>
-                      No hay letra disponible.
+                      {t('player_lyrics_unavailable', 'No lyrics available.')}
                     </Text>
                   </View>
                 )}

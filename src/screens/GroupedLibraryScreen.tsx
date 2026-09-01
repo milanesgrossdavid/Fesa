@@ -17,6 +17,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { deleteAudioFile, getAudioFiles, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
 import { useMusicPlayer } from '../audio/musicPlayer';
 import { useAppSettings } from '../settings/appSettings';
+import { getTranslation } from '../i18n/translations';
 import AddSongToPlaylistModal from '../components/AddSongToPlaylistModal';
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
 import CreatePlaylistModal from '../components/CreatePlaylistModal';
@@ -115,7 +116,7 @@ const compareText = (a: string | null | undefined, b: string | null | undefined,
   normalizeValue(a, fallback).localeCompare(normalizeValue(b, fallback))
 );
 
-const buildGroups = (songs: Song[], mode: GroupedLibraryMode) => {
+const buildGroups = (songs: Song[], mode: GroupedLibraryMode, t: (key: string, fallback?: string) => string) => {
   const groups = new Map<string, SongGroup>();
 
   songs.forEach(song => {
@@ -138,9 +139,9 @@ const buildGroups = (songs: Song[], mode: GroupedLibraryMode) => {
 
   return Array.from(groups.values())
     .map(group => {
-      const songCount = `${group.songs.length} ${group.songs.length === 1 ? 'canción' : 'canciones'}`;
+      const songCount = `${group.songs.length} ${group.songs.length === 1 ? t('song_count_one', 'song') : t('song_count_many', 'songs')}`;
       const subtitle = mode === 'albums'
-        ? `${normalizeValue(group.songs[0]?.artist, UNKNOWN_ARTIST)} | ${songCount}`
+        ? `${normalizeValue(group.songs[0]?.artist, t('unknown_artist', 'Unknown Artist'))} | ${songCount}`
         : songCount;
 
       return {
@@ -172,7 +173,8 @@ const GroupedLibraryScreen = ({ mode, title }: GroupedLibraryScreenProps) => {
   const [trackSort, setTrackSort] = useState<TrackSortOption>('name');
   const [trackSortDirection, setTrackSortDirection] = useState<TrackSortDirection>('asc');
   const groupModalTranslateY = useRef(new Animated.Value(1)).current;
-  const { theme } = useAppSettings();
+  const { theme, language } = useAppSettings();
+  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const { currentSong, playing, playSong, togglePlayPause, setSelectionModeActive } = useMusicPlayer();
 
   const requestPermissionsAndLoadMusic = useCallback(async () => {
@@ -248,9 +250,9 @@ const GroupedLibraryScreen = ({ mode, title }: GroupedLibraryScreenProps) => {
     }).start();
   }, [groupModalTranslateY, selectedGroup]);
 
-  const albumGroups = useMemo(() => buildGroups(songs, 'albums'), [songs]);
-  const artistGroups = useMemo(() => buildGroups(songs, 'artists'), [songs]);
-  const groups = useMemo(() => buildGroups(songs, mode), [mode, songs]);
+  const albumGroups = useMemo(() => buildGroups(songs, 'albums', t), [songs, t]);
+  const artistGroups = useMemo(() => buildGroups(songs, 'artists', t), [songs, t]);
+  const groups = useMemo(() => buildGroups(songs, mode, t), [mode, songs, t]);
   const isVisualGridMode = mode === 'albums' || mode === 'artists';
   const selectedSongs = useMemo(
     () => selectedSongIds.map(songId => songs.find(song => song.id === songId)).filter(Boolean) as Song[],
@@ -516,14 +518,14 @@ const GroupedLibraryScreen = ({ mode, title }: GroupedLibraryScreenProps) => {
     return (
       <View className="flex-1 items-center justify-center px-5" style={{ backgroundColor: theme.background }}>
         <Text className="text-center text-base" style={{ color: theme.mutedText }}>
-          Se requieren permisos para leer tu música.
+          {t('permission_required_music', 'Music permissions are required to read your library.')}
         </Text>
         <Pressable 
           className="mt-4 rounded-full px-6 py-2" 
           style={{ backgroundColor: theme.surface }}
           onPress={() => void requestPermissionsAndLoadMusic()}
         >
-          <Text style={{ color: theme.text }}>Reintentar</Text>
+          <Text style={{ color: theme.text }}>{t('retry', 'Retry')}</Text>
         </Pressable>
       </View>
     );
@@ -546,7 +548,7 @@ const GroupedLibraryScreen = ({ mode, title }: GroupedLibraryScreenProps) => {
         ListHeaderComponent={renderTopNav()}
         ListEmptyComponent={
           <Text className="px-5 py-8 text-center" style={{ color: theme.mutedText }}>
-            No hay elementos para mostrar.
+            {t('empty_state_default', 'Nothing here')}
           </Text>
         }
         contentContainerStyle={{ paddingBottom: isSelectionMode ? SELECTION_BAR_BOTTOM_INSET : MINI_PLAYER_BOTTOM_INSET }}
@@ -627,8 +629,10 @@ const GroupedLibraryScreen = ({ mode, title }: GroupedLibraryScreenProps) => {
 
       <ConfirmDeleteModal
         visible={bulkDeleteVisible}
-        title="Eliminar canciones"
-        message={`¿Quieres eliminar ${selectedSongIds.length} ${selectedSongIds.length === 1 ? 'canción' : 'canciones'}? Esta acción no se puede deshacer.`}
+        title={t('delete_song_title', 'Delete songs')}
+        message={t('delete_song_message', 'Do you want to delete %count% %label%? This action cannot be undone.')
+          .replace('%count%', String(selectedSongIds.length))
+          .replace('%label%', selectedSongIds.length === 1 ? t('delete_song_single', 'song') : t('delete_song_plural', 'songs'))}
         onClose={() => setBulkDeleteVisible(false)}
         onConfirm={performBulkDelete}
       />

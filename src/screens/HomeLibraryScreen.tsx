@@ -18,7 +18,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { deleteAudioFile, getAudioFiles, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
 import { musicPlayer, useMusicPlayer } from '../audio/musicPlayer';
 import { useAppSettings } from '../settings/appSettings';
-import { useTranslation } from '../i18n/translations';
+import { getTranslation, useTranslation } from '../i18n/translations';
 import AddSongToPlaylistModal from '../components/AddSongToPlaylistModal';
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
 import CreatePlaylistModal from '../components/CreatePlaylistModal';
@@ -93,7 +93,7 @@ const getGroupName = (song: Song, mode: LibraryGroupMode) => {
   return normalizeValue(song.artist, UNKNOWN_ARTIST);
 };
 
-const buildGroups = (songs: Song[], mode: LibraryGroupMode) => {
+const buildGroups = (songs: Song[], mode: LibraryGroupMode, t: (key: string, fallback?: string) => string) => {
   const groups = new Map<string, SongGroup>();
 
   songs.forEach(song => {
@@ -116,9 +116,9 @@ const buildGroups = (songs: Song[], mode: LibraryGroupMode) => {
 
   return Array.from(groups.values())
     .map(group => {
-      const songCount = `${group.songs.length} ${group.songs.length === 1 ? 'canción' : 'canciones'}`;
+      const songCount = `${group.songs.length} ${group.songs.length === 1 ? t('song_count_one', 'song') : t('song_count_many', 'songs')}`;
       const subtitle = mode === 'albums'
-        ? `${normalizeValue(group.songs[0]?.artist, UNKNOWN_ARTIST)} | ${songCount}`
+        ? `${normalizeValue(group.songs[0]?.artist, t('unknown_artist', 'Unknown Artist'))} | ${songCount}`
         : songCount;
 
       return {
@@ -131,7 +131,8 @@ const buildGroups = (songs: Song[], mode: LibraryGroupMode) => {
 };
 
 const HomeSectionHeader = ({ title, onPress, onPressLabel }: { title: string; onPress?: () => void; onPressLabel?: string; }) => {
-  const { theme } = useAppSettings();
+  const { theme, language } = useAppSettings();
+  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
 
   return (
     <View className="flex-row items-center justify-between px-4 pb-2 pt-4">
@@ -140,9 +141,9 @@ const HomeSectionHeader = ({ title, onPress, onPressLabel }: { title: string; on
         <Pressable
           style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
           onPress={onPress}
-          accessibilityLabel={`${onPressLabel ?? 'Ver todo'}: ${title}`}
+          accessibilityLabel={`${onPressLabel ?? t('view_all', 'View All')}: ${title}`}
         >
-          <Text style={{ color: theme.accent, fontSize: 16 }}>{onPressLabel ?? 'Ver todo'}</Text>
+          <Text style={{ color: theme.accent, fontSize: 16 }}>{onPressLabel ?? t('view_all', 'View All')}</Text>
         </Pressable>
       ) : null}
     </View>
@@ -174,7 +175,11 @@ const HomeLibraryScreen = () => {
   const [selectedSongIds, setSelectedSongIds] = useState<string[]>([]);
   const groupModalTranslateY = useRef(new Animated.Value(1)).current;
   const { theme, language } = useAppSettings();
-  const { t } = useTranslation(language.id);
+  const translationHelper = useTranslation(language.id);
+  const t = useCallback(
+    (key: string, fallback?: string) => translationHelper.t(key, fallback),
+    [translationHelper]
+  );
   const {
     currentSong,
     playing,
@@ -199,9 +204,10 @@ const HomeLibraryScreen = () => {
     }
   }, []);
 
+  // Load music on mount
   useEffect(() => {
     void requestPermissionsAndLoadMusic();
-  }, [requestPermissionsAndLoadMusic]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -219,7 +225,7 @@ const HomeLibraryScreen = () => {
           }
         })
         .catch(error => console.warn('No se pudieron cargar las playlists:', error));
-    }, [])
+    }, [songs.length, loading, requestPermissionsAndLoadMusic])
   );
 
   const persistStoredPlaylists = async (nextPlaylists: StoredPlaylist[]) => {
@@ -227,8 +233,8 @@ const HomeLibraryScreen = () => {
     await AsyncStorage.setItem(CUSTOM_PLAYLISTS_STORAGE_KEY, JSON.stringify(nextPlaylists));
   };
 
-  const albumGroups = useMemo(() => buildGroups(songs, 'albums'), [songs]);
-  const artistGroups = useMemo(() => buildGroups(songs, 'artists'), [songs]);
+  const albumGroups = useMemo(() => buildGroups(songs, 'albums', t), [songs, t]);
+  const artistGroups = useMemo(() => buildGroups(songs, 'artists', t), [songs, t]);
 
   const defaultPlaylists = useMemo<SongGroup[]>(() => {
     const recentlyAddedSongs = [...songs]
@@ -239,22 +245,22 @@ const HomeLibraryScreen = () => {
     return [
       {
         id: 'default-recently-added',
-        name: 'Recién añadidas',
-        subtitle: `${recentlyAddedSongs.length} ${recentlyAddedSongs.length === 1 ? 'canción' : 'canciones'}`,
+        name: t('default_recently_added', 'Recently added'),
+        subtitle: `${recentlyAddedSongs.length} ${recentlyAddedSongs.length === 1 ? t('song_count_one', 'song') : t('song_count_many', 'songs')}`,
         songs: recentlyAddedSongs,
         artwork: recentlyAddedSongs[0]?.artwork,
       },
       {
         id: 'default-most-played',
-        name: 'Más escuchadas',
-        subtitle: `${homeMostPlayedSongs.length} ${homeMostPlayedSongs.length === 1 ? 'canción' : 'canciones'}`,
+        name: t('default_most_played', 'Most played'),
+        subtitle: `${homeMostPlayedSongs.length} ${homeMostPlayedSongs.length === 1 ? t('song_count_one', 'song') : t('song_count_many', 'songs')}`,
         songs: homeMostPlayedSongs,
         artwork: homeMostPlayedSongs[0]?.artwork,
       },
     ];
-  }, [mostPlayedSongs, songs]);
+  }, [mostPlayedSongs, songs, t]);
 
-  const refreshHomeListeningStats = async () => {
+  const refreshHomeListeningStats = useCallback(async () => {
     if (!songs.length) {
       return;
     }
@@ -275,12 +281,22 @@ const HomeLibraryScreen = () => {
 
     const artistGroupsFromPlayed = [...artistPlayCounts.keys()]
       .sort((a, b) => (artistPlayCounts.get(b) ?? 0) - (artistPlayCounts.get(a) ?? 0))
-      .map(artistName => artistGroups.find(group => group.name === artistName))
+      .map(artistName => {
+        const normalized = normalizeValue(artistName, UNKNOWN_ARTIST);
+        const artistSongs = songs.filter(s => normalizeValue(s.artist, UNKNOWN_ARTIST) === normalized);
+        return {
+          id: normalized,
+          name: normalized,
+          subtitle: `${artistSongs.length} ${artistSongs.length === 1 ? t('song_count_one', 'song') : t('song_count_many', 'songs')}`,
+          songs: artistSongs,
+          artwork: artistSongs[0]?.artwork,
+        };
+      })
       .filter(Boolean)
       .slice(0, 7) as SongGroup[];
 
     setFavoriteArtists(artistGroupsFromPlayed);
-  };
+  }, [songs, t]);
 
   useEffect(() => {
     if (loading || !permissionGranted) {
@@ -288,20 +304,37 @@ const HomeLibraryScreen = () => {
     }
 
     void refreshHomeListeningStats();
-  }, [artistGroups, listeningStatsVersion, loading, permissionGranted, songs]);
+  }, [refreshHomeListeningStats, listeningStatsVersion, loading, permissionGranted]);
 
   useFocusEffect(
     useCallback(() => {
       if (!loading && permissionGranted) {
         void refreshHomeListeningStats();
       }
-    }, [artistGroups, loading, permissionGranted, songs])
+    }, [refreshHomeListeningStats, loading, permissionGranted])
   );
 
+  const recommendedItemsRef = useRef<{ songs: Song[]; albums: SongGroup[]; artists: SongGroup[] } | null>(null);
+
   useEffect(() => {
-    setRecommendedSongs(shuffleList(songs).slice(0, 12));
-    setRecommendedAlbums(shuffleList(albumGroups).slice(0, 6));
-    setRecommendedArtists(shuffleList(artistGroups).slice(0, 4));
+    const newRecommended = {
+      songs: shuffleList(songs).slice(0, 12),
+      albums: shuffleList(albumGroups).slice(0, 6),
+      artists: shuffleList(artistGroups).slice(0, 4),
+    };
+
+    // Only update if the data actually changed
+    if (
+      !recommendedItemsRef.current
+      || recommendedItemsRef.current.songs.length !== newRecommended.songs.length
+      || recommendedItemsRef.current.albums.length !== newRecommended.albums.length
+      || recommendedItemsRef.current.artists.length !== newRecommended.artists.length
+    ) {
+      recommendedItemsRef.current = newRecommended;
+      setRecommendedSongs(newRecommended.songs);
+      setRecommendedAlbums(newRecommended.albums);
+      setRecommendedArtists(newRecommended.artists);
+    }
   }, [albumGroups, artistGroups, songs]);
 
   useEffect(() => {
@@ -575,14 +608,14 @@ const HomeLibraryScreen = () => {
     return (
       <View className="flex-1 items-center justify-center px-5" style={{ backgroundColor: theme.background }}>
         <Text className="text-center text-base" style={{ color: theme.mutedText }}>
-          Se requieren permisos para leer tu música.
+          {t('permission_required_music', 'Music permissions are required to read your library.')}
         </Text>
         <Pressable 
           className="mt-4 rounded-full px-6 py-2" 
           style={{ backgroundColor: theme.surface }}
           onPress={() => void requestPermissionsAndLoadMusic()}
         >
-          <Text style={{ color: theme.text }}>Reintentar</Text>
+          <Text style={{ color: theme.text }}>{t('retry', 'Retry')}</Text>
         </Pressable>
       </View>
     );
@@ -708,8 +741,10 @@ const HomeLibraryScreen = () => {
       <SongDetailsModal song={detailsSong} onClose={() => setDetailsSong(null)} />
       <ConfirmDeleteModal
         visible={bulkDeleteVisible}
-        title="Eliminar canciones"
-        message={`¿Quieres eliminar ${selectedSongIds.length} ${selectedSongIds.length === 1 ? 'canción' : 'canciones'}? Esta acción no se puede deshacer.`}
+        title={t('delete_song_title', 'Delete songs')}
+        message={t('delete_song_message', 'Do you want to delete %count% %label%? This action cannot be undone.')
+          .replace('%count%', String(selectedSongIds.length))
+          .replace('%label%', selectedSongIds.length === 1 ? t('delete_song_single', 'song') : t('delete_song_plural', 'songs'))}
         onClose={() => setBulkDeleteVisible(false)}
         onConfirm={performBulkDelete}
       />

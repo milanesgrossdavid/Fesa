@@ -38,12 +38,9 @@ const HomeFavoriteArtistsSection = ({
               className="h-36 w-36 rounded-full"
               fallbackTextClassName="text-6xl font-bold text-[#b64400]"
             />
-            <View className="px-6">
+            <View className="px-10">
               <AutoScrollingText key={`${artist.id}-name`} className="mt-3 text-base font-bold" style={{ color: theme.text }}>
                 {artist.name}
-              </AutoScrollingText>
-              <AutoScrollingText key={`${artist.id}-subtitle`} className="mt-1 ml-2 text-sm" style={{ color: theme.mutedText }}>
-                {artist.subtitle}
               </AutoScrollingText>
             </View>
           </Pressable>

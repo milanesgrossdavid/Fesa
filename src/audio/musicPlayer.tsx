@@ -18,6 +18,7 @@ import {
   registerSleepTimerListener,
   subscribeAppSettings,
 } from '../settings/appSettings';
+import { getTranslation } from '../i18n/translations';
 
 type PatchedAudioMetadata = {
   title?: string;
@@ -199,22 +200,28 @@ const buildLockScreenArtworkUrl = (artwork?: string | null) => {
   return undefined;
 };
 
-const buildMetadata = (song: Song): PatchedAudioMetadata => ({
-  title: song.title,
-  artist: song.artist || 'Artista Desconocido',
-  albumTitle: song.album || 'Álbum Desconocido',
-  artworkUrl: buildLockScreenArtworkUrl(song.artwork),
-  durationMs: song.duration,
-});
+const buildMetadata = (song: Song): PatchedAudioMetadata => {
+  const { language } = getAppSettingsSnapshot();
+
+  return {
+    title: song.title,
+    artist: song.artist || getTranslation(language.id as any, 'unknown_artist', 'Unknown Artist'),
+    albumTitle: song.album || getTranslation(language.id as any, 'unknown_album', 'Unknown Album'),
+    artworkUrl: buildLockScreenArtworkUrl(song.artwork),
+    durationMs: song.duration,
+  };
+};
 
 const publishAndroidNotification = (song: Song, positionSeconds: number, isPlaying: boolean) => {
   if (Platform.OS !== 'android' || !getAppSettingsSnapshot().lockScreenControlsEnabled) {
     return;
   }
 
+  const { language } = getAppSettingsSnapshot();
+
   showMusicNotification({
     title: song.title,
-    artist: song.artist || 'Artista Desconocido',
+    artist: song.artist || getTranslation(language.id as any, 'unknown_artist', 'Unknown Artist'),
     artworkUri: song.artwork ?? null,
     playing: isPlaying,
     positionMs: Math.floor(Math.max(0, positionSeconds) * 1000),
