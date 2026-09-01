@@ -4,6 +4,7 @@ import { Song } from '../../modules/local-music';
 import LibraryArtwork from './LibraryArtwork';
 import AutoScrollingText from './AutoScrollingText';
 import { useAppSettings } from '../settings/appSettings';
+import { useTranslation } from '../i18n/translations';
 
 type SongGroup = {
   id: string;
@@ -22,7 +23,8 @@ const HomeFavoriteArtistsSection = ({
   artists,
   onOpenArtist,
 }: HomeFavoriteArtistsSectionProps) => {
-  const { theme } = useAppSettings();
+  const { theme, language } = useAppSettings();
+  const { t } = useTranslation(language.id);
 
   return (
   <View className="py-4">
@@ -49,7 +51,7 @@ const HomeFavoriteArtistsSection = ({
       </View>
     ) : (
       <Text className="rounded-3xl px-5 py-6 text-center text-sm" style={{ backgroundColor: theme.background, color: theme.mutedText }}>
-        Cuando escuches canciones, aquí aparecerán tus artistas favoritos.
+        {t('favorite_artists_empty')}
       </Text>
     )}
   </View>

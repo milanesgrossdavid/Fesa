@@ -1,8 +1,9 @@
 import React from 'react';
 import { Pressable, View } from 'react-native';
 import { PlayIcon, ShuffleIcon } from '../Icons';
-import TopNavSortFilter, { TrackSortDirection, TrackSortOption } from './TopNavSortFilter';
+import { getTranslation } from '../i18n/translations';
 import { useAppSettings } from '../settings/appSettings';
+import TopNavSortFilter, { TrackSortDirection, TrackSortOption } from './TopNavSortFilter';
 
 export type { TrackSortDirection, TrackSortOption };
 
@@ -15,13 +16,6 @@ interface TopNavPistasProps {
   disabled?: boolean;
 }
 
-const SORT_OPTIONS: { label: string; value: TrackSortOption }[] = [
-  { label: 'Nombre', value: 'name' },
-  { label: 'Fecha', value: 'date' },
-  { label: 'Artista', value: 'artist' },
-  { label: 'Albumes', value: 'albums' },
-];
-
 const TopNavPistas = ({
   selectedSort,
   selectedDirection,
@@ -30,7 +24,15 @@ const TopNavPistas = ({
   onPlayPress,
   disabled = false,
 }: TopNavPistasProps) => {
-  const { theme } = useAppSettings();
+  const { theme, language } = useAppSettings();
+  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
+  const SORT_OPTIONS: { label: string; value: TrackSortOption }[] = [
+    { label: t('sort_name', 'Name'), value: 'name' },
+    { label: t('sort_date', 'Date'), value: 'date' },
+    { label: t('sort_artist', 'Artist'), value: 'artist' },
+    { label: t('sort_albums', 'Albums'), value: 'albums' },
+  ];
+
   return (
   <TopNavSortFilter
     selectedSort={selectedSort}

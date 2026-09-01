@@ -2,16 +2,17 @@ import React from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppSettings } from '../settings/appSettings';
+import { getTranslation } from '../i18n/translations';
 
 const PRIVACY_POLICY_ITEMS = [
-  'FESA solo accede a la biblioteca local de audio del dispositivo para reproducir, organizar y gestionar tus canciones.',
-  'La aplicación no sube ni comparte tu música a servidores externos ni almacena tus archivos fuera del dispositivo.',
-  'Los permisos solicitados son exclusivos para leer la biblioteca local, gestionar tonos y controlar la reproducción.',
-  'Los datos de configuración como temas, pestañas visibles y archivos ocultos se guardan localmente en el dispositivo.',
-  'No recopilamos información personal ni perfiles de usuario para venta, publicidad o análisis externos.',
-  'La app puede abrir servicios del sistema como ajustes, contacto o enlaces de soporte cuando el usuario lo solicita.',
-  'Si el usuario decide ocultar canciones, la decisión se conserva solo en la configuración local de la app.',
-  'FESA puede actualizar esta política para reflejar cambios funcionales o requisitos de compatibilidad con Android.',
+  'FESA only accesses the device’s local audio library to play, organize, and manage your songs.',
+  'The app does not upload or share your music to external servers or store your files outside the device.',
+  'The requested permissions are only for reading the local library, managing tones, and controlling playback.',
+  'Settings such as themes, visible tabs, and hidden files are stored locally on the device.',
+  'We do not collect personal information or user profiles for sale, advertising, or external analytics.',
+  'The app may open system services such as settings, contact, or support links when the user requests them.',
+  'If the user hides songs, that decision is kept only in the app’s local settings.',
+  'FESA may update this policy to reflect functional changes or compatibility requirements with Android.',
 ];
 
 interface PrivacyPolicyModalProps {
@@ -21,7 +22,9 @@ interface PrivacyPolicyModalProps {
 
 const PrivacyPolicyModal = ({ visible, onClose }: PrivacyPolicyModalProps) => {
   const insets = useSafeAreaInsets();
-  const { theme } = useAppSettings();
+  const { theme, language } = useAppSettings();
+  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
+  const policyItems = PRIVACY_POLICY_ITEMS.map((_, index) => t(`privacy_item_${index + 1}`, PRIVACY_POLICY_ITEMS[index]));
 
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
@@ -36,16 +39,16 @@ const PrivacyPolicyModal = ({ visible, onClose }: PrivacyPolicyModalProps) => {
           </View>
 
           <Text className="mb-4 text-center text-xl font-bold" style={{ color: theme.text }}>
-            Política de privacidad
+            {t('privacy_policy_title', 'Privacy Policy')}
           </Text>
 
           <ScrollView showsVerticalScrollIndicator={false}>
             <Text className="mb-4 text-sm leading-6" style={{ color: theme.mutedText }}>
-              Esta política describe cómo FESA maneja la música y la configuración dentro de tu dispositivo.
+              {t('privacy_policy_intro', 'This policy describes how FESA handles music and settings on your device.')}
             </Text>
 
             <View className="overflow-hidden rounded-2xl" style={{ backgroundColor: theme.surface }}>
-              {PRIVACY_POLICY_ITEMS.map((item, index) => (
+              {policyItems.map((item, index) => (
                 <View
                   key={item}
                   className="px-4 py-4"

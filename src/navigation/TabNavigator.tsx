@@ -11,6 +11,7 @@ import AlbumesScreen from '../screens/AlbumesScreen';
 import ArtistasScreen from '../screens/ArtistasScreen';
 import CarpetasScreen from '../screens/CarpetasScreen';
 import MiniPlayer from '../components/MiniPlayer';
+import { getTranslation } from '../i18n/translations';
 import { DEFAULT_TABS, TabId, useAppSettings } from '../settings/appSettings';
 
 const Tab = createMaterialTopTabNavigator();
@@ -28,8 +29,22 @@ const TAB_COMPONENTS: Record<TabId, React.ComponentType> = {
 const isTabId = (value: string | undefined): value is TabId =>
   Boolean(value && Object.prototype.hasOwnProperty.call(TAB_COMPONENTS, value));
 
+const getTabLabel = (tabId: TabId, languageId: string) => {
+  const translationKeyByTab: Record<TabId, string> = {
+    Inicio: 'tab_home',
+    Favoritos: 'tab_favorites',
+    Playlist: 'tab_playlist',
+    Pistas: 'tab_tracks',
+    'Álbumes': 'tab_albums',
+    Artistas: 'tab_artists',
+    Carpetas: 'tab_folders',
+  };
+
+  return getTranslation(languageId as any, translationKeyByTab[tabId], tabId);
+};
+
 const TabNavigator = () => {
-  const { theme, tabs } = useAppSettings();
+  const { theme, tabs, language } = useAppSettings();
   const [lastTabLoaded, setLastTabLoaded] = useState(false);
   const [lastTab, setLastTab] = useState<TabId | null>(null);
   const visibleTabs = tabs.filter(tab => tab.enabled);
@@ -132,7 +147,12 @@ const TabNavigator = () => {
           }}
         >
           {renderedTabs.map(tab => (
-            <Tab.Screen key={tab.id} name={tab.id} component={TAB_COMPONENTS[tab.id]} />
+            <Tab.Screen
+              key={tab.id}
+              name={tab.id}
+              component={TAB_COMPONENTS[tab.id]}
+              options={{ title: getTabLabel(tab.id, language.id) }}
+            />
           ))}
         </Tab.Navigator>
       </NavigationContainer>

@@ -3,6 +3,7 @@ import { Modal, Pressable, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { DeleteIcon } from '../Icons';
+import { getTranslation } from '../i18n/translations';
 import { useAppSettings } from '../settings/appSettings';
 import LibraryArtwork from './LibraryArtwork';
 
@@ -21,17 +22,20 @@ interface ConfirmDeleteModalProps {
 
 const ConfirmDeleteModal = ({
   visible,
-  title = 'Eliminar',
+  title,
   message,
   itemName,
   artwork,
-  confirmLabel = 'Eliminar',
+  confirmLabel,
   accent = 'danger',
   onClose,
   onConfirm,
 }: ConfirmDeleteModalProps) => {
-  const { theme } = useAppSettings();
+  const { theme, language } = useAppSettings();
+  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const isWhiteAccent = accent === 'white';
+  const resolvedTitle = title ?? t('remove', 'Remove');
+  const resolvedConfirmLabel = confirmLabel ?? t('delete', 'Delete');
   const accentColor = isWhiteAccent ? theme.text : '#ff5252';
   const confirmTextColor = isWhiteAccent ? '#ffffff' : '#ffffff';
 
@@ -75,7 +79,7 @@ const ConfirmDeleteModal = ({
           </View>
 
           <Text className="text-center text-[28px] font-bold leading-8" style={{ color: theme.text }}>
-            {title}
+            {resolvedTitle}
           </Text>
           <Text className="mt-3 text-center text-base leading-6" style={{ color: theme.mutedText }}>
             {message}
@@ -113,7 +117,7 @@ const ConfirmDeleteModal = ({
               onPress={onConfirm}
             >
               <Text className="text-center text-base font-extrabold" style={{ color: theme.text }}>
-                {confirmLabel}
+                {resolvedConfirmLabel}
               </Text>
             </Pressable>
             <Pressable
@@ -126,7 +130,7 @@ const ConfirmDeleteModal = ({
               onPress={onClose}
             >
               <Text className="text-center text-base font-bold" style={{ color: theme.text }}>
-                Cancelar
+                {t('cancel', 'Cancel')}
               </Text>
             </Pressable>
           </View>

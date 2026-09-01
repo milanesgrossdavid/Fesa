@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { getTranslation } from '../i18n/translations';
 import { PlaylistIcon, PlusIcon } from '../Icons';
 import { useAppSettings } from '../settings/appSettings';
 
@@ -27,7 +28,8 @@ const CreatePlaylistModal = ({
   onClose,
   onNext,
 }: CreatePlaylistModalProps) => {
-  const { theme } = useAppSettings();
+  const { theme, language } = useAppSettings();
+  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const canContinue = Boolean(playlistName.trim());
 
   return (
@@ -59,10 +61,10 @@ const CreatePlaylistModal = ({
               </View>
               <View className="flex-1">
                 <Text className="text-[28px] font-bold leading-8" style={{ color: theme.text }}>
-                  Nueva playlist
+                  {t('create_playlist_title', 'New playlist')}
                 </Text>
                 <Text className="mt-1 text-sm" style={{ color: theme.mutedText }}>
-                  Organiza tu música favorita
+                  {t('create_playlist_subtitle', 'Organize your favorite music')}
                 </Text>
               </View>
             </View>
@@ -80,7 +82,7 @@ const CreatePlaylistModal = ({
           <View className="rounded-[26px] border p-4" style={{ backgroundColor: theme.surface, borderColor: theme.border }}>
             <View className="mb-3 flex-row items-center justify-between">
               <Text className="ml-2 text-base font-bold" style={{ color: theme.text }}>
-                Nombre
+                {t('playlist_name_label', 'Name')}
               </Text>
               <Text className="text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: theme.mutedText }}>
                 {playlistName.trim().length}/60
@@ -94,7 +96,7 @@ const CreatePlaylistModal = ({
                 borderColor: canContinue ? theme.accent : theme.border,
                 color: theme.text,
               }}
-              placeholder="Ej. Viaje de verano"
+              placeholder={t('playlist_name_placeholder', 'e.g. Summer trip')}
               placeholderTextColor={theme.mutedText}
               cursorColor={theme.text}
               value={playlistName}
@@ -116,7 +118,7 @@ const CreatePlaylistModal = ({
               onPress={onClose}
             >
               <Text className="font-bold" style={{ color: theme.text }}>
-                Cancelar
+                {t('cancel', 'Cancel')}
               </Text>
             </Pressable>
             <Pressable
@@ -130,7 +132,7 @@ const CreatePlaylistModal = ({
             >
               <PlusIcon size={18} color={canContinue ? theme.background : theme.mutedText} />
               <Text className="font-bold" style={{ color: canContinue ? theme.background : theme.mutedText }}>
-                Elegir canciones
+                {t('choose_songs', 'Choose songs')}
               </Text>
             </Pressable>
           </View>

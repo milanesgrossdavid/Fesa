@@ -6,6 +6,7 @@ import LibraryArtwork from './LibraryArtwork';
 import { SearchIcon, SettingsIcon } from '../Icons';
 import { getAudioFilesWithPermission, Song } from '../../modules/local-music';
 import { useMusicPlayer } from '../audio/musicPlayer';
+import { getTranslation } from '../i18n/translations';
 import { useAppSettings } from '../settings/appSettings';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -16,7 +17,9 @@ const Header = () => {
   const [query, setQuery] = useState('');
   const [songs, setSongs] = useState<Song[]>([]);
   const { playSong, requestShowPlayer } = useMusicPlayer();
-  const { theme } = useAppSettings();
+  const { theme, language } = useAppSettings();
+
+  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
 
   useEffect(() => {
     if (!searchVisible || songs.length) {
@@ -120,7 +123,7 @@ const Header = () => {
           className="h-11 w-11 items-center justify-center rounded-full"
           style={({ pressed }) => ({ backgroundColor: pressed ? theme.surface : 'transparent' })}
           onPress={() => setSearchVisible(true)}
-          accessibilityLabel="Buscar"
+          accessibilityLabel={t('search_open_label', 'Search')}
         >
           <SearchIcon size={22} color={theme.text} />
         </Pressable>
@@ -128,7 +131,7 @@ const Header = () => {
           className="h-11 w-11 items-center justify-center rounded-full"
           style={({ pressed }) => ({ backgroundColor: pressed ? theme.surface : 'transparent' })}
           onPress={() => setSettingsVisible(true)}
-          accessibilityLabel="Ajustes"
+          accessibilityLabel={t('settings', 'Settings')}
         >
           <SettingsIcon size={22} color={theme.text} />
         </Pressable>
@@ -147,7 +150,7 @@ const Header = () => {
                     <View className="flex-row items-center" style={{ height: 44 }}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Cerrar ajustes"
+              accessibilityLabel={t('close', 'Close')}
               style={({ pressed }) => ({
                 height: 32,
                 minWidth: 32,
@@ -171,7 +174,7 @@ const Header = () => {
               paddingHorizontal: 4,
             }}
             >
-              Buscar
+              {t('search_modal_title', 'Search')}
             </Text>
           </View>
                     
@@ -188,7 +191,7 @@ const Header = () => {
                 className="ml-2 flex-1 text-base"
                 style={{ color: theme.text, height: '100%' }}
                 cursorColor={theme.accent}
-                placeholder="Canción, artista o álbum"
+                placeholder={t('search_placeholder', 'Song, artist or album')}
                 placeholderTextColor={theme.mutedText}
                 value={query}
                 onChangeText={setQuery}
@@ -198,7 +201,10 @@ const Header = () => {
             </View>
             {query.trim() ? (
               <Text className="mt-3 text-xs font-bold uppercase tracking-[1.2px]" style={{ color: theme.mutedText }}>
-                {filteredSongs.length} {filteredSongs.length === 1 ? 'resultado' : 'resultados'}
+                {filteredSongs.length}{' '}
+                {filteredSongs.length === 1
+                  ? t('search_result_single', 'result')
+                  : t('search_result_plural', 'results')}
               </Text>
             ) : null}
           </View>
@@ -213,17 +219,21 @@ const Header = () => {
                 {query.trim() ? (
                   <>
                     <SearchIcon size={48} color={theme.mutedText} style={{ opacity: 0.5, marginBottom: 16 }} />
-                    <Text className="text-xl font-bold" style={{ color: theme.text }}>Sin resultados</Text>
+                    <Text className="text-xl font-bold" style={{ color: theme.text }}>
+                      {t('search_no_results_title', 'No results')}
+                    </Text>
                     <Text className="mt-2 max-w-[80%] text-center" style={{ color: theme.mutedText, fontSize: 15, lineHeight: 22 }}>
-                      No encontramos coincidencias para “{query.trim()}”.
+                      {t('search_no_results_description', 'No matches found for')} “{query.trim()}”.
                     </Text>
                   </>
                 ) : (
                   <>
                     <SearchIcon size={48} color={theme.mutedText} style={{ opacity: 0.5, marginBottom: 16 }} />
-                    <Text className="text-xl font-bold" style={{ color: theme.text }}>Busca en tu música</Text>
+                    <Text className="text-xl font-bold" style={{ color: theme.text }}>
+                      {t('search_empty_title', 'Search your music')}
+                    </Text>
                     <Text className="mt-2 max-w-[80%] text-center" style={{ color: theme.mutedText, fontSize: 15, lineHeight: 22 }}>
-                      Encuentra canciones, artistas y álbumes de tu biblioteca local.
+                      {t('search_empty_description', 'Find songs, artists and albums from your local library.')}
                     </Text>
                   </>
                 )}
@@ -245,7 +255,7 @@ const Header = () => {
                     {item.title}
                   </Text>
                   <Text style={{ fontSize: 13, color: theme.mutedText, marginTop: 2 }} numberOfLines={1}>
-                    {item.artist || 'Artista Desconocido'} • {item.album || 'Álbum Desconocido'}
+                    {item.artist || t('unknown_artist', 'Unknown Artist')} • {item.album || t('unknown_album', 'Unknown Album')}
                   </Text>
                 </View>
               </Pressable>

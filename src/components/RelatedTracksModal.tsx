@@ -2,6 +2,7 @@ import React from 'react';
 import { FlatList, Modal, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Song } from '../../modules/local-music';
+import { getTranslation } from '../i18n/translations';
 import { PlayIcon } from '../Icons';
 import { useAppSettings } from '../settings/appSettings';
 import LibraryArtwork from './LibraryArtwork';
@@ -30,8 +31,10 @@ const RelatedTracksModal = ({
   onSelectSong,
 }: RelatedTracksModalProps) => {
   const insets = useSafeAreaInsets();
-  const { theme } = useAppSettings();
+  const { theme, language } = useAppSettings();
+  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const isArtist = variant === 'artist';
+  const songCountLabel = `${songs.length} ${songs.length === 1 ? t('song_count_one', 'song') : t('song_count_many', 'songs')}`;
 
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
@@ -58,14 +61,14 @@ const RelatedTracksModal = ({
           <View className="mb-4 flex-row items-center justify-between px-1">
             <View className="flex-1 pr-4">
               <Text className="mt-1 text-xs font-semibold uppercase tracking-[1.1px]" style={{ color: theme.mutedText }}>
-                {songs.length} {songs.length === 1 ? 'canción' : 'canciones'}
+                {songCountLabel}
               </Text>
             </View>
             <Pressable
               className="rounded-full  px-3 py-2"
               onPress={onClose}
             >
-              <Text className="text-sm font-semibold" style={{ color: theme.text }}>Cerrar</Text>
+              <Text className="text-sm font-semibold" style={{ color: theme.text }}>{t('close', 'Close')}</Text>
             </Pressable>
           </View>
 
@@ -102,7 +105,7 @@ const RelatedTracksModal = ({
               >
                 <PlayIcon size={16} color={theme.text} />
                 <Text className="font-bold" style={{ color: theme.text }}>
-                  Reproducir todo
+                  {t('play', 'Play')}
                 </Text>
               </Pressable>
             ) : null}
@@ -128,7 +131,7 @@ const RelatedTracksModal = ({
                     {item.title}
                   </Text>
                   <Text className="mt-1 text-xs" style={{ color: theme.mutedText }} numberOfLines={1}>
-                    {item.artist?.trim() || 'Artista Desconocido'}
+                    {item.artist?.trim() || t('unknown_artist', 'Unknown Artist')}
                   </Text>
                 </View>
               </Pressable>

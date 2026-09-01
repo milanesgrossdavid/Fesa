@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Song } from '../../modules/local-music';
+import { getTranslation } from '../i18n/translations';
 import { BackIcon, PlayIcon } from '../Icons';
 import { useAppSettings } from '../settings/appSettings';
 import { MINI_PLAYER_BOTTOM_INSET } from '../utils/layout';
@@ -54,9 +55,11 @@ const LibraryGroupDetailModal = ({
   children,
 }: LibraryGroupDetailModalProps) => {
   const insets = useSafeAreaInsets();
-  const { theme } = useAppSettings();
+  const { theme, language } = useAppSettings();
+  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const isArtist = variant === 'artist';
   const songCount = group?.songs.length ?? 0;
+  const songCountLabel = `${songCount} ${songCount === 1 ? t('song_count_one', 'song') : t('song_count_many', 'songs')}`;
 
   return (
     <Modal
@@ -108,7 +111,7 @@ const LibraryGroupDetailModal = ({
                     >
                       <PlayIcon size={16} color={theme.text} />
                       <Text className="text-sm font-bold" style={{ color: theme.text }}>
-                        Reproducir
+                        {t('play', 'Play')}
                       </Text>
                     </Pressable>
                   ) : (
@@ -137,7 +140,7 @@ const LibraryGroupDetailModal = ({
                   </Text>
                   {variant !== 'playlist' ? (
                     <Text className="mt-1 text-center text-xs font-bold uppercase tracking-[1.2px]" style={{ color: theme.mutedText }}>
-                      {songCount} {songCount === 1 ? 'canción' : 'canciones'}
+                      {songCountLabel}
                     </Text>
                   ) : null}
                 </View>

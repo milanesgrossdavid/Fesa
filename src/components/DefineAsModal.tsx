@@ -2,6 +2,7 @@ import React from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Song, ToneType } from '../../modules/local-music';
+import { getTranslation } from '../i18n/translations';
 import { useAppSettings } from '../settings/appSettings';
 import LibraryArtwork from './LibraryArtwork';
 
@@ -11,14 +12,14 @@ interface DefineAsModalProps {
   onDefineAs: (song: Song, type: ToneType) => void;
 }
 
-const TONE_OPTIONS: { label: string; value: ToneType; description: string }[] = [
-  { label: 'Tono del dispositivo', value: 'ringtone', description: 'Usar como tono de llamada' },
-  { label: 'Tono de alarma', value: 'alarm', description: 'Usar como alarma' },
-];
-
 const DefineAsModal = ({ song, onClose, onDefineAs }: DefineAsModalProps) => {
   const insets = useSafeAreaInsets();
-  const { theme } = useAppSettings();
+  const { theme, language } = useAppSettings();
+  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
+  const TONE_OPTIONS: { label: string; value: ToneType; description: string }[] = [
+    { label: t('tone_option_ringtone', 'Device tone'), value: 'ringtone', description: t('tone_option_ringtone_desc', 'Use as ringtone') },
+    { label: t('tone_option_alarm', 'Alarm tone'), value: 'alarm', description: t('tone_option_alarm_desc', 'Use as alarm') },
+  ];
 
   return (
     <Modal transparent visible={Boolean(song)} animationType="slide" onRequestClose={onClose}>
@@ -45,7 +46,7 @@ const DefineAsModal = ({ song, onClose, onDefineAs }: DefineAsModalProps) => {
 
             <View className="mb-4 flex-row items-center justify-between px-1">
               <View className="flex-1 pr-3">
-                <Text className="text-2xl font-bold" style={{ color: theme.text }}>Definir como</Text>
+                <Text className="text-2xl font-bold" style={{ color: theme.text }}>{t('define_as_title', 'Set as')}</Text>
                 <Text className="mt-1 text-sm" style={{ color: theme.mutedText }} numberOfLines={1}>
                   {song.title}
                 </Text>
@@ -54,7 +55,7 @@ const DefineAsModal = ({ song, onClose, onDefineAs }: DefineAsModalProps) => {
                 className="rounded-full  px-3 py-2"
                 onPress={onClose}
               >
-                <Text className="text-sm font-semibold" style={{ color: theme.text }}>Cerrar</Text>
+                <Text className="text-sm font-semibold" style={{ color: theme.text }}>{t('song_details_close', 'Close')}</Text>
               </Pressable>
             </View>
 
@@ -71,7 +72,7 @@ const DefineAsModal = ({ song, onClose, onDefineAs }: DefineAsModalProps) => {
                   {song.title}
                 </Text>
                 <Text className="mt-1 text-xs" style={{ color: theme.mutedText }} numberOfLines={1}>
-                  {song.artist?.trim() || 'Artista Desconocido'}
+                  {song.artist?.trim() || t('unknown_artist', 'Unknown Artist')}
                 </Text>
               </View>
             </View>

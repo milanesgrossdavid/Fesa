@@ -5,6 +5,7 @@ import LibraryArtwork from "./LibraryArtwork";
 import AutoScrollingText from "./AutoScrollingText";
 import { PlayIcon } from "../Icons";
 import { useAppSettings } from "../settings/appSettings";
+import { useTranslation } from "../i18n/translations";
 
 type SongGroup = {
   id: string;
@@ -21,8 +22,6 @@ interface HomeMostPlayedSectionProps {
   onPlaySong: (index: number) => void;
 }
 
-const UNKNOWN_ARTIST = "Artista Desconocido";
-
 const normalizeValue = (value: string | null | undefined, fallback: string) => {
   const cleanValue = value?.trim();
 
@@ -35,7 +34,8 @@ const HomeMostPlayedSection = ({
   onOpenGroup,
   onPlaySong,
 }: HomeMostPlayedSectionProps) => {
-  const { theme } = useAppSettings();
+  const { theme, language } = useAppSettings();
+  const { t } = useTranslation(language.id);
   const featuredSongs = group.songs.slice(0, limit);
   const topSong = featuredSongs[0];
   const remainingSongs = featuredSongs.slice(1);
@@ -56,7 +56,7 @@ const HomeMostPlayedSection = ({
                     {topSong.title}
                   </AutoScrollingText>
                   <AutoScrollingText className="mt-2 text-sm text-white/90">
-                    {normalizeValue(topSong.artist, UNKNOWN_ARTIST)}
+                    {normalizeValue(topSong.artist, t('unknown_artist'))}
                   </AutoScrollingText>
                 </View>
                 <Pressable
@@ -89,7 +89,7 @@ const HomeMostPlayedSection = ({
                           {song.title}
                         </AutoScrollingText>
                         <AutoScrollingText className="mt-1 text-xs text-white/90">
-                          {normalizeValue(song.artist, UNKNOWN_ARTIST)}
+                          {normalizeValue(song.artist, t('unknown_artist'))}
                         </AutoScrollingText>
                       </View>
                       <Pressable
@@ -108,8 +108,7 @@ const HomeMostPlayedSection = ({
         </>
       ) : (
         <Text className="px-5 py-6 text-center text-sm" style={{ color: theme.mutedText }}>
-          Cuando empieces a reproducir canciones, aquí aparecerán tus más
-          escuchadas.
+          {t('most_played_empty')}
         </Text>
       )}
     </View>

@@ -2,27 +2,28 @@ import React from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppSettings } from '../settings/appSettings';
+import { getTranslation } from '../i18n/translations';
 
 const LICENSES = [
   {
     title: 'Expo',
-    text: 'FESA está basado en la plataforma Expo y sus módulos nativos para entrega rápida, compatibilidad y rendimiento en Android.',
+    text: 'FESA is built on the Expo platform and its native modules for fast delivery, compatibility, and performance on Android.',
   },
   {
     title: 'React Native',
-    text: 'La interfaz se construye con React Native y su motor de render para experiencias nativas en móvil.',
+    text: 'The interface is built with React Native and its render engine for native mobile experiences.',
   },
   {
     title: 'Async Storage',
-    text: 'La persistencia de ajustes y listas de música oculta utiliza almacenamiento local del dispositivo para mantener la configuración entre sesiones.',
+    text: 'Settings and hidden music lists are persisted locally on the device to keep configuration between sessions.',
   },
   {
     title: 'Expo Vector Icons',
-    text: 'Los iconos de la app se apoyan en bibliotecas de iconografía vectorial con estilo nativo para iOS y Android.',
+    text: 'The app icons use vector icon libraries with a native style for iOS and Android.',
   },
   {
     title: 'NativeWind',
-    text: 'El diseño visual usa utilidades de Tailwind en React Native para acelerar la composición de interfaces y mantener consistencia.',
+    text: 'The visual design uses Tailwind-style utilities in React Native to speed up interface composition and maintain consistency.',
   },
 ];
 
@@ -33,7 +34,13 @@ interface OpenSourceLicensesModalProps {
 
 const OpenSourceLicensesModal = ({ visible, onClose }: OpenSourceLicensesModalProps) => {
   const insets = useSafeAreaInsets();
-  const { theme } = useAppSettings();
+  const { theme, language } = useAppSettings();
+  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
+  const licenses = LICENSES.map((item, index) => ({
+    ...item,
+    title: index === 0 ? 'Expo' : item.title,
+    text: t(`license_text_${index + 1}`, item.text),
+  }));
 
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
@@ -48,12 +55,12 @@ const OpenSourceLicensesModal = ({ visible, onClose }: OpenSourceLicensesModalPr
           </View>
 
           <Text className="mb-4 text-center text-xl font-bold" style={{ color: theme.text }}>
-            Licencias de código abierto
+            {t('licenses_title', 'Open Source Licenses')}
           </Text>
 
           <ScrollView showsVerticalScrollIndicator={false}>
             <View className="overflow-hidden rounded-2xl" style={{ backgroundColor: theme.surface }}>
-              {LICENSES.map((license, index) => (
+              {licenses.map((license, index) => (
                 <View
                   key={license.title}
                   className="px-4 py-4"
@@ -69,7 +76,7 @@ const OpenSourceLicensesModal = ({ visible, onClose }: OpenSourceLicensesModalPr
             </View>
 
             <Text className="mt-4 text-center text-xs leading-5" style={{ color: theme.mutedText }}>
-              Este listado resume las principales dependencias y licencias de soporte utilizadas para construir FESA.
+              {t('licenses_intro', 'This list summarizes the main dependencies and support licenses used to build FESA.')}
             </Text>
           </ScrollView>
         </View>

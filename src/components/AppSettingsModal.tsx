@@ -16,10 +16,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { getAudioFilesWithPermission, Song } from '../../modules/local-music';
 import {
   acceptTerms,
+  APP_LANGUAGES,
   APP_THEMES,
   DEFAULT_TABS,
   getHiddenSongIds,
   reorderTabs,
+  setLanguageId,
   setLockScreenControlsEnabled,
   setPlaybackRate,
   setSleepTimer,
@@ -31,6 +33,7 @@ import {
   useAppSettings,
 } from '../settings/appSettings';
 import { CheckIcon } from '../Icons';
+import { getTranslation } from '../i18n/translations';
 import HideMusicModal from './HideMusicModal';
 import PrivacyPolicyModal from './PrivacyPolicyModal';
 import OpenSourceLicensesModal from './OpenSourceLicensesModal';
@@ -55,6 +58,7 @@ const IOS_ICON_COLORS = {
   shield: '#30D158',     // Green iOS
   doc: '#FFD60A',        // Yellow iOS
   contact: '#64D2FF',    // Teal iOS
+  language: '#FFB703',   // Amber iOS
 };
 
 const getAccentOverlay = (hex: string) => `${hex}22`;
@@ -64,12 +68,12 @@ const TAB_ROW_STRIDE = TAB_ROW_HEIGHT + TAB_ROW_GAP;
 
 const PLAYBACK_SPEED_OPTIONS = [0.75, 1, 1.25, 1.5, 2];
 const PRESET_SLEEP_TIMER_VALUES = [15, 30, 45, 60] as const;
-const SLEEP_TIMER_OPTIONS = [
-  { label: 'Desactivado', value: null as number | null },
-  { label: '15 minutos', value: 15 },
-  { label: '30 minutos', value: 30 },
-  { label: '45 minutos', value: 45 },
-  { label: '60 minutos', value: 60 },
+const getSleepTimerOptions = (t: (key: string, fallback?: string) => string) => [
+  { label: t('sleep_timer_disabled', 'Disabled'), value: null as number | null },
+  { label: t('sleep_timer_15', '15 minutes'), value: 15 },
+  { label: t('sleep_timer_30', '30 minutes'), value: 30 },
+  { label: t('sleep_timer_45', '45 minutes'), value: 45 },
+  { label: t('sleep_timer_60', '60 minutes'), value: 60 },
 ];
 const CUSTOM_SLEEP_MIN = 1;
 const CUSTOM_SLEEP_MAX = 23 * 60 + 59;
@@ -86,29 +90,43 @@ const WHATSAPP_WEB_URL = 'https://wa.me/5354776027';
 const HOUR_OPTIONS = Array.from({ length: 24 }, (_, index) => index);
 const MINUTE_OPTIONS = Array.from({ length: 60 }, (_, index) => index);
 
-const TERMS_TEXT = [
-  '1. FESA es una aplicación de reproducción y organización de audio local. No sube tus archivos a servidores externos.',
-  '2. Los permisos que solicita son únicamente para acceder a tu biblioteca local y habilitar funciones de audio, tonos y reproducción.',
-  '3. El uso de tu contenido de audio y la selección de canciones son responsabilidad del usuario, no de FESA.',
-  '4. La app no garantiza compatibilidad con todos los formatos de audio ni con todos los archivos del dispositivo.',
-  '5. No almacenamos ni compartimos tu información personal fuera del dispositivo sin tu consentimiento explícito.',
-  '6. Puedes cambiar tus ajustes, temas y pestañas visibles en cualquier momento desde el panel de Ajustes.',
-  '7. El contacto y las redes sociales están disponibles solo para soporte y consultas relacionadas con la aplicación.',
-  '8. Aceptar estos términos implica que conoces el alcance de la app y su funcionamiento dentro de tu dispositivo.',
-  '9. FESA fue desarrollada por su programador con apoyo de herramientas de inteligencia artificial como asistencia durante el proceso de creación.',
+const getTermsText = (t: (key: string, fallback?: string) => string) => [
+  t('terms_item_1', '1. FESA is a local audio playback and organization app. It does not upload your files to external servers.'),
+  t('terms_item_2', '2. The permissions it requests are only to access your local library and enable audio, tone, and playback features.'),
+  t('terms_item_3', '3. The use of your audio content and song selection is the user’s responsibility, not FESA’s.'),
+  t('terms_item_4', '4. The app does not guarantee compatibility with every audio format or every file on the device.'),
+  t('terms_item_5', '5. We do not store or share your personal information outside the device without your explicit consent.'),
+  t('terms_item_6', '6. You can change your settings, themes, and visible tabs at any time from the Settings panel.'),
+  t('terms_item_7', '7. Contact and social media are available only for support and queries related to the application.'),
+  t('terms_item_8', '8. Accepting these terms means you are aware of the app’s scope and its operation within your device.'),
+  t('terms_item_9', '9. FESA was developed by its programmer with support from artificial intelligence tools as part of the creation process.'),
 ];
 
 const formatSpeedLabel = (speed: number) => `${speed}x`;
 
-const formatRemainingTime = (endsAt: number | null, now: number) => {
+const getTabDisplayName = (tabId: TabId, t: (key: string, fallback?: string) => string) => {
+  const translationKeyByTab: Record<TabId, string> = {
+    Inicio: 'tab_home',
+    Favoritos: 'tab_favorites',
+    Playlist: 'tab_playlist',
+    Pistas: 'tab_tracks',
+    'Álbumes': 'tab_albums',
+    Artistas: 'tab_artists',
+    Carpetas: 'tab_folders',
+  };
+
+  return t(translationKeyByTab[tabId], tabId);
+};
+
+const formatRemainingTime = (endsAt: number | null, now: number, t: (key: string, fallback?: string) => string) => {
   if (!endsAt) {
-    return 'Desactivado';
+    return t('sleep_timer_disabled', 'Disabled');
   }
 
   const remainingMs = endsAt - now;
 
   if (remainingMs <= 0) {
-    return 'Finalizando...';
+    return t('sleep_timer_ending', 'Finishing...');
   }
 
   const totalSeconds = Math.ceil(remainingMs / 1000);
@@ -116,10 +134,33 @@ const formatRemainingTime = (endsAt: number | null, now: number) => {
   const seconds = totalSeconds % 60;
 
   if (!minutes) {
-    return `${seconds}s restantes`;
+    return `${seconds}s ${t('sleep_timer_remaining', 'remaining')}`;
   }
 
-  return `${minutes}:${seconds.toString().padStart(2, '0')} restantes`;
+  return `${minutes}:${seconds.toString().padStart(2, '0')} ${t('sleep_timer_remaining', 'remaining')}`;
+};
+
+const LanguageFlagIcon = ({ languageId }: { languageId: string }) => {
+  const flagMap: Record<string, string> = {
+    es: '🇪🇸',
+    en: '🇬🇧',
+    pt: '🇵🇹',
+    fr: '🇫🇷',
+    it: '🇮🇹',
+  };
+
+  return (
+    <View
+      style={{
+        width: 40,
+        height: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Text style={{ fontSize: 28 }}>{flagMap[languageId] ?? '🇪🇸'}</Text>
+    </View>
+  );
 };
 
 const SheetHandle = () => (
@@ -219,6 +260,7 @@ const SettingsRow = ({
           alignItems: 'center',
           justifyContent: 'center',
           marginRight: 12,
+          backgroundColor: iconColor ?? '#FFFFFF20',
         }}
       >
         <Ionicons name={icon} size={18} color="#FFFFFF" />
@@ -426,6 +468,7 @@ const DraggableTabsList = ({
   borderColor,
   onToggle,
   onReorder,
+  t,
 }: {
   tabs: TabPreference[];
   surface: string;
@@ -435,6 +478,7 @@ const DraggableTabsList = ({
   borderColor: string;
   onToggle: (tabId: TabId, enabled: boolean) => void;
   onReorder: (orderedIds: TabId[]) => void;
+  t: (key: string, fallback?: string) => string;
 }) => {
   const [orderedTabs, setOrderedTabs] = useState(tabs);
   const [draggingId, setDraggingId] = useState<TabId | null>(null);
@@ -564,9 +608,9 @@ const DraggableTabsList = ({
               </View>
 
               <View className="flex-1 pr-3">
-                <Text className="text-base font-bold" style={{ color: textColor }}>{tab.id}</Text>
+                <Text className="text-base font-bold" style={{ color: textColor }}>{getTabDisplayName(tab.id, t)}</Text>
                 <Text className="mt-1 text-sm" style={{ color: mutedColor }}>
-                  {tab.enabled ? 'Visible en la barra superior' : 'Oculta de la navegación'}
+                  {tab.enabled ? t('tab_visible', 'Visible in the top bar') : t('tab_hidden', 'Hidden from navigation')}
                 </Text>
               </View>
 
@@ -584,6 +628,20 @@ const DraggableTabsList = ({
 const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
   const insets = useSafeAreaInsets();
   const settings = useAppSettings();
+  const { language } = settings;
+  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
+  const sleepTimerOptions = useMemo(() => getSleepTimerOptions(t), [t]);
+  const getThemeDisplayName = (themeId: string) => {
+    const nameMap: Record<string, string> = {
+      fesa: t('theme_name_fesa', 'Fesa'),
+      oceano: t('theme_name_oceano', 'Night Blue'),
+      uva: t('theme_name_uva', 'Lavender'),
+      rosa: t('theme_name_rosa', 'Sand'),
+      salvia: t('theme_name_salvia', 'Sage'),
+      grafito: t('theme_name_grafito', 'Pearl'),
+    };
+    return nameMap[themeId] ?? themeId;
+  };
   const [sleepTimerVisible, setSleepTimerVisible] = useState(false);
   const [customSleepVisible, setCustomSleepVisible] = useState(false);
   const [customHours, setCustomHours] = useState(0);
@@ -591,6 +649,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
   const [playbackSpeedVisible, setPlaybackSpeedVisible] = useState(false);
   const [tabsVisible, setTabsVisible] = useState(false);
   const [themesVisible, setThemesVisible] = useState(false);
+  const [languageVisible, setLanguageVisible] = useState(false);
   const [hideMusicVisible, setHideMusicVisible] = useState(false);
   const [privacyVisible, setPrivacyVisible] = useState(false);
   const [licensesVisible, setLicensesVisible] = useState(false);
@@ -642,7 +701,10 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
     try {
       await Linking.openSettings();
     } catch (error) {
-      Alert.alert('No se pudo abrir', 'Abre manualmente los ajustes del sistema para cambiar los permisos de FESA.');
+      Alert.alert(
+        t('system_error_title', 'Could not open'),
+        t('permission_open_system_message', 'Open the system settings manually to change FESA permissions.')
+      );
     }
   };
 
@@ -656,7 +718,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
     try {
       await Linking.openURL(mailUrl);
     } catch {
-      Alert.alert('Correo no disponible', `Escríbenos a ${email}.`);
+      Alert.alert(t('mail_unavailable', 'Mail unavailable'), `${t('write_us', 'Write us')} a ${email}.`);
     }
   };
 
@@ -667,13 +729,13 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
       const supported = await Linking.canOpenURL(telUrl);
 
       if (!supported) {
-        Alert.alert('Teléfono no disponible', `Llama a ${phone}.`);
+        Alert.alert(t('system_error_title', 'Could not open'), `${t('call_label', 'Call')} ${phone}.`);
         return;
       }
 
       await Linking.openURL(telUrl);
     } catch {
-      Alert.alert('Teléfono no disponible', `Llama a ${phone}.`);
+      Alert.alert(t('phone_unavailable', 'Phone unavailable'), `${t('call_label', 'Call')} ${phone}.`);
     }
   };
 
@@ -684,7 +746,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
       try {
         await Linking.openURL(webUrl);
       } catch {
-        Alert.alert('Enlace no disponible', fallbackMessage);
+        Alert.alert(t('system_error_title', 'Could not open'), fallbackMessage);
       }
     }
   };
@@ -693,7 +755,10 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
     const updated = setTabEnabled(tabId, enabled);
 
     if (!updated) {
-      Alert.alert('Se necesita una pestaña', 'Mantén al menos una pestaña visible en la biblioteca.');
+      Alert.alert(
+        t('leave_one_tab_visible', 'A tab is required'),
+        t('leave_one_tab_visible_message', 'Keep at least one tab visible in the library.')
+      );
     }
   };
 
@@ -719,8 +784,8 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
 
     if (totalMinutes < CUSTOM_SLEEP_MIN || totalMinutes > CUSTOM_SLEEP_MAX) {
       Alert.alert(
-        'Tiempo no válido',
-        'Elige al menos 1 minuto para el temporizador.'
+        t('select_time_invalid', 'Invalid time'),
+        t('select_time_invalid_message', 'Choose at least 1 minute for the timer.')
       );
       return;
     }
@@ -734,6 +799,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
   const theme = settings.theme;
   const termsAccepted = Boolean(settings.termsAcceptedAt);
   const hiddenSongIds = getHiddenSongIds();
+  const termsText = useMemo(() => getTermsText(t), [t]);
   const rowProps = {
     borderColor: theme.border,
     textColor: theme.text,
@@ -755,7 +821,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
           <View className="flex-row items-center" style={{ height: 44 }}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Cerrar ajustes"
+              accessibilityLabel={t('close_settings', 'Close settings')}
               style={({ pressed }) => ({
                 height: 32,
                 minWidth: 32,
@@ -779,7 +845,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
               paddingHorizontal: 4,
             }}
           >
-            Ajustes
+            {t('settings_title', 'Settings')}
           </Text>
           </View>
           
@@ -801,7 +867,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 marginLeft: 16,
               }}
             >
-              Reproducción
+              {t('reproduction_section', 'Playback')}
             </Text>
             <View
               style={{
@@ -811,8 +877,8 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
               }}
             >
               <SettingsRow
-                label="Temporizador de apagado"
-                subtitle={formatRemainingTime(settings.sleepTimerEndsAt, now)}
+                label={t('sleep_timer', 'Sleep Timer')}
+                subtitle={formatRemainingTime(settings.sleepTimerEndsAt, now, t)}
                 onPress={() => setSleepTimerVisible(true)}
                 icon="moon"
                 iconColor={IOS_ICON_COLORS.moon}
@@ -820,8 +886,8 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 {...rowProps}
               />
               <SettingsRow
-                label="Velocidad de reproducción"
-                subtitle="Ajusta el ritmo de la canción actual"
+                label={t('playback_speed', 'Playback Speed')}
+                subtitle={t('playback_speed_description', 'The change applies immediately to the current song and the next ones')}
                 value={formatSpeedLabel(settings.playbackRate)}
                 onPress={() => setPlaybackSpeedVisible(true)}
                 icon="speedometer"
@@ -845,7 +911,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 marginLeft: 16,
               }}
             >
-              Control y navegación
+              {t('controls_section', 'Controls and navigation')}
             </Text>
             <View
               style={{
@@ -855,8 +921,8 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
               }}
             >
               <SettingsRow
-                label="Controles externos"
-                subtitle="Desde la pantalla de bloqueo y notificaciones"
+                label={t('external_controls', 'External Controls')}
+                subtitle={t('lock_screen_controls', 'From the lock screen and notifications')}
                 onPress={() => setLockScreenControlsEnabled(!settings.lockScreenControlsEnabled)}
                 toggleValue={settings.lockScreenControlsEnabled}
                 icon="lock-closed"
@@ -864,8 +930,8 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 {...rowProps}
               />
               <SettingsRow
-                label="Administrar pestañas"
-                subtitle={`${visibleTabs.length}/${DEFAULT_TABS.length} visibles`}
+                label={t('manage_tabs', 'Manage Tabs')}
+                subtitle={`${visibleTabs.length}/${DEFAULT_TABS.length} ${t('visible_short', 'visible')}`}
                 onPress={() => setTabsVisible(true)}
                 icon="grid"
                 iconColor={IOS_ICON_COLORS.tabs}
@@ -888,7 +954,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 marginLeft: 16,
               }}
             >
-              Apariencia
+              {t('appearance_section', 'Appearance')}
             </Text>
             <View
               style={{
@@ -898,9 +964,19 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
               }}
             >
               <SettingsRow
-                label="Tema"
-                subtitle="Personaliza colores y estilo visual"
-                value={theme.name}
+                label={t('language', 'Language')}
+                subtitle={settings.language.nativeName}
+                value={settings.language.label}
+                onPress={() => setLanguageVisible(true)}
+                icon="globe"
+                iconColor={IOS_ICON_COLORS.language}
+                showChevron
+                {...rowProps}
+              />
+              <SettingsRow
+                label={t('theme', 'Theme')}
+                subtitle={t('theme_description', 'Customize colors and visual style')}
+                value={getThemeDisplayName(theme.id)}
                 onPress={() => setThemesVisible(true)}
                 icon="color-palette"
                 iconColor={IOS_ICON_COLORS.palette}
@@ -923,7 +999,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 marginLeft: 16,
               }}
             >
-              Privacidad y soporte
+              {t('privacy_support_section', 'Privacy and support')}
             </Text>
             <View
               style={{
@@ -933,8 +1009,8 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
               }}
             >
               <SettingsRow
-                label="Ocultar música"
-                subtitle={`${hiddenSongIds.length} ${hiddenSongIds.length === 1 ? 'archivo oculto' : 'archivos ocultos'}`}
+                label={t('hide_music', 'Hide Music')}
+                subtitle={`${hiddenSongIds.length} ${hiddenSongIds.length === 1 ? t('hidden_file_single', 'hidden file') : t('hidden_file_plural', 'hidden files')}`}
                 onPress={() => setHideMusicVisible(true)}
                 icon="eye-off"
                 iconColor={IOS_ICON_COLORS.shield}
@@ -942,8 +1018,8 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 {...rowProps}
               />
               <SettingsRow
-                label="Permisos"
-                subtitle="Abrir ajustes del sistema"
+                label={t('permissions', 'Permissions')}
+                subtitle={t('permission_open_system', 'Open system settings')}
                 onPress={() => { void openPermissions(); }}
                 icon="shield-checkmark"
                 iconColor={IOS_ICON_COLORS.shield}
@@ -951,8 +1027,8 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 {...rowProps}
               />
               <SettingsRow
-                label="Política de privacidad"
-                subtitle="Cómo usamos tu música y ajustes"
+                label={t('privacy_policy', 'Privacy Policy')}
+                subtitle={t('privacy_policy_subtitle', 'How we use your music and settings')}
                 onPress={() => setPrivacyVisible(true)}
                 icon="shield-checkmark"
                 iconColor={IOS_ICON_COLORS.shield}
@@ -960,8 +1036,8 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 {...rowProps}
               />
               <SettingsRow
-                label="Licencias de código abierto"
-                subtitle="Dependencias de la app"
+                label={t('open_source_licenses', 'Open Source Licenses')}
+                subtitle={t('licenses_subtitle', 'App dependencies')}
                 onPress={() => setLicensesVisible(true)}
                 icon="library"
                 iconColor={IOS_ICON_COLORS.doc}
@@ -969,8 +1045,8 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 {...rowProps}
               />
               <SettingsRow
-                label="Términos y condiciones"
-                subtitle={termsAccepted ? 'Aceptados' : 'Pendientes de revisar'}
+                label={t('terms_and_conditions', 'Terms and Conditions')}
+                subtitle={termsAccepted ? t('terms_subtitle_accepted', 'Accepted') : t('terms_subtitle_pending', 'Pending review')}
                 onPress={() => setTermsVisible(true)}
                 icon="document-text"
                 iconColor={IOS_ICON_COLORS.doc}
@@ -978,8 +1054,8 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 {...rowProps}
               />
               <SettingsRow
-                label="Contacto"
-                subtitle="Soporte y redes sociales"
+                label={t('contact_us', 'Contact Us')}
+                subtitle={t('support', 'Support')}
                 onPress={openContact}
                 icon="person-circle"
                 iconColor={IOS_ICON_COLORS.contact}
@@ -993,15 +1069,15 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
 
         <OptionSheet
           visible={sleepTimerVisible}
-          title="Temporizador de apagado"
-          subtitle="La reproducción se pausará automáticamente cuando se cumpla el tiempo"
+          title={t('sleep_timer', 'Sleep Timer')}
+          subtitle={t('sleep_timer_description', 'Playback will pause automatically when the time is reached')}
           background={theme.background}
           surface={theme.surface}
           textColor={theme.text}
           mutedColor={theme.mutedText}
           onClose={() => setSleepTimerVisible(false)}
         >
-          {SLEEP_TIMER_OPTIONS.map(option => {
+          {sleepTimerOptions.map(option => {
             const remainingMinutes = settings.sleepTimerEndsAt
               ? Math.ceil((settings.sleepTimerEndsAt - now) / 60000)
               : null;
@@ -1049,12 +1125,12 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
               >
                 <View className="flex-1 pr-3">
                   <Text className="text-base font-bold" style={{ color: isCustomSelected ? SETTINGS_ACCENT : theme.text }}>
-                    Personalizado
+                    {t('custom_timer_short', 'Custom')}
                   </Text>
                   <Text className="mt-0.5 text-xs" style={{ color: theme.mutedText }}>
                     {isCustomSelected && remainingMinutes
-                      ? `${remainingMinutes} min restantes`
-                      : 'Elige tu propio tiempo'}
+                      ? `${remainingMinutes} ${t('custom_sleep_remaining', 'min remaining')}`
+                      : t('custom_timer_short_description', 'Choose your own time')}
                   </Text>
                 </View>
                 {isCustomSelected ? <CheckIcon size={22} color={SETTINGS_ACCENT} /> : (
@@ -1069,9 +1145,9 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
           <View className="flex-1 justify-center px-6">
             <Pressable className="absolute inset-0 bg-black/70" onPress={() => setCustomSleepVisible(false)} />
             <View className="rounded-3xl p-5" style={{ backgroundColor: theme.surface }}>
-              <Text className="text-xl font-bold" style={{ color: theme.text }}>Tiempo personalizado</Text>
+              <Text className="text-xl font-bold" style={{ color: theme.text }}>{t('custom_sleep_timer', 'Custom time')}</Text>
               <Text className="mt-2 text-sm" style={{ color: theme.mutedText }}>
-                Desliza para elegir horas y minutos.
+                {t('custom_sleep_timer_description', 'Slide to choose hours and minutes.')}
               </Text>
 
               <View className="mt-5 flex-row items-center gap-3">
@@ -1080,7 +1156,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                   value={customHours}
                   visible={customSleepVisible}
                   onChange={setCustomHours}
-                  label="Horas"
+                  label={t('hours', 'Hours')}
                   textColor={theme.text}
                   mutedColor={theme.mutedText}
                   background={theme.background}
@@ -1091,7 +1167,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                   value={customMinutes}
                   visible={customSleepVisible}
                   onChange={setCustomMinutes}
-                  label="Minutos"
+                  label={t('minutes', 'Minutes')}
                   textColor={theme.text}
                   mutedColor={theme.mutedText}
                   background={theme.background}
@@ -1106,14 +1182,14 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
 
               <View className="mt-5 flex-row justify-end gap-3">
                 <Pressable className="rounded-full px-4 py-3" style={{backgroundColor: theme.background}} onPress={() => setCustomSleepVisible(false)}>
-                  <Text className="font-bold" style={{ color: theme.text }}>Cancelar</Text>
+                  <Text className="font-bold" style={{ color: theme.text }}>{t('cancel', 'Cancel')}</Text>
                 </Pressable>
                 <Pressable
                   className="rounded-full px-5 py-3"
                   style={{ backgroundColor: theme.background }}
                   onPress={applyCustomSleepTimer}
                 >
-                  <Text className="font-bold" style={{ color: theme.text }}>Aplicar</Text>
+                  <Text className="font-bold" style={{ color: theme.text }}>{t('apply', 'Apply')}</Text>
                 </Pressable>
               </View>
             </View>
@@ -1122,8 +1198,8 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
 
         <OptionSheet
           visible={playbackSpeedVisible}
-          title="Velocidad de reproducción"
-          subtitle="El cambio se aplica al instante en la canción actual y en las siguientes"
+          title={t('playback_speed', 'Playback Speed')}
+          subtitle={t('playback_speed_description', 'The change applies immediately to the current song and the next ones')}
           background={theme.background}
           surface={theme.surface}
           textColor={theme.text}
@@ -1166,9 +1242,9 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
               <SheetHandle />
               <View className="mb-4 flex-row items-center justify-between">
                 <View className="flex-1 pr-4">
-                  <Text className="text-xl font-bold text-center" style={{ color: theme.text }}>Administrar pestañas</Text>
+                  <Text className="text-xl font-bold text-center" style={{ color: theme.text }}>{t('manage_tabs', 'Manage Tabs')}</Text>
                   <Text className="mt-1 text-sm text-center" style={{ color: theme.mutedText }}>
-                    Arrastra el asa para reordenar. Siempre debe quedar una visible
+                    {t('manage_tabs_description_detail', 'Drag the handle to reorder. One tab must always remain visible')}
                   </Text>
                 </View>
               </View>
@@ -1183,6 +1259,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                   borderColor={theme.border}
                   onToggle={handleTabToggle}
                   onReorder={reorderTabs}
+                  t={t}
                 />
               </ScrollView>
             </View>
@@ -1190,9 +1267,49 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
         </Modal>
 
         <OptionSheet
+          visible={languageVisible}
+          title={t('language', 'Language')}
+          subtitle={t('language_choose', 'Choose the app’s main language')}
+          background={theme.background}
+          surface={theme.surface}
+          textColor={theme.text}
+          mutedColor={theme.mutedText}
+          onClose={() => setLanguageVisible(false)}
+        >
+          {APP_LANGUAGES.map((languageOption, index) => {
+            const isSelected = languageOption.id === settings.language.id;
+
+            return (
+              <Pressable
+                key={languageOption.id}
+                className="flex-row items-center justify-between px-4 py-4"
+                style={{
+                  borderBottomWidth: index === APP_LANGUAGES.length - 1 ? 0 : 1,
+                  borderBottomColor: theme.border,
+                  backgroundColor: isSelected ? getAccentOverlay(theme.accent) : 'transparent',
+                }}
+                onPress={() => {
+                  setLanguageId(languageOption.id);
+                  setLanguageVisible(false);
+                }}
+              >
+                <View className="flex-row items-center gap-3">
+                  <LanguageFlagIcon languageId={languageOption.id} />
+                  <View>
+                    <Text className="text-base font-bold" style={{ color: theme.text }}>{languageOption.label}</Text>
+                    <Text className="mt-1 text-xs" style={{ color: theme.mutedText }}>{languageOption.nativeName}</Text>
+                  </View>
+                </View>
+                {isSelected ? <CheckIcon size={22} color={theme.accent} /> : null}
+              </Pressable>
+            );
+          })}
+        </OptionSheet>
+
+        <OptionSheet
           visible={themesVisible}
-          title="Temas"
-          subtitle="Cambia el color de acento y el estilo principal de la app"
+          title={t('theme', 'Theme')}
+          subtitle={t('theme_choose', 'Change accent color and app style')}
           background={theme.background}
           surface={theme.surface}
           textColor={theme.text}
@@ -1219,7 +1336,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 <View className="flex-row items-center gap-3">
                   <View className="h-8 w-8 rounded-full" style={{ backgroundColor: themeOption.accent, borderColor: themeOption.border, borderWidth: 1 }} />
                   <View>
-                    <Text className="text-base font-bold" style={{ color: themeOption.text }}>{themeOption.name}</Text>
+                    <Text className="text-base font-bold" style={{ color: themeOption.text }}>{getThemeDisplayName(themeOption.id)}</Text>
                     <View className="mt-1.5 flex-row gap-1.5">
                       <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: themeOption.background }} />
                       <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: themeOption.surface }} />
@@ -1266,20 +1383,20 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
             >
               <SheetHandle />
               <View className="mb-4">
-                <Text className="text-xl font-bold text-center" style={{ color: theme.text }}>Términos y condiciones</Text>
+                <Text className="text-xl font-bold text-center" style={{ color: theme.text }}>{t('terms_title', 'Terms and Conditions')}</Text>
               </View>
 
               <ScrollView>
                 <Text className="mb-4 text-sm text-center leading-6" style={{ color: theme.mutedText }}>
-                  Estos términos resumen el uso y las responsabilidades de FESA como aplicación de reproducción y gestión de audio local
+                  {t('terms_summary', 'These terms summarize the use and responsibilities of FESA as a local audio playback and management application')}
                 </Text>
                 <View className="overflow-hidden rounded-2xl" style={{ backgroundColor: theme.surface }}>
-                  {TERMS_TEXT.map((item, index) => (
+                  {termsText.map((item, index) => (
                     <View
-                      key={item}
+                      key={`${item}-${index}`}
                       className="px-4 py-4"
                       style={{
-                        borderBottomWidth: index === TERMS_TEXT.length - 1 ? 0 : 0.5,
+                        borderBottomWidth: index === termsText.length - 1 ? 0 : 0.5,
                         borderBottomColor: theme.border,
                       }}
                     >
@@ -1307,7 +1424,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                       fontSize: 16,
                     }}
                   >
-                    {termsAccepted ? 'Aceptado' : 'Aceptar términos'}
+                    {termsAccepted ? t('accepted', 'Accepted') : t('accept_terms', 'Accept terms')}
                   </Text>
                 </Pressable>
               </ScrollView>
@@ -1325,12 +1442,12 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
               <SheetHandle />
               <View className="mb-4 flex-row items-center justify-between">
                 <View>
-                  <Text className="text-xl font-bold ml-2" style={{ color: theme.text }}>Contacto</Text>
+                  <Text className="text-xl font-bold ml-2" style={{ color: theme.text }}>{t('contact_title', 'Contact')}</Text>
                 </View>
                 <Pressable
                   className="h-9 w-9 items-center justify-center rounded-full"
                   onPress={() => setContactVisible(false)}
-                  accessibilityLabel="Cerrar contacto"
+                  accessibilityLabel={t('contact_close', 'Close contact')}
                 >
                   <Ionicons name="close" size={20} color={theme.text} />
                 </Pressable>
@@ -1353,7 +1470,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 </View>
 
                 <Text className="mb-2 ml-4 text-xs font-bold uppercase tracking-[1px]" style={{ color: theme.mutedText }}>
-                  Escríbenos
+                  {t('write_us', 'Write us')}
                 </Text>
                 <View className="mb-5 overflow-hidden rounded-2xl" style={{ backgroundColor: theme.surface }}>
                   <Pressable
@@ -1367,7 +1484,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                       <Ionicons name="mail-outline" size={20} color={theme.accent} />
                     </View>
                     <View className="ml-3 flex-1">
-                      <Text className="text-sm font-bold" style={{ color: theme.text }}>Correo electrónico</Text>
+                      <Text className="text-sm font-bold" style={{ color: theme.text }}>{t('email_label', 'Email')}</Text>
                       <Text className="mt-0.5 text-xs" style={{ color: theme.mutedText }}>{SUPPORT_EMAIL}</Text>
                     </View>
                     <Ionicons name="arrow-up-outline" size={18} color={theme.mutedText} style={{ transform: [{ rotate: '45deg' }] }} />
@@ -1375,13 +1492,13 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 </View>
 
                 <Text className="mb-2 ml-4 text-xs font-bold uppercase tracking-[1px]" style={{ color: theme.mutedText }}>
-                  También estamos aquí
+                  {t('we_are_here', 'We are here too')}
                 </Text>
                 <View className="overflow-hidden rounded-2xl" style={{ backgroundColor: theme.surface }}>
                   <Pressable
                     className="flex-row items-center px-4 py-3.5"
                     style={{ borderBottomWidth: 0.5, borderBottomColor: theme.border }}
-                    onPress={() => void openAppLink(FACEBOOK_APP_URL, FACEBOOK_WEB_URL, 'Abre Facebook para contactar al autor.')}
+                    onPress={() => void openAppLink(FACEBOOK_APP_URL, FACEBOOK_WEB_URL, t('support_message', 'Open Facebook to contact the author.'))}
                   >
                     <Ionicons name="logo-facebook" size={24} color="#1877F2" />
                     <Text className="ml-3 flex-1 text-sm font-bold" style={{ color: theme.text }}>Facebook</Text>
@@ -1390,7 +1507,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                   <Pressable
                     className="flex-row items-center px-4 py-3.5"
                     style={{ borderBottomWidth: 0.5, borderBottomColor: theme.border }}
-                    onPress={() => void openAppLink(INSTAGRAM_APP_URL, INSTAGRAM_WEB_URL, 'Abre Instagram para contactar al autor.')}
+                    onPress={() => void openAppLink(INSTAGRAM_APP_URL, INSTAGRAM_WEB_URL, t('instagram_message', 'Open Instagram to contact the author.'))}
                   >
                     <Ionicons name="logo-instagram" size={24} color="#E4405F" />
                     <Text className="ml-3 flex-1 text-sm font-bold" style={{ color: theme.text }}>Instagram</Text>
@@ -1398,7 +1515,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                   </Pressable>
                   <Pressable
                     className="flex-row items-center px-4 py-3.5"
-                    onPress={() => void openAppLink(WHATSAPP_APP_URL, WHATSAPP_WEB_URL, 'Abre WhatsApp para enviar un mensaje al autor.')}
+                    onPress={() => void openAppLink(WHATSAPP_APP_URL, WHATSAPP_WEB_URL, t('whatsapp_message', 'Open WhatsApp to send a message to the author.'))}
                   >
                     <Ionicons name="logo-whatsapp" size={24} color="#25D366" />
                     <Text className="ml-3 flex-1 text-sm font-bold" style={{ color: theme.text }}>WhatsApp</Text>

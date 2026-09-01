@@ -1,8 +1,9 @@
 import React from 'react';
 import { Pressable, Text } from 'react-native';
-import TopNavSortFilter, { TrackSortDirection, TrackSortOption } from './TopNavSortFilter';
 import { PlusIcon } from '../Icons';
+import { getTranslation } from '../i18n/translations';
 import { useAppSettings } from '../settings/appSettings';
+import TopNavSortFilter, { TrackSortDirection, TrackSortOption } from './TopNavSortFilter';
 
 export type { TrackSortDirection, TrackSortOption };
 
@@ -13,18 +14,18 @@ interface TopNavPlaylistProps {
   onCreatePlaylist?: () => void;
 }
 
-const SORT_OPTIONS: { label: string; value: TrackSortOption }[] = [
-  { label: 'Nombre', value: 'name' },
-  { label: 'Fecha', value: 'date' },
-];
-
 const TopNavPlaylist = ({
   selectedSort,
   selectedDirection,
   onSortChange,
   onCreatePlaylist,
 }: TopNavPlaylistProps) => {
-  const { theme } = useAppSettings();
+  const { theme, language } = useAppSettings();
+  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
+  const SORT_OPTIONS: { label: string; value: TrackSortOption }[] = [
+    { label: t('sort_name', 'Name'), value: 'name' },
+    { label: t('sort_date', 'Date'), value: 'date' },
+  ];
 
   return (
     <TopNavSortFilter

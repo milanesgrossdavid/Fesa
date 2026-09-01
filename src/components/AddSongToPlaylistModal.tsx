@@ -1,8 +1,9 @@
 import React from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { PlusIcon } from '../Icons';
 import { Song } from '../../modules/local-music';
+import { getTranslation } from '../i18n/translations';
+import { PlusIcon } from '../Icons';
 import { useAppSettings } from '../settings/appSettings';
 
 type PlaylistOption = {
@@ -33,7 +34,8 @@ const AddSongToPlaylistModal = ({
   onCreatePlaylist,
 }: AddSongToPlaylistModalProps) => {
   const insets = useSafeAreaInsets();
-  const { theme } = useAppSettings();
+  const { theme, language } = useAppSettings();
+  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const selectedSongIds = songIdsToAdd.length ? songIdsToAdd : songToAdd ? [songToAdd.id] : [];
 
   return (
@@ -58,7 +60,7 @@ const AddSongToPlaylistModal = ({
           </View>
 
           <View className="mb-5 flex-row items-center justify-between">
-            <View className="flex-row items-center gap-3">
+            <View className="flex-row items-center gap-3" style={{ flex: 1, paddingRight: 12 }}>
               <View
                 className="h-11 w-11 items-center justify-center rounded-full"
                 style={{ backgroundColor: `${theme.accent}18` }}
@@ -68,12 +70,12 @@ const AddSongToPlaylistModal = ({
 
               <View className="flex-1 pr-3">
                 <Text className="text-xl font-bold" style={{ color: theme.text }}>
-                  Añadir a playlist
+                  {t('track_action_add_to_playlist', 'Add to playlist')}
                 </Text>
                 <Text className="mt-1 text-sm" style={{ color: theme.mutedText }} numberOfLines={1}>
                   {songsToAddCount > 1
-                    ? `${songsToAddCount} canciones seleccionadas`
-                    : songToAdd?.title ?? 'Canción'}
+                    ? `${songsToAddCount} ${songsToAddCount === 1 ? t('selection_selected_one', 'selected') : t('selection_selected_many', 'selected')}`
+                    : songToAdd?.title ?? t('song_details', 'Song')}
                 </Text>
               </View>
             </View>
@@ -82,8 +84,9 @@ const AddSongToPlaylistModal = ({
               className="h-9 items-center justify-center rounded-full px-3"
               style={{ backgroundColor: theme.surface }}
               onPress={onClose}
+              hitSlop={8}
             >
-              <Text className="text-sm font-bold" style={{ color: theme.text }}>Cerrar</Text>
+              <Text className="text-sm font-bold" style={{ color: theme.text }}>{t('close', 'Close')}</Text>
             </Pressable>
           </View>
 
@@ -94,10 +97,10 @@ const AddSongToPlaylistModal = ({
                 style={{ backgroundColor: theme.surface, borderColor: theme.border }}
               >
                 <Text className="text-base font-bold" style={{ color: theme.text }}>
-                  Aún no tienes playlists
+                  {t('no_playlists_title', 'You do not have playlists yet')}
                 </Text>
                 <Text className="mt-2 text-center text-sm leading-5" style={{ color: theme.mutedText }}>
-                  Crea una lista nueva para guardar estas canciones.
+                  {t('no_playlists_message', 'Create a new list to save these songs.')}
                 </Text>
               </View>
             ) : (
@@ -126,10 +129,10 @@ const AddSongToPlaylistModal = ({
                         </Text>
                         <Text className="mt-1 text-sm" style={{ color: theme.mutedText }}>
                           {alreadyAdded
-                            ? `${songsToAddCount > 1 ? 'Estas canciones ya están' : 'Esta canción ya está'} en la lista`
+                            ? `${songsToAddCount > 1 ? t('songs_already_added', 'These songs are already in the list') : t('song_already_added', 'This song is already in the list')}`
                             : songsToAddCount > 1
-                              ? `${pendingSongCount} ${pendingSongCount === 1 ? 'canción nueva' : 'canciones nuevas'} para añadir`
-                              : `${playlist.songIds.length} ${playlist.songIds.length === 1 ? 'canción' : 'canciones'}`}
+                              ? `${pendingSongCount} ${pendingSongCount === 1 ? t('new_song_one', 'new song') : t('new_song_many', 'new songs')} ${t('to_add', 'to add')}`
+                              : `${playlist.songIds.length} ${playlist.songIds.length === 1 ? t('song_count_one', 'song') : t('song_count_many', 'songs')}`}
                         </Text>
                       </View>
 
@@ -157,7 +160,7 @@ const AddSongToPlaylistModal = ({
           >
             <PlusIcon size={18} color={theme.background} />
             <Text className="text-center text-base font-bold" style={{ color: theme.background }}>
-              Crear lista nueva
+              {t('create_new_playlist', 'Create new list')}
             </Text>
           </Pressable>
         </View>

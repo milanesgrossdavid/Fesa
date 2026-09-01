@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Song } from '../../modules/local-music';
+import { getTranslation } from '../i18n/translations';
 import { formatDuration } from '../utils/time';
 import { useAppSettings } from '../settings/appSettings';
 import LibraryArtwork from './LibraryArtwork';
@@ -20,9 +21,9 @@ const normalizeValue = (value: string | null | undefined, fallback: string) => {
   return cleanValue || fallback;
 };
 
-const formatDateValue = (value?: number | string | null) => {
+const formatDateValue = (value?: number | string | null, fallbackLabel = 'No disponible') => {
   if (value == null || value === '') {
-    return 'No disponible';
+    return fallbackLabel;
   }
 
   if (typeof value === 'number') {
@@ -58,7 +59,8 @@ const DetailRow = ({
 
 const SongDetailsModal = ({ song, onClose }: SongDetailsModalProps) => {
   const insets = useSafeAreaInsets();
-  const { theme } = useAppSettings();
+  const { theme, language } = useAppSettings();
+  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [draft, setDraft] = useState<{ title: string; artist: string; album: string; artwork: string | null } | null>(null);
@@ -128,13 +130,13 @@ const SongDetailsModal = ({ song, onClose }: SongDetailsModalProps) => {
 
             <View className="mb-4 flex-row items-center justify-between px-1">
               <Text className="text-2xl font-bold" style={{ color: theme.text }}>
-                Detalles
+                {t('song_details_title', 'Details')}
               </Text>
 
               <View className="flex-row items-center gap-2">
                 <Pressable onPress={onClose} className="rounded-full px-3 py-1.5">
                   <Text className="text-base font-semibold" style={{ color: theme.text }}>
-                    Cerrar
+                    {t('song_details_close', 'Close')}
                   </Text>
                 </Pressable>
               </View>
@@ -166,29 +168,29 @@ const SongDetailsModal = ({ song, onClose }: SongDetailsModalProps) => {
 
               <View className="overflow-hidden rounded-[26px]" style={{ backgroundColor: theme.surface + 'CC', borderWidth: 1, borderColor: theme.border }}>
                 <DetailRow
-                  label="Álbum"
-                  value={normalizeValue(visibleSong.album, UNKNOWN_ALBUM)}
+                  label={t('song_detail_album', 'Album')}
+                  value={normalizeValue(visibleSong.album, t('unknown_album', 'Unknown Album'))}
                   mutedColor={theme.mutedText}
                   textColor={theme.text}
                   borderColor={theme.border}
                 />
                 <DetailRow
-                  label="Duración"
+                  label={t('song_detail_duration', 'Duration')}
                   value={formatDuration(visibleSong.duration)}
                   mutedColor={theme.mutedText}
                   textColor={theme.text}
                   borderColor={theme.border}
                 />
                 <DetailRow
-                  label="Fecha modificada"
-                  value={formatDateValue(visibleSong.dateModified)}
+                  label={t('song_detail_modified_date', 'Modified date')}
+                  value={formatDateValue(visibleSong.dateModified, t('not_available', 'Not available'))}
                   mutedColor={theme.mutedText}
                   textColor={theme.text}
                   borderColor={theme.border}
                 />
                 <DetailRow
-                  label="Ruta"
-                  value={visibleSong.url || 'No disponible'}
+                  label={t('song_detail_path', 'Path')}
+                  value={visibleSong.url || t('not_available', 'Not available')}
                   mutedColor={theme.mutedText}
                   textColor={theme.text}
                   borderColor="transparent"

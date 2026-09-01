@@ -55,6 +55,7 @@ import {
 import { formatDuration } from "../utils/time";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import { useAppSettings } from "../settings/appSettings";
+import { getTranslation } from "../i18n/translations";
 import { LinearGradient } from "expo-linear-gradient";
 import { useDominantColor, withAlpha } from "../hooks/useDominantColor";
 import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
@@ -205,8 +206,9 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
     toggleFavoriteSong,
     togglePlayPause,
   } = useMusicPlayer();
-  const { theme } = useAppSettings();
+  const { theme, language } = useAppSettings();
   const insets = useSafeAreaInsets();
+  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
 
   const mainProgressBarRef = useRef<View>(null);
   const miniProgressBarRef = useRef<View>(null);
@@ -805,14 +807,14 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
               style={{ backgroundColor: theme.surface }}
             >
               {[
-                ["Eliminar", () => { closeTrackMenu(); setDeleteConfirmVisible(true); }],
-                ["Compartir", () => { closeTrackMenu(); void shareAudioFile(currentSong.id); }],
-                ["Detalles de la pista", () => { closeTrackMenu(); setDetailsVisible(true); }],
-                ["Ecualizador", () => { void openEqualizer(); }],
-                ["Álbum", () => openRelatedSongs("album")],
-                ["Artista", () => openRelatedSongs("artist")],
-                ["Definir como", () => { closeTrackMenu(); setDefineAsVisible(true); }],
-                ["Ajustes", () => { closeTrackMenu(); setSettingsVisible(true); }],
+                [t('track_action_delete', 'Delete'), () => { closeTrackMenu(); setDeleteConfirmVisible(true); }],
+                [t('track_action_share', 'Share'), () => { closeTrackMenu(); void shareAudioFile(currentSong.id); }],
+                [t('track_action_details', 'Track details'), () => { closeTrackMenu(); setDetailsVisible(true); }],
+                ["Equalizer", () => { void openEqualizer(); }],
+                [t('track_action_album', 'Album'), () => openRelatedSongs("album")],
+                [t('track_action_artist', 'Artist'), () => openRelatedSongs("artist")],
+                [t('track_action_define_as', 'Set as'), () => { closeTrackMenu(); setDefineAsVisible(true); }],
+                [t('settings', 'Settings'), () => { closeTrackMenu(); setSettingsVisible(true); }],
               ].map(([label, onPress]) => (
                 <Pressable key={label as string} className="border-b border-white/5 px-2 py-4" onPress={onPress as () => void}>
                   <Text className="text-base font-bold" style={{ color: theme.text }}>{label as string}</Text>
@@ -841,8 +843,8 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
         {deleteConfirmVisible ? (
           <ConfirmDeleteModal
             visible={deleteConfirmVisible}
-            title="Eliminar canción"
-            message={`¿Quieres eliminar “${currentSong.title}”? Esta acción no se puede deshacer.`}
+            title={t('delete_song_title', 'Delete song')}
+            message={t('delete_song_message', 'Do you want to delete %count% %label%? This action cannot be undone.').replace('%count%', '1').replace('%label%', t('delete_song_single', 'song'))}
             itemName={currentSong.title}
             artwork={currentSong.artwork}
             accent="white"

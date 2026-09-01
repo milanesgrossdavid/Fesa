@@ -2,6 +2,7 @@ import { useEffect, useSyncExternalStore } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type AppThemeId = 'fesa' | 'oceano' | 'uva' | 'rosa' | 'salvia' | 'grafito';
+export type AppLanguageId = 'es' | 'en' | 'pt' | 'fr' | 'it';
 export type TabId = 'Inicio' | 'Favoritos' | 'Playlist' | 'Pistas' | 'Álbumes' | 'Artistas' | 'Carpetas';
 
 export type AppTheme = {
@@ -15,6 +16,12 @@ export type AppTheme = {
   border: string;
 };
 
+export type AppLanguage = {
+  id: AppLanguageId;
+  label: string;
+  nativeName: string;
+};
+
 export type TabPreference = {
   id: TabId;
   enabled: boolean;
@@ -26,6 +33,7 @@ type PersistedAppSettings = {
   lockScreenControlsEnabled: boolean;
   skipSilenceBetweenTracks: boolean;
   themeId: AppThemeId;
+  languageId: AppLanguageId;
   tabs: TabPreference[];
   termsAcceptedAt: number | null;
   hiddenSongIds: string[];
@@ -33,6 +41,7 @@ type PersistedAppSettings = {
 
 export type AppSettingsSnapshot = PersistedAppSettings & {
   theme: AppTheme;
+  language: AppLanguage;
 };
 
 const APP_SETTINGS_STORAGE_KEY = '@fesa:app-settings';
@@ -110,12 +119,21 @@ export const DEFAULT_TABS: TabPreference[] = [
   { id: 'Carpetas', enabled: true },
 ];
 
+export const APP_LANGUAGES: AppLanguage[] = [
+  { id: 'es', label: 'Español', nativeName: 'Español' },
+  { id: 'en', label: 'English', nativeName: 'English' },
+  { id: 'pt', label: 'Português', nativeName: 'Português' },
+  { id: 'fr', label: 'Français', nativeName: 'Français' },
+  { id: 'it', label: 'Italiano', nativeName: 'Italiano' },
+];
+
 const DEFAULT_SETTINGS: PersistedAppSettings = {
   sleepTimerEndsAt: null,
   playbackRate: 1,
   lockScreenControlsEnabled: true,
   skipSilenceBetweenTracks: true,
   themeId: 'fesa',
+  languageId: 'es',
   tabs: DEFAULT_TABS,
   termsAcceptedAt: null,
   hiddenSongIds: [],
@@ -127,12 +145,14 @@ let persistedState: PersistedAppSettings = DEFAULT_SETTINGS;
 let snapshot: AppSettingsSnapshot = {
   ...DEFAULT_SETTINGS,
   theme: APP_THEMES[0],
+  language: APP_LANGUAGES[0],
 };
 
 const listeners = new Set<() => void>();
 const sleepTimerListeners = new Set<() => void>();
 
 const getThemeById = (themeId: AppThemeId) => APP_THEMES.find(theme => theme.id === themeId) ?? APP_THEMES[0];
+const getLanguageById = (languageId: AppLanguageId) => APP_LANGUAGES.find(language => language.id === languageId) ?? APP_LANGUAGES[0];
 
 const VALID_TAB_IDS = new Set<TabId>(DEFAULT_TABS.map(tab => tab.id));
 
@@ -167,6 +187,7 @@ const updateSnapshot = () => {
     ...persistedState,
     tabs: normalizeTabs(persistedState.tabs),
     theme: getThemeById(persistedState.themeId),
+    language: getLanguageById(persistedState.languageId),
   };
 };
 
@@ -238,14 +259,20 @@ export const hydrateAppSettings = async () => {
 
   try {
     const storedValue = await AsyncStorage.getItem(APP_SETTINGS_STORAGE_KEY);
-
+    
     if (storedValue) {
       const parsed = JSON.parse(storedValue) as Partial<PersistedAppSettings>;
+      
+      // Validar languageId
+      const isValidLanguageId = parsed.languageId && APP_LANGUAGES.some(lang => lang.id === parsed.languageId);
+      const isValidThemeId = parsed.themeId && APP_THEMES.some(theme => theme.id === parsed.themeId);
+      
       persistedState = {
         ...DEFAULT_SETTINGS,
         ...parsed,
         tabs: normalizeTabs(parsed.tabs),
-        themeId: parsed.themeId && getThemeById(parsed.themeId).id ? parsed.themeId : DEFAULT_SETTINGS.themeId,
+        themeId: isValidThemeId ? parsed.themeId : DEFAULT_SETTINGS.themeId,
+        languageId: isValidLanguageId ? parsed.languageId : DEFAULT_SETTINGS.languageId,
       };
     }
   } catch (error) {
@@ -282,6 +309,10 @@ export const setLockScreenControlsEnabled = (lockScreenControlsEnabled: boolean)
 
 export const setThemeId = (themeId: AppThemeId) => {
   updatePersistedState({ themeId });
+};
+
+export const setLanguageId = (languageId: AppLanguageId) => {
+  updatePersistedState({ languageId });
 };
 
 export const moveTab = (tabId: TabId, direction: 'left' | 'right') => {

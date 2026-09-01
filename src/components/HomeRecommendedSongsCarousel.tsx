@@ -5,13 +5,12 @@ import { PlayIcon } from '../Icons';
 import LibraryArtwork from './LibraryArtwork';
 import AutoScrollingText from './AutoScrollingText';
 import { useAppSettings } from '../settings/appSettings';
+import { useTranslation } from '../i18n/translations';
 
 interface HomeRecommendedSongsCarouselProps {
   songs: Song[];
   onPlaySong: (index: number) => void;
 }
-
-const UNKNOWN_ARTIST = 'Artista Desconocido';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
 const normalizeValue = (value: string | null | undefined, fallback: string) => {
@@ -32,7 +31,8 @@ const HomeRecommendedSongsCarousel = ({
   const cardWidth = Math.min(SCREEN_WIDTH * 0.68, 270);
   const cardGap = 18;
   const snapInterval = cardWidth + cardGap;
-  const { theme } = useAppSettings();
+  const { theme, language } = useAppSettings();
+  const { t } = useTranslation(language.id);
   
 
   return (
@@ -90,7 +90,7 @@ const HomeRecommendedSongsCarousel = ({
                           {song.title}
                         </AutoScrollingText>
                         <AutoScrollingText key={`${song.id}-artist`} className="mt-1 text-sm text-white/90">
-                          {normalizeValue(song.artist, UNKNOWN_ARTIST)}
+                          {normalizeValue(song.artist, t('unknown_artist'))}
                         </AutoScrollingText>
                       </View>
                       <Pressable
@@ -109,7 +109,7 @@ const HomeRecommendedSongsCarousel = ({
         />
       ) : (
         <Text className="px-5 py-6 text-center text-sm text-[#707070]">
-          Cuando se cargue tu música, aquí aparecerán canciones recomendadas para escuchar.
+          {t('recommended_songs_empty')}
         </Text>
       )}
     </View>

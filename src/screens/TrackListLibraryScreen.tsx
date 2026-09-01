@@ -21,6 +21,7 @@ import { loadSortPreference, saveSortPreference } from '../utils/sortPreferences
 import PlayerScreen from './PlayerScreen';
 import { Pressable } from 'react-native';
 import { FavoritedIcon } from '../Icons';
+import { getTranslation } from '../i18n/translations';
 
 type TrackListMode = 'tracks' | 'favorites';
 
@@ -93,7 +94,8 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
   const [selectedSongIds, setSelectedSongIds] = useState<string[]>([]);
   const [trackSort, setTrackSort] = useState<TrackSortOption>('name');
   const [trackSortDirection, setTrackSortDirection] = useState<TrackSortDirection>('asc');
-  const { theme } = useAppSettings();
+  const { theme, language } = useAppSettings();
+  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const {
     currentSong,
     playing,
@@ -233,6 +235,13 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
     setBulkDeleteVisible(true);
   };
 
+  const formatDeleteSongsMessage = () => {
+    const label = selectedSongIds.length === 1 ? t('delete_song_single', 'song') : t('delete_song_plural', 'songs');
+    return t('delete_song_message', 'Do you want to delete %count% %label%? This action cannot be undone.')
+      .replace('%count%', String(selectedSongIds.length))
+      .replace('%label%', label);
+  };
+
   const performBulkDelete = () => {
     const idsToDelete = [...selectedSongIds];
     idsToDelete.forEach(songId => { void deleteAudioFile(songId); });
@@ -336,8 +345,8 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
       return;
     }
 
-    const toneLabel = type === 'ringtone' ? 'tono del dispositivo' : 'tono de alarma';
-    Alert.alert('Listo', `“${song.title}” se definió como ${toneLabel}.`);
+    const toneLabel = type === 'ringtone' ? t('device_tone', 'device tone') : t('alarm_tone', 'alarm tone');
+    Alert.alert(t('done', 'Done'), `“${song.title}” ${t('tone_set_success', 'was set as')} ${toneLabel}.`);
   };
 
   const playAllTracks = () => {
@@ -400,14 +409,14 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
     return (
       <View className="flex-1 items-center justify-center px-5" style={{ backgroundColor: theme.background }}>
         <Text className="text-center text-base" style={{ color: theme.mutedText }}>
-          Se requieren permisos para leer tu música.
+          {t('permission_required_music', 'Music permissions are required to read your library.')}
         </Text>
         <Pressable 
           className="mt-4 rounded-full px-6 py-2" 
           style={{ backgroundColor: theme.surface }}
           onPress={() => void requestPermissionsAndLoadMusic()}
         >
-          <Text style={{ color: theme.text }}>Reintentar</Text>
+          <Text style={{ color: theme.text }}>{t('retry', 'Retry')}</Text>
         </Pressable>
       </View>
     );
@@ -418,8 +427,8 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
   }
 
   const emptyMessage = mode === 'favorites'
-    ? 'Todavía no has agregado canciones a favoritos.'
-    : 'No se encontraron canciones.';
+    ? t('favorites_empty_message', 'You have not added any songs to favorites yet.')
+    : t('no_music_available', 'No songs available');
 
   return (
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
@@ -451,7 +460,7 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
               </View>
 
               <Text className="mb-2 text-xl font-bold" style={{ color: theme.text }}>
-                {mode === 'favorites' ? 'No hay favoritos todavía' : 'Nada por aquí'}
+                {mode === 'favorites' ? t('favorites_empty_title', 'No favorites yet') : t('empty_state_default', 'Nothing here')}
               </Text>
               <Text className="text-center text-sm leading-6" style={{ color: theme.mutedText }}>
                 {emptyMessage}
@@ -572,9 +581,11 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
 
       <ConfirmDeleteModal
         visible={bulkDeleteVisible}
-        title="Eliminar canciones"
-        message={`¿Quieres eliminar ${selectedSongIds.length} ${selectedSongIds.length === 1 ? 'canción' : 'canciones'}? Esta acción no se puede deshacer.`}
-        confirmLabel="Eliminar"
+        title={t('delete_song_title', 'Delete songs')}
+        message={t('delete_song_message', 'Do you want to delete %count% %label%? This action cannot be undone.')
+          .replace('%count%', String(selectedSongIds.length))
+          .replace('%label%', selectedSongIds.length === 1 ? t('delete_song_single', 'song') : t('delete_song_plural', 'songs'))}
+        confirmLabel={t('delete', 'Delete')}
         onClose={() => setBulkDeleteVisible(false)}
         onConfirm={performBulkDelete}
       />

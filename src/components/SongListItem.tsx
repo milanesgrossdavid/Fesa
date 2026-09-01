@@ -1,6 +1,7 @@
 import React from 'react';
 import { GestureResponderEvent, Image, Pressable, View, Text } from 'react-native';
 import { Song } from '../../modules/local-music';
+import { getTranslation } from '../i18n/translations';
 import { CheckIcon, DotsIcon } from '../Icons';
 import { formatDuration } from '../utils/time';
 import AudioWaveBars from './AudioWaveBars';
@@ -35,7 +36,8 @@ const SongListItem = ({
   showDuration = true,
   showSelectionIndicator = false,
 }: SongListItemProps) => {
-  const { theme } = useAppSettings();
+  const { theme, language } = useAppSettings();
+  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
 
   return (
     <Pressable
@@ -76,7 +78,7 @@ const SongListItem = ({
           {item.title}
         </Text>
         <Text className="text-sm" style={{ color: theme.mutedText }} numberOfLines={1}>
-          {item.artist || 'Artista Desconocido'} • {item.album || 'Álbum Desconocido'}
+          {item.artist || t('unknown_artist', 'Unknown Artist')} • {item.album || t('unknown_album', 'Unknown Album')}
         </Text>
       </View>
       <View className="flex-row items-center gap-3">

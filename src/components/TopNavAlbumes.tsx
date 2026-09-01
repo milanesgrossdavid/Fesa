@@ -1,4 +1,6 @@
 import React from 'react';
+import { getTranslation } from '../i18n/translations';
+import { useAppSettings } from '../settings/appSettings';
 import TopNavSortFilter, { TrackSortDirection, TrackSortOption } from './TopNavSortFilter';
 
 export type { TrackSortDirection, TrackSortOption };
@@ -9,14 +11,16 @@ interface TopNavAlbumesProps {
   onSortChange: (option: TrackSortOption, direction: TrackSortDirection) => void;
 }
 
-const SORT_OPTIONS: { label: string; value: TrackSortOption }[] = [
-  { label: 'Nombre', value: 'name' },
-  { label: 'Fecha', value: 'date' },
-  { label: 'Artista', value: 'artist' },
-];
+const TopNavAlbumes = (props: TopNavAlbumesProps) => {
+  const { language } = useAppSettings();
+  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
+  const SORT_OPTIONS: { label: string; value: TrackSortOption }[] = [
+    { label: t('sort_name', 'Name'), value: 'name' },
+    { label: t('sort_date', 'Date'), value: 'date' },
+    { label: t('sort_artist', 'Artist'), value: 'artist' },
+  ];
 
-const TopNavAlbumes = (props: TopNavAlbumesProps) => (
-  <TopNavSortFilter {...props} sortOptions={SORT_OPTIONS} />
-);
+  return <TopNavSortFilter {...props} sortOptions={SORT_OPTIONS} />;
+};
 
 export default TopNavAlbumes;

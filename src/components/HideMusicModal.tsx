@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Song } from '../../modules/local-music';
 import { useAppSettings } from '../settings/appSettings';
+import { getTranslation } from '../i18n/translations';
 import LibraryArtwork from './LibraryArtwork';
 
 interface HideMusicModalProps {
@@ -16,7 +17,8 @@ interface HideMusicModalProps {
 
 const HideMusicModal = ({ visible, songs, hiddenSongIds, onClose, onToggleHidden }: HideMusicModalProps) => {
   const insets = useSafeAreaInsets();
-  const { theme } = useAppSettings();
+  const { theme, language } = useAppSettings();
+  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
 
   const sortedSongs = useMemo(() => [...songs].sort((a, b) => a.title.localeCompare(b.title)), [songs]);
 
@@ -34,15 +36,15 @@ const HideMusicModal = ({ visible, songs, hiddenSongIds, onClose, onToggleHidden
 
           <View className="mb-4 flex-row items-center justify-between">
             <View className="flex-1 pr-4">
-              <Text className="text-xl font-bold" style={{ color: theme.text }}>Ocultar música</Text>
+              <Text className="text-xl font-bold" style={{ color: theme.text }}>{t('hide_music', 'Hide Music')}</Text>
               <Text className="mt-1 text-sm" style={{ color: theme.mutedText }}>
-                {hiddenSongIds.length} {hiddenSongIds.length === 1 ? 'archivo oculto' : 'archivos ocultos'}
+                {hiddenSongIds.length} {hiddenSongIds.length === 1 ? t('hidden_file_single', 'hidden file') : t('hidden_file_plural', 'hidden files')}
               </Text>
             </View>
             <Pressable
               className="h-9 w-9 items-center justify-center rounded-full"
               onPress={onClose}
-              accessibilityLabel="Cerrar ocultar música"
+              accessibilityLabel={t('close_hide_music', 'Close hide music')}
             >
               <Ionicons name="close" size={20} color={theme.text} />
             </Pressable>
@@ -55,10 +57,10 @@ const HideMusicModal = ({ visible, songs, hiddenSongIds, onClose, onToggleHidden
                 style={{ backgroundColor: theme.surface, borderColor: theme.border }}
               >
                 <Text className="text-base font-bold" style={{ color: theme.text }}>
-                  No hay canciones disponibles
+                  {t('no_music_available', 'No songs available')}
                 </Text>
                 <Text className="mt-2 text-center text-sm leading-5" style={{ color: theme.mutedText }}>
-                  Tu biblioteca local está vacía o aún no se han cargado los archivos.
+                  {t('no_music_available_description', 'Your local library is empty or files have not loaded yet.')}
                 </Text>
               </View>
             ) : (
@@ -85,7 +87,7 @@ const HideMusicModal = ({ visible, songs, hiddenSongIds, onClose, onToggleHidden
                         {song.title}
                       </Text>
                       <Text className="mt-1 text-sm" style={{ color: theme.mutedText }} numberOfLines={1}>
-                        {song.artist?.trim() || 'Artista Desconocido'}
+                        {song.artist?.trim() || t('unknown_artist', 'Unknown Artist')}
                       </Text>
                     </View>
 

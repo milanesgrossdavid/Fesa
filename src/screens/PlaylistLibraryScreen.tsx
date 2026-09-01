@@ -34,6 +34,7 @@ import TopNavPlaylist, { TrackSortDirection, TrackSortOption } from '../componen
 import { loadSortPreference, saveSortPreference } from '../utils/sortPreferences';
 import { MINI_PLAYER_BOTTOM_INSET, SELECTION_BAR_BOTTOM_INSET } from '../utils/layout';
 import PlayerScreen from './PlayerScreen';
+import { getTranslation } from '../i18n/translations';
 
 type SongGroup = {
   id: string;
@@ -162,7 +163,8 @@ const PlaylistLibraryScreen = () => {
   const [playlistDraftSongIds, setPlaylistDraftSongIds] = useState<string[]>([]);
   const [playlistEditingId, setPlaylistEditingId] = useState<string | null>(null);
   const groupModalTranslateY = useRef(new Animated.Value(1)).current;
-  const { theme } = useAppSettings();
+  const { theme, language } = useAppSettings();
+  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const { currentSong, playing, playSong, togglePlayPause, setSelectionModeActive } = useMusicPlayer();
 
   const requestPermissionsAndLoadMusic = useCallback(async () => {
@@ -269,14 +271,14 @@ const PlaylistLibraryScreen = () => {
     return [
       {
         id: 'default-recently-added',
-        name: 'Recién añadidas',
+        name: t('default_recently_added', 'Recently added'),
         subtitle: '',
         songs: recentlyAddedSongs,
         artwork: recentlyAddedSongs[0]?.artwork,
       },
       {
         id: 'default-most-played',
-        name: 'Más escuchadas',
+        name: t('default_most_played', 'Most played'),
         subtitle: '',
         songs: homeMostPlayedSongs,
         artwork: homeMostPlayedSongs[0]?.artwork,
@@ -495,10 +497,14 @@ const PlaylistLibraryScreen = () => {
   };
 
   const confirmRemoveSongFromPlaylist = (playlistId: string, song: Song) => {
-    Alert.alert('Quitar de playlist', `¿Quieres quitar “${song.title}” de esta playlist?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Quitar', style: 'destructive', onPress: () => { void removeSongFromPlaylist(playlistId, song.id); } },
-    ]);
+    Alert.alert(
+      t('remove_from_playlist_title', 'Remove from playlist'),
+      t('remove_from_playlist_message', 'Do you want to remove “%name%” from this playlist?').replace('%name%', song.title),
+      [
+        { text: t('cancel_action', 'Cancel'), style: 'cancel' },
+        { text: t('remove_action', 'Remove'), style: 'destructive', onPress: () => { void removeSongFromPlaylist(playlistId, song.id); } },
+      ]
+    );
   };
 
   const openGroup = (group: SongGroup) => {
@@ -661,8 +667,8 @@ const PlaylistLibraryScreen = () => {
       return;
     }
 
-    const toneLabel = type === 'ringtone' ? 'tono del dispositivo' : 'tono de alarma';
-    Alert.alert('Listo', `“${song.title}” se definió como ${toneLabel}.`);
+    const toneLabel = type === 'ringtone' ? t('device_tone', 'device tone') : t('alarm_tone', 'alarm tone');
+    Alert.alert(t('done', 'Done'), `“${song.title}” ${t('tone_set_success', 'was set as')} ${toneLabel}.`);
   };
 
   const playSelectedPlaylist = () => {
@@ -751,14 +757,14 @@ const PlaylistLibraryScreen = () => {
     return (
       <View className="flex-1 items-center justify-center px-5" style={{ backgroundColor: theme.background }}>
         <Text className="text-center text-base" style={{ color: theme.mutedText }}>
-          Se requieren permisos para leer tu música.
+          {t('permission_required_music', 'Music permissions are required to read your library.')}
         </Text>
         <Pressable 
           className="mt-4 rounded-full px-6 py-2" 
           style={{ backgroundColor: theme.surface }}
           onPress={() => void requestPermissionsAndLoadMusic()}
         >
-          <Text style={{ color: theme.text }}>Reintentar</Text>
+          <Text style={{ color: theme.text }}>{t('retry', 'Retry')}</Text>
         </Pressable>
       </View>
     );
@@ -797,7 +803,7 @@ const PlaylistLibraryScreen = () => {
           </View>
         }
         ListEmptyComponent={
-          <Text className="px-5 py-6 text-center text-[#707070]">No has creado playlists todavía.</Text>
+          <Text className="px-5 py-6 text-center text-[#707070]">{t('playlist_empty_state', 'You have not created any playlists yet.')}</Text>
         }
         contentContainerStyle={{
           paddingBottom: isPlaylistSelectionMode || isSelectionMode
@@ -901,18 +907,20 @@ const PlaylistLibraryScreen = () => {
       <SongDetailsModal song={detailsSong} onClose={() => setDetailsSong(null)} />
       <ConfirmDeleteModal
         visible={bulkDeleteVisible}
-        title="Eliminar canciones"
-        message={`¿Quieres eliminar ${selectedSongIds.length} ${selectedSongIds.length === 1 ? 'canción' : 'canciones'}? Esta acción no se puede deshacer.`}
+        title={t('delete_song_title', 'Delete songs')}
+        message={t('delete_song_message', 'Do you want to delete %count% %label%? This action cannot be undone.')
+          .replace('%count%', String(selectedSongIds.length))
+          .replace('%label%', selectedSongIds.length === 1 ? t('delete_song_single', 'song') : t('delete_song_plural', 'songs'))}
         onClose={() => setBulkDeleteVisible(false)}
         onConfirm={performBulkDelete}
       />
       <ConfirmDeleteModal
         visible={playlistBulkDeleteVisible}
-        title={selectedPlaylistIds.length === 1 ? 'Eliminar playlist' : 'Eliminar playlists'}
+        title={selectedPlaylistIds.length === 1 ? t('delete_playlist_title', 'Delete playlist') : t('delete_playlists_title', 'Delete playlists')}
         message={
           selectedPlaylistIds.length === 1 && selectedCustomPlaylist
-            ? `¿Quieres eliminar “${selectedCustomPlaylist.name}”? Esta acción no se puede deshacer.`
-            : `¿Quieres eliminar ${selectedPlaylistIds.length} playlists? Esta acción no se puede deshacer.`
+            ? t('delete_playlist_confirm_single', 'Do you want to delete “%name%”? This action cannot be undone.').replace('%name%', selectedCustomPlaylist.name)
+            : t('delete_playlist_confirm_multiple', 'Do you want to delete %count% playlists? This action cannot be undone.').replace('%count%', String(selectedPlaylistIds.length))
         }
         itemName={selectedPlaylistIds.length === 1 ? selectedCustomPlaylist?.name : undefined}
         artwork={selectedPlaylistIds.length === 1 ? customPlaylists.find(playlist => playlist.id === selectedCustomPlaylist?.id)?.artwork : undefined}

@@ -18,6 +18,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { deleteAudioFile, getAudioFiles, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
 import { musicPlayer, useMusicPlayer } from '../audio/musicPlayer';
 import { useAppSettings } from '../settings/appSettings';
+import { useTranslation } from '../i18n/translations';
 import AddSongToPlaylistModal from '../components/AddSongToPlaylistModal';
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
 import CreatePlaylistModal from '../components/CreatePlaylistModal';
@@ -129,7 +130,7 @@ const buildGroups = (songs: Song[], mode: LibraryGroupMode) => {
     .sort((a, b) => a.name.localeCompare(b.name));
 };
 
-const HomeSectionHeader = ({ title, onPress }: { title: string; onPress?: () => void; }) => {
+const HomeSectionHeader = ({ title, onPress, onPressLabel }: { title: string; onPress?: () => void; onPressLabel?: string; }) => {
   const { theme } = useAppSettings();
 
   return (
@@ -139,9 +140,9 @@ const HomeSectionHeader = ({ title, onPress }: { title: string; onPress?: () => 
         <Pressable
           style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
           onPress={onPress}
-          accessibilityLabel={`Ver todo: ${title}`}
+          accessibilityLabel={`${onPressLabel ?? 'Ver todo'}: ${title}`}
         >
-          <Text style={{ color: theme.accent, fontSize: 16 }}>Ver todo</Text>
+          <Text style={{ color: theme.accent, fontSize: 16 }}>{onPressLabel ?? 'Ver todo'}</Text>
         </Pressable>
       ) : null}
     </View>
@@ -172,7 +173,8 @@ const HomeLibraryScreen = () => {
   const [bulkDeleteVisible, setBulkDeleteVisible] = useState(false);
   const [selectedSongIds, setSelectedSongIds] = useState<string[]>([]);
   const groupModalTranslateY = useRef(new Animated.Value(1)).current;
-  const { theme } = useAppSettings();
+  const { theme, language } = useAppSettings();
+  const { t } = useTranslation(language.id);
   const {
     currentSong,
     playing,
@@ -598,7 +600,7 @@ const HomeLibraryScreen = () => {
           paddingBottom: isSelectionMode ? SELECTION_BAR_BOTTOM_INSET : MINI_PLAYER_BOTTOM_INSET,
         }}
       >
-        <HomeSectionHeader title="Más escuchadas" onPress={() => openGroup(homeMostPlayed, 'playlist')} />
+        <HomeSectionHeader title={t('section_most_played')} onPress={() => openGroup(homeMostPlayed, 'playlist')} onPressLabel={t('view_all')} />
         <HomeMostPlayedSection
           group={homeMostPlayed}
           limit={MOST_PLAYED_HOME_LIMIT}
@@ -606,7 +608,7 @@ const HomeLibraryScreen = () => {
           onPlaySong={index => playFromList(homeMostPlayed.songs, index)}
         />
 
-        <HomeSectionHeader title="Recién añadidas" onPress={() => openGroup(homeRecentlyAdded, 'playlist')} />
+        <HomeSectionHeader title={t('section_recently_added')} onPress={() => openGroup(homeRecentlyAdded, 'playlist')} onPressLabel={t('view_all')} />
         <HomeRecentlyAddedSection
           group={homeRecentlyAdded}
           songs={recentSongs}
@@ -622,16 +624,16 @@ const HomeLibraryScreen = () => {
           onOpenTrackMenu={openTrackMenu}
         />
 
-        <HomeSectionHeader title="Artistas favoritos" />
+        <HomeSectionHeader title={t('section_favorite_artists')} />
         <HomeFavoriteArtistsSection artists={favoriteArtists} onOpenArtist={group => openGroup(group, 'artist')} />
 
-        <HomeSectionHeader title="Álbumes recomendados" />
+        <HomeSectionHeader title={t('section_recommended_albums')} />
         <HomeRecommendedAlbumsSection albums={recommendedAlbums} onOpenAlbum={group => openGroup(group, 'album')} />
 
-        <HomeSectionHeader title="Artistas recomendados" />
+        <HomeSectionHeader title={t('section_recommended_artists')} />
         <HomeRecommendedArtistsSection artists={recommendedArtists} onOpenArtist={group => openGroup(group, 'artist')} />
 
-        <HomeSectionHeader title="Canciones recomendadas" />
+        <HomeSectionHeader title={t('section_recommended_songs')} />
         <HomeRecommendedSongsCarousel
           songs={recommendedSongs}
           onPlaySong={index => playFromList(recommendedSongs, index)}

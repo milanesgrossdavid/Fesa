@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import { FilterIcon, SortAscIcon, SortDescIcon } from '../Icons';
+import { getTranslation } from '../i18n/translations';
 import { useAppSettings } from '../settings/appSettings';
 
 export type TrackSortOption = 'name' | 'date' | 'artist' | 'albums';
@@ -26,9 +27,10 @@ const TopNavSortFilter = ({
   onSortChange,
   rightContent,
 }: TopNavSortFilterProps) => {
-  const { theme } = useAppSettings();
+  const { theme, language } = useAppSettings();
+  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const [modalVisible, setModalVisible] = useState(false);
-  const selectedLabel = sortOptions.find(option => option.value === selectedSort)?.label ?? 'Nombre';
+  const selectedLabel = sortOptions.find(option => option.value === selectedSort)?.label ?? t('sort_name', 'Name');
 
   const handleSelectSort = (option: TrackSortOption) => {
     const nextDirection = option === selectedSort && selectedDirection === 'asc' ? 'desc' : 'asc';
@@ -86,9 +88,9 @@ const TopNavSortFilter = ({
             }}
           >
             <View className="px-4 pb-2 pt-3">
-              <Text className="text-lg font-bold" style={{ color: theme.text }}>Ordenar por</Text>
+              <Text className="text-lg font-bold" style={{ color: theme.text }}>{t('sort_by', 'Sort by')}</Text>
               <Text className="mt-1 text-sm" style={{ color: theme.mutedText }}>
-                Toca de nuevo para cambiar entre ascendente y descendente.
+                {t('sort_toggle_hint', 'Tap again to switch between ascending and descending.')}
               </Text>
             </View>
 

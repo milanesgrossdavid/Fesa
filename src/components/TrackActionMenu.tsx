@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Song } from '../../modules/local-music';
+import { getTranslation } from '../i18n/translations';
 import { useAppSettings } from '../settings/appSettings';
 import ConfirmDeleteModal from './ConfirmDeleteModal';
 import LibraryArtwork from './LibraryArtwork';
@@ -34,7 +35,8 @@ const TrackActionMenu = ({
   onDefineAs,
 }: TrackActionMenuProps) => {
   const insets = useSafeAreaInsets();
-  const { theme } = useAppSettings();
+  const { theme, language } = useAppSettings();
+  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
 
   if (!trackMenu) {
@@ -47,13 +49,13 @@ const TrackActionMenu = ({
     label: string;
     onPress: () => void;
   }[] = [
-    { label: 'Añadir a playlist', onPress: () => onAdd(song) },
-    { label: 'Compartir', onPress: () => onShare(song) },
-    { label: 'Detalles de la pista', onPress: () => onDetails(song) },
-    { label: 'Álbum', onPress: () => onOpenGroup(song, 'albums') },
-    { label: 'Artista', onPress: () => onOpenGroup(song, 'artists') },
-    { label: 'Definir como', onPress: () => onDefineAs(song) },
-    { label: 'Eliminar', onPress: () => setConfirmDeleteVisible(true) },
+    { label: t('track_action_add_to_playlist', 'Add to playlist'), onPress: () => onAdd(song) },
+    { label: t('track_action_share', 'Share'), onPress: () => onShare(song) },
+    { label: t('track_action_details', 'Track details'), onPress: () => onDetails(song) },
+    { label: t('track_action_album', 'Album'), onPress: () => onOpenGroup(song, 'albums') },
+    { label: t('track_action_artist', 'Artist'), onPress: () => onOpenGroup(song, 'artists') },
+    { label: t('track_action_define_as', 'Set as'), onPress: () => onDefineAs(song) },
+    { label: t('track_action_delete', 'Delete'), onPress: () => setConfirmDeleteVisible(true) },
   ];
 
   const handleClose = () => {
@@ -91,7 +93,7 @@ const TrackActionMenu = ({
                   {song.title}
                 </Text>
                 <Text className="mt-1 text-sm" style={{ color: theme.mutedText }} numberOfLines={1}>
-                  {song.artist?.trim() || 'Artista Desconocido'}
+                  {song.artist?.trim() || t('unknown_artist', 'Unknown Artist')}
                 </Text>
               </View>
             </View>
@@ -122,8 +124,8 @@ const TrackActionMenu = ({
 
       <ConfirmDeleteModal
         visible={confirmDeleteVisible}
-        title="Eliminar canción"
-        message="Esta acción quitará la pista de tu dispositivo. No se puede deshacer."
+        title={t('delete_song_title', 'Delete song')}
+        message={t('delete_song_message', 'Do you want to delete %count% %label%? This action cannot be undone.').replace('%count%', '1').replace('%label%', t('delete_song_single', 'song'))}
         itemName={song.title}
         artwork={song.artwork}
         accent="white"

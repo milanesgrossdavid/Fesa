@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Song } from '../../modules/local-music';
+import { getTranslation } from '../i18n/translations';
 import { CheckIcon } from '../Icons';
 import { useAppSettings } from '../settings/appSettings';
 import LibraryArtwork from './LibraryArtwork';
@@ -35,13 +36,6 @@ interface PlaylistSongSelectorModalProps {
 
 const UNKNOWN_ARTIST = 'Artista Desconocido';
 
-const TABS: { label: string; value: PlaylistSelectionTab }[] = [
-  { label: 'Pistas', value: 'tracks' },
-  { label: 'Artistas', value: 'artists' },
-  { label: 'Álbumes', value: 'albums' },
-  { label: 'Carpetas', value: 'folders' },
-];
-
 const normalizeValue = (value: string | null | undefined, fallback: string) => {
   const cleanValue = value?.trim();
 
@@ -65,7 +59,8 @@ const PlaylistSongSelectorModal = ({
   onSave,
 }: PlaylistSongSelectorModalProps) => {
   const insets = useSafeAreaInsets();
-  const { theme } = useAppSettings();
+  const { theme, language } = useAppSettings();
+  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const sortedSongs = useMemo(
     () => [...songs].sort((a, b) => a.title.localeCompare(b.title)),
     [songs]
@@ -76,6 +71,13 @@ const PlaylistSongSelectorModal = ({
     : activeTab === 'albums'
       ? albumGroups
       : folderGroups;
+
+  const TABS: { label: string; value: PlaylistSelectionTab }[] = [
+    { label: t('tab_tracks', 'Tracks'), value: 'tracks' },
+    { label: t('tab_artists', 'Artists'), value: 'artists' },
+    { label: t('tab_albums', 'Albums'), value: 'albums' },
+    { label: t('tab_folders', 'Folders'), value: 'folders' },
+  ];
 
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
@@ -95,14 +97,14 @@ const PlaylistSongSelectorModal = ({
           <View className="mb-4 flex-row items-center justify-between">
             <View className="flex-1 pr-3">
               <Text className="text-xl font-bold" style={{ color: theme.text }} numberOfLines={1}>
-                {playlistName.trim() || 'Nueva playlist'}
+                {playlistName.trim() || t('create_playlist_title', 'New playlist')}
               </Text>
               <Text className="mt-1 text-sm" style={{ color: theme.mutedText }}>
-                {selectedSongIds.length} {selectedSongIds.length === 1 ? 'seleccionada' : 'seleccionadas'}
+                {selectedSongIds.length} {selectedSongIds.length === 1 ? t('selection_selected_one', 'selected') : t('selection_selected_many', 'selected')}
               </Text>
             </View>
             <Pressable onPress={onClose}>
-              <Text className="font-bold" style={{ color: theme.text }}>Cerrar</Text>
+              <Text className="font-bold" style={{ color: theme.text }}>{t('close', 'Close')}</Text>
             </Pressable>
           </View>
 
@@ -204,7 +206,7 @@ const PlaylistSongSelectorModal = ({
                       {group.name}
                     </Text>
                     <Text className="mt-1 text-xs" style={{ color: theme.mutedText }}>
-                      {selectedCount}/{groupSongIds.length} seleccionadas
+                      {selectedCount}/{groupSongIds.length} {t('selection_selected_many', 'selected')}
                     </Text>
                   </View>
                 </Pressable>
@@ -218,7 +220,7 @@ const PlaylistSongSelectorModal = ({
             onPress={onSave}
           >
             <Text className="text-center font-bold" style={{ color: theme.background }}>
-              {isEditing ? 'Guardar cambios' : 'Crear playlist'}
+              {isEditing ? t('save_changes', 'Save changes') : t('create_playlist', 'Create playlist')}
             </Text>
           </Pressable>
         </View>
