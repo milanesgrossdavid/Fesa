@@ -656,12 +656,14 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
   const sleepTimerOptions = useMemo(() => getSleepTimerOptions(t), [t]);
   const getThemeDisplayName = (themeId: string) => {
     const nameMap: Record<string, string> = {
-      fesa: t('theme_name_fesa', 'Fesa'),
-      oceano: t('theme_name_oceano', 'Night Blue'),
-      uva: t('theme_name_uva', 'Lavender'),
-      rosa: t('theme_name_rosa', 'Sand'),
-      salvia: t('theme_name_salvia', 'Sage'),
-      grafito: t('theme_name_grafito', 'Pearl'),
+      light: t('theme_name_light', 'Daylight'),
+      dark: t('theme_name_dark', 'Midnight'),
+      masculine: t('theme_name_masculine', 'Forge'),
+      feminine: t('theme_name_feminine', 'Bloom'),
+      unisex: t('theme_name_unisex', 'Meadow'),
+      ocean: t('theme_name_ocean', 'Tide'),
+      amber: t('theme_name_amber', 'Honey'),
+      plum: t('theme_name_plum', 'Velvet'),
     };
     return nameMap[themeId] ?? themeId;
   };
@@ -1411,9 +1413,9 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 }}
               >
                 <View className="flex-row items-center gap-3">
-                  <View className="h-8 w-8 rounded-full" style={{ backgroundColor: themeOption.accent, borderColor: themeOption.border, borderWidth: 1 }} />
+                  <View className="h-8 w-8 rounded-full" style={{ backgroundColor: themeOption.background, borderColor: themeOption.border, borderWidth: 1 }} />
                   <View>
-                    <Text className="text-base font-bold" style={{ color: themeOption.text }}>{getThemeDisplayName(themeOption.id)}</Text>
+                    <Text className="text-base font-bold" style={{ color: theme.text }}>{getThemeDisplayName(themeOption.id)}</Text>
                     <View className="mt-1.5 flex-row gap-1.5">
                       <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: themeOption.background }} />
                       <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: themeOption.surface }} />

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
+  BackHandler,
   Modal,
   PanResponder,
   Platform,
@@ -602,23 +603,18 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
 
   const requestCloseMiniPlayer = useCallback(() => {
     setMiniPlayerVisible(false);
-    setMiniPlayerClosing(true);
   }, []);
   const requestCloseLockScreen = useCallback(() => {
     setLockScreenVisible(false);
-    setLockScreenClosing(true);
   }, []);
   const requestCloseEqualizer = useCallback(() => {
     setEqualizerVisible(false);
-    setEqualizerClosing(true);
   }, []);
   const requestCloseDefineAs = useCallback(() => {
     setDefineAsVisible(false);
-    setDefineAsClosing(true);
   }, []);
   const requestCloseTrackMenu = useCallback(() => {
     setTrackMenuVisible(false);
-    setTrackMenuClosing(true);
   }, []);
 
   // After the parent Modal slide-in finishes, allow child modals to be shown.
@@ -659,6 +655,39 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
       setEqualizerSessionId(null);
     }
   }, [currentSong?.id]);
+
+  // Back gesture on Android: when a sub-modal is open, intercept the back
+  // button and dismiss the topmost modal in order. RN's `onRequestClose` is
+  // unreliable for transparent modals nested inside another Modal because the
+  // outer Modal's window intercepts the back event first. Registering a
+  // single BackHandler here lets us hand-dispatch the close to the correct
+  // sub-modal regardless of the render tree.
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+
+    const onBackPress = () => {
+      if (trackMenuVisible) { requestCloseTrackMenu(); return true; }
+      if (equalizerVisible) { requestCloseEqualizer(); return true; }
+      if (defineAsVisible) { requestCloseDefineAs(); return true; }
+      if (lockScreenVisible) { requestCloseLockScreen(); return true; }
+      if (miniPlayerVisible) { requestCloseMiniPlayer(); return true; }
+      return false;
+    };
+
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [
+    defineAsVisible,
+    equalizerVisible,
+    lockScreenVisible,
+    miniPlayerVisible,
+    requestCloseDefineAs,
+    requestCloseEqualizer,
+    requestCloseLockScreen,
+    requestCloseMiniPlayer,
+    requestCloseTrackMenu,
+    trackMenuVisible,
+  ]);
 
   // Stable fallback for dominant color (theme.surface from a static list, but we still keep it stable per theme id).
   const themeSurface = useMemo(() => theme.surface || '#252525', [theme.surface, theme.id]);
@@ -721,15 +750,29 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
   }, [equalizerSessionId]);
 
   const applyEqualizerBands = useCallback((nextBands: EqualizerBand[], nextEnabled: boolean) => {
-    const sessionId = equalizerSessionIdRef.current;
-    if (sessionId == null || sessionId <= 0) {
-      // Persist at module scope so loadAndPlay() can re-apply automatically
-      // when expo-audio swaps the underlying audio session.
-      setEqualizerLevels(nextBands.map(band => Number(band.level)));
-      return;
+    // Always try the live audio session id first: after a track change the
+    // cached ref is intentionally reset (so we re-read the new session), and
+    // before the first play the live session id is 0 on Android — in both
+    // cases we still need to push the new preset immediately instead of
+    // silently bailing out and forcing the user to toggle the EQ off/on.
+    let sessionId = getAudioSessionId() ?? 0;
+    if (sessionId > 0) {
+      equalizerSessionIdRef.current = sessionId;
+      setEqualizerSessionId(sessionId);
+    } else {
+      sessionId = equalizerSessionIdRef.current ?? 0;
     }
 
     const levels = nextBands.map(band => Number(band.level));
+
+    if (sessionId <= 0) {
+      // No native session yet — persist at module scope so loadAndPlay()
+      // re-applies automatically when expo-audio swaps the underlying audio
+      // session on first play or on the next track change.
+      setEqualizerLevels(levels);
+      return;
+    }
+
     equalizerWriteRef.current = equalizerWriteRef.current
       .catch(() => undefined)
       .then(() => {
@@ -1143,7 +1186,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
         {defineAsMounted ? (
           <AppModal
             transparent
-            visible={(defineAsVisible || defineAsClosing) && parentAnimationDone}
+            visible={defineAsVisible && parentAnimationDone}
             animationType="fade"
             onRequestClose={requestCloseDefineAs}
             onModalHide={() => {
@@ -1241,7 +1284,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
         {miniPlayerMounted ? (
           <AppModal
             transparent
-            visible={(miniPlayerVisible || miniPlayerClosing) && parentAnimationDone}
+            visible={miniPlayerVisible && parentAnimationDone}
             animationType="fade"
             statusBarTranslucent
             navigationBarTranslucent
@@ -1270,88 +1313,103 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                 end={{ x: 1, y: 1 }}
                 style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
               />
+              {/*
+                The backdrop is the FIRST child so it covers the full screen
+                underneath the centered card. Wrapping the card content in a
+                sibling <View> (instead of mixing absolute and centered children
+                on the same parent) guarantees the Pressable receives taps
+                anywhere outside the card on Android. We also stop propagation
+                on the card container so a tap on the card never bubbles up to
+                the backdrop.
+              */}
               <Pressable
-                className="absolute inset-0 bg-black/60"
+                style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)' }}
                 onPress={requestCloseMiniPlayer}
+                android_disableSound
               />
-              <View
-                className="w-full max-w-[380px] overflow-hidden rounded-[34px] p-6"
-                style={{
-                  backgroundColor: 'rgba(10,10,10,0.58)',
-                  borderColor: 'rgba(255,255,255,0.08)',
-                  borderWidth: 1,
-                  shadowColor: '#000',
-                  shadowOpacity: 0.28,
-                  shadowOffset: { width: 0, height: 8 },
-                  shadowRadius: 18,
-                }}
+              <Pressable
+                onPress={() => { /* swallow taps on the card */ }}
+                style={{ width: '100%', maxWidth: 380 }}
               >
-                <BlurView
-                  pointerEvents="none"
-                  intensity={65}
-                  tint="dark"
-                  style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
-                />
-                <LinearGradient
-                  pointerEvents="none"
-                  colors={[withAlpha(dominantColor, 0.22), 'rgba(0,0,0,0.2)']}
-                  style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-                />
-                <View className="aspect-square w-full items-center justify-center overflow-hidden rounded-[24px] bg-[#2a2a2a]">
-                  {currentSong.artwork ? (
-                    <Image
-                      source={{ uri: currentSong.artwork }}
-                      className="h-full w-full"
-                      resizeMode="cover"
-                      fadeDuration={0}
-                      progressiveRenderingEnabled
-                    />
-                  ) : (
-                    <Image source={DEFAULT_MUSIC_ARTWORK} className="h-full w-full" resizeMode="cover" fadeDuration={0} />
-                  )}
-                </View>
-
-                <View className="mt-4 flex-row items-center justify-between">
-                  <View className="flex-1 pr-3">
-                    <AutoScrollingText className="text-base font-bold text-white">
-                      {currentSong.title}
-                    </AutoScrollingText>
-                    <AutoScrollingText className="mt-1 text-xs text-white/55">
-                      {normalizeValue(currentSong.artist, UNKNOWN_ARTIST)}
-                    </AutoScrollingText>
-                  </View>
-                  <Pressable onPress={handleToggleFavorite}>
-                    {isCurrentSongFavorite ? (
-                      <FavoritedIcon size={22} color="#f5f5f5" />
+                <View
+                  className="overflow-hidden rounded-[34px] p-6"
+                  style={{
+                    backgroundColor: 'rgba(10,10,10,0.58)',
+                    borderColor: 'rgba(255,255,255,0.08)',
+                    borderWidth: 1,
+                    shadowColor: '#000',
+                    shadowOpacity: 0.28,
+                    shadowOffset: { width: 0, height: 8 },
+                    shadowRadius: 18,
+                  }}
+                >
+                  <BlurView
+                    pointerEvents="none"
+                    intensity={35}
+                    tint="dark"
+                    style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
+                  />
+                  <LinearGradient
+                    pointerEvents="none"
+                    colors={[withAlpha(dominantColor, 0.22), 'rgba(0,0,0,0.2)']}
+                    style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+                  />
+                  <View className="aspect-square w-full items-center justify-center overflow-hidden rounded-[24px] bg-[#2a2a2a]">
+                    {currentSong.artwork ? (
+                      <Image
+                        source={{ uri: currentSong.artwork }}
+                        className="h-full w-full"
+                        resizeMode="cover"
+                        fadeDuration={0}
+                        progressiveRenderingEnabled
+                      />
                     ) : (
-                      <UnfavoritedIcon size={22} color="#f5f5f5" />
+                      <Image source={DEFAULT_MUSIC_ARTWORK} className="h-full w-full" resizeMode="cover" fadeDuration={0} />
                     )}
-                  </Pressable>
+                  </View>
+
+                  <View className="mt-4 flex-row items-center justify-between">
+                    <View className="flex-1 pr-3">
+                      <AutoScrollingText className="text-base font-bold text-white">
+                        {currentSong.title}
+                      </AutoScrollingText>
+                      <AutoScrollingText className="mt-1 text-xs text-white/55">
+                        {normalizeValue(currentSong.artist, UNKNOWN_ARTIST)}
+                      </AutoScrollingText>
+                    </View>
+                    <Pressable onPress={handleToggleFavorite}>
+                      {isCurrentSongFavorite ? (
+                        <FavoritedIcon size={22} color="#f5f5f5" />
+                      ) : (
+                        <UnfavoritedIcon size={22} color="#f5f5f5" />
+                      )}
+                    </Pressable>
+                  </View>
+
+                  <PlaybackProgressBar
+                    seekTo={seekTo}
+                    containerClassName="mt-4"
+                    trackBackgroundColor="rgba(255,255,255,0.2)"
+                    barClassName="relative h-2 justify-center rounded-full bg-white/20"
+                    thumbClassName="absolute h-3.5 w-3.5 rounded-full bg-white"
+                    thumbOffset={-7}
+                  />
+
+                  <View className="mt-5 flex-row items-center justify-center gap-8">
+                    <Pressable onPress={handlePrevious}>
+                      <BackwardIcon size={30} color="#f5f5f5" />
+                    </Pressable>
+                    <Pressable onPress={handlePlayPause}>
+                      <Ionicons name={playing ? "pause" : "play"} size={44} color="#f5f5f5" />
+                    </Pressable>
+                    <Pressable onPress={handleNext}>
+                      <ForwardIcon size={30} color="#f5f5f5" />
+                    </Pressable>
+                  </View>
+
+                  <VolumeSlider setVolume={setVolume} />
                 </View>
-
-                <PlaybackProgressBar
-                  seekTo={seekTo}
-                  containerClassName="mt-4"
-                  trackBackgroundColor="rgba(255,255,255,0.2)"
-                  barClassName="relative h-2 justify-center rounded-full bg-white/20"
-                  thumbClassName="absolute h-3.5 w-3.5 rounded-full bg-white"
-                  thumbOffset={-7}
-                />
-
-                <View className="mt-5 flex-row items-center justify-center gap-8">
-                  <Pressable onPress={handlePrevious}>
-                    <BackwardIcon size={30} color="#f5f5f5" />
-                  </Pressable>
-                  <Pressable onPress={handlePlayPause}>
-                    <Ionicons name={playing ? "pause" : "play"} size={44} color="#f5f5f5" />
-                  </Pressable>
-                  <Pressable onPress={handleNext}>
-                    <ForwardIcon size={30} color="#f5f5f5" />
-                  </Pressable>
-                </View>
-
-                <VolumeSlider setVolume={setVolume} />
-              </View>
+              </Pressable>
             </View>
           </AppModal>
         ) : null}
@@ -1359,7 +1417,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
         {lockScreenMounted ? (
           <AppModal
             transparent
-            visible={(lockScreenVisible || lockScreenClosing) && parentAnimationDone}
+            visible={lockScreenVisible && parentAnimationDone}
             animationType="fade"
             statusBarTranslucent
             navigationBarTranslucent
@@ -1377,72 +1435,87 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                 style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
               />
 
-              <View className="items-center">
-                <Text
-                  className="text-3xl capitalize text-white/70"
-                  style={{ fontFamily: LOCK_DATE_FONT }}
-                >
-                  {lockScreenDate}
-                </Text>
-                <Text className="mt-1 text-6xl font-black tracking-[-2px] text-white">
-                  {lockScreenTime}
-                </Text>
-              </View>
+              {/*
+                Transparent full-screen backdrop to dismiss the lock screen on
+                tap. Sits behind the clock / artwork / controls because it is
+                declared first in the parent <View flex-1>. The inner content
+                uses pointerEvents="box-none" so any tap that does NOT hit a
+                child control bubbles down to this Pressable.
+              */}
+              <Pressable
+                style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+                onPress={requestCloseLockScreen}
+                android_disableSound
+              />
 
-              <View className="mt-10 aspect-square w-full items-center justify-center overflow-hidden rounded-[14px] bg-[#2a2a2a]">
-                {currentSong.artwork ? (
-                  <Image
-                    source={{ uri: currentSong.artwork }}
-                    className="h-full w-full"
-                    resizeMode="cover"
-                    fadeDuration={0}
-                    progressiveRenderingEnabled
-                  />
-                ) : (
-                  <Image source={DEFAULT_MUSIC_ARTWORK} className="h-full w-full" resizeMode="cover" fadeDuration={0} />
-                )}
-              </View>
-
-              <View className="mt-14 rounded-[32px] border border-white/10 bg-white/10 px-5 py-5">
-                <View className="flex-row items-center justify-between">
-                  <View className="flex-1 pr-4">
-                    <AutoScrollingText className="text-lg font-bold text-white">
-                      {currentSong.title}
-                    </AutoScrollingText>
-                    <AutoScrollingText className="mt-1 text-sm text-white/60">
-                      {normalizeValue(currentSong.artist, UNKNOWN_ARTIST)}
-                    </AutoScrollingText>
-                  </View>
-                  <View className="flex-row items-center gap-5">
-                    <AudioWaveBars playing={playing} color="#f5f5f5" size="md" />
-                    <Pressable onPress={handleToggleFavorite}>
-                      {isCurrentSongFavorite ? (
-                        <FavoritedIcon size={24} color="#f5f5f5" />
-                      ) : (
-                        <UnfavoritedIcon size={24} color="#f5f5f5" />
-                      )}
-                    </Pressable>
-                  </View>
+              <View pointerEvents="box-none" className="flex-1">
+                <View className="items-center">
+                  <Text
+                    className="text-3xl capitalize text-white/70"
+                    style={{ fontFamily: LOCK_DATE_FONT }}
+                  >
+                    {lockScreenDate}
+                  </Text>
+                  <Text className="mt-1 text-6xl font-black tracking-[-2px] text-white">
+                    {lockScreenTime}
+                  </Text>
                 </View>
 
-                <PlaybackProgressBar
-                  seekTo={seekTo}
-                  containerClassName="mt-5"
-                  trackBackgroundColor="rgba(255,255,255,0.25)"
-                  barClassName="relative h-2 justify-center rounded-full bg-white/25"
-                  thumbClassName="absolute h-4 w-4 rounded-full bg-white"
-                />
+                <View className="mt-10 aspect-square w-full items-center justify-center overflow-hidden rounded-[14px] bg-[#2a2a2a]">
+                  {currentSong.artwork ? (
+                    <Image
+                      source={{ uri: currentSong.artwork }}
+                      className="h-full w-full"
+                      resizeMode="cover"
+                      fadeDuration={0}
+                      progressiveRenderingEnabled
+                    />
+                  ) : (
+                    <Image source={DEFAULT_MUSIC_ARTWORK} className="h-full w-full" resizeMode="cover" fadeDuration={0} />
+                  )}
+                </View>
 
-                <View className="mt-5 flex-row items-center justify-center gap-9">
-                  <Pressable onPress={handlePrevious}>
-                    <Ionicons name="play-skip-back" size={32} color="#f5f5f5" />
-                  </Pressable>
-                  <Pressable onPress={handlePlayPause}>
-                    <Ionicons name={playing ? "pause" : "play"} size={42} color="#f5f5f5" />
-                  </Pressable>
-                  <Pressable onPress={handleNext}>
-                    <Ionicons name="play-skip-forward" size={32} color="#f5f5f5" />
-                  </Pressable>
+                <View className="mt-14 rounded-[32px] border border-white/10 bg-white/10 px-5 py-5">
+                  <View className="flex-row items-center justify-between">
+                    <View className="flex-1 pr-4">
+                      <AutoScrollingText className="text-lg font-bold text-white">
+                        {currentSong.title}
+                      </AutoScrollingText>
+                      <AutoScrollingText className="mt-1 text-sm text-white/60">
+                        {normalizeValue(currentSong.artist, UNKNOWN_ARTIST)}
+                      </AutoScrollingText>
+                    </View>
+                    <View className="flex-row items-center gap-5">
+                      <AudioWaveBars playing={playing} color="#f5f5f5" size="md" />
+                      <Pressable onPress={handleToggleFavorite}>
+                        {isCurrentSongFavorite ? (
+                          <FavoritedIcon size={24} color="#f5f5f5" />
+                        ) : (
+                          <UnfavoritedIcon size={24} color="#f5f5f5" />
+                        )}
+                      </Pressable>
+                    </View>
+                  </View>
+
+                  <PlaybackProgressBar
+                    seekTo={seekTo}
+                    containerClassName="mt-5"
+                    trackBackgroundColor="rgba(255,255,255,0.25)"
+                    barClassName="relative h-2 justify-center rounded-full bg-white/25"
+                    thumbClassName="absolute h-4 w-4 rounded-full bg-white"
+                  />
+
+                  <View className="mt-5 flex-row items-center justify-center gap-9">
+                    <Pressable onPress={handlePrevious}>
+                      <Ionicons name="play-skip-back" size={32} color="#f5f5f5" />
+                    </Pressable>
+                    <Pressable onPress={handlePlayPause}>
+                      <Ionicons name={playing ? "pause" : "play"} size={42} color="#f5f5f5" />
+                    </Pressable>
+                    <Pressable onPress={handleNext}>
+                      <Ionicons name="play-skip-forward" size={32} color="#f5f5f5" />
+                    </Pressable>
+                  </View>
                 </View>
               </View>
             </View>
@@ -1496,7 +1569,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                   <Pressable
                     onPress={() => { void toggleEqualizer(); }}
                     className="h-8 w-14 items-center justify-center rounded-full px-1"
-                    style={{ backgroundColor: theme.surface }}
+                    style={{ backgroundColor: theme.background }}
                   >
                     <View
                       className="h-6 w-6 rounded-full"

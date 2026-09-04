@@ -7,7 +7,7 @@ const isHexColor = (value: unknown): value is string =>
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
-const hexToHsl = (hex: string) => {
+export const hexToHsl = (hex: string) => {
   const red = parseInt(hex.slice(1, 3), 16) / 255;
   const green = parseInt(hex.slice(3, 5), 16) / 255;
   const blue = parseInt(hex.slice(5, 7), 16) / 255;
@@ -26,7 +26,7 @@ const hexToHsl = (hex: string) => {
   return { hue: (hue * 60 + 360) % 360, saturation, lightness };
 };
 
-const hslToHex = (hue: number, saturation: number, lightness: number) => {
+export const hslToHex = (hue: number, saturation: number, lightness: number) => {
   const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
   const segment = hue / 60;
   const secondary = chroma * (1 - Math.abs((segment % 2) - 1));

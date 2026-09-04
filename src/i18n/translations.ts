@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from 'react';
 import { AppLanguageId } from '../settings/appSettings';
 
 export const translations: Record<AppLanguageId, Record<string, string>> = {
@@ -166,12 +167,14 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'sort_albums': 'Álbumes',
     'tab_visible': 'Visible en la barra superior',
     'tab_hidden': 'Oculta de la navegación',
-    'theme_name_fesa': 'Fesa',
-    'theme_name_oceano': 'Azul Nocturno',
-    'theme_name_uva': 'Lavanda',
-    'theme_name_rosa': 'Arena',
-    'theme_name_salvia': 'Salvia',
-    'theme_name_grafito': 'Perla',
+    'theme_name_light': 'Luz diurna',
+    'theme_name_dark': 'Medianoche',
+    'theme_name_masculine': 'Forja',
+    'theme_name_feminine': 'Flor',
+    'theme_name_unisex': 'Pradera',
+    'theme_name_ocean': 'Marea',
+    'theme_name_amber': 'Miel',
+    'theme_name_plum': 'Terciopelo',
     'song_details_title': 'Detalles',
     'song_details_close': 'Cerrar',
     'song_detail_album': 'Álbum',
@@ -489,12 +492,14 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'sort_albums': 'Albums',
     'tab_visible': 'Visible in the top bar',
     'tab_hidden': 'Hidden from navigation',
-    'theme_name_fesa': 'Fesa',
-    'theme_name_oceano': 'Night Blue',
-    'theme_name_uva': 'Lavender',
-    'theme_name_rosa': 'Sand',
-    'theme_name_salvia': 'Sage',
-    'theme_name_grafito': 'Pearl',
+    'theme_name_light': 'Daylight',
+    'theme_name_dark': 'Midnight',
+    'theme_name_masculine': 'Forge',
+    'theme_name_feminine': 'Bloom',
+    'theme_name_unisex': 'Meadow',
+    'theme_name_ocean': 'Tide',
+    'theme_name_amber': 'Honey',
+    'theme_name_plum': 'Velvet',
     'song_details_title': 'Details',
     'song_details_close': 'Close',
     'song_detail_album': 'Album',
@@ -799,12 +804,14 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'sort_albums': 'Álbuns',
     'tab_visible': 'Visível na barra superior',
     'tab_hidden': 'Oculta da navegação',
-    'theme_name_fesa': 'Fesa',
-    'theme_name_oceano': 'Azul Noturno',
-    'theme_name_uva': 'Lavanda',
-    'theme_name_rosa': 'Areia',
-    'theme_name_salvia': 'Sálvia',
-    'theme_name_grafito': 'Pérola',
+    'theme_name_light': 'Luz do dia',
+    'theme_name_dark': 'Meia-noite',
+    'theme_name_masculine': 'Forja',
+    'theme_name_feminine': 'Flor',
+    'theme_name_unisex': 'Prado',
+    'theme_name_ocean': 'Maré',
+    'theme_name_amber': 'Mel',
+    'theme_name_plum': 'Veludo',
     'song_details_title': 'Detalhes',
     'song_details_close': 'Fechar',
     'song_detail_album': 'Álbum',
@@ -1108,12 +1115,14 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'sort_albums': 'Albums',
     'tab_visible': 'Visible dans la barre supérieure',
     'tab_hidden': 'Masqué dans la navigation',
-    'theme_name_fesa': 'Fesa',
-    'theme_name_oceano': 'Bleu Nuit',
-    'theme_name_uva': 'Lavande',
-    'theme_name_rosa': 'Sable',
-    'theme_name_salvia': 'Sauge',
-    'theme_name_grafito': 'Perle',
+    'theme_name_light': 'Lumière',
+    'theme_name_dark': 'Minuit',
+    'theme_name_masculine': 'Forge',
+    'theme_name_feminine': 'Floraison',
+    'theme_name_unisex': 'Prairie',
+    'theme_name_ocean': 'Marée',
+    'theme_name_amber': 'Miel',
+    'theme_name_plum': 'Velours',
     'song_details_title': 'Détails',
     'song_details_close': 'Fermer',
     'song_detail_album': 'Album',
@@ -1424,12 +1433,14 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'sort_albums': 'Album',
     'tab_visible': 'Visibile nella barra superiore',
     'tab_hidden': 'Nascosto dalla navigazione',
-    'theme_name_fesa': 'Fesa',
-    'theme_name_oceano': 'Blu Notte',
-    'theme_name_uva': 'Lavanda',
-    'theme_name_rosa': 'Sabbia',
-    'theme_name_salvia': 'Salvia',
-    'theme_name_grafito': 'Perla',
+    'theme_name_light': 'Luce',
+    'theme_name_dark': 'Mezzanotte',
+    'theme_name_masculine': 'Forgia',
+    'theme_name_feminine': 'Fiore',
+    'theme_name_unisex': 'Prateria',
+    'theme_name_ocean': 'Marea',
+    'theme_name_amber': 'Miele',
+    'theme_name_plum': 'Velluto',
     'song_details_title': 'Dettagli',
     'song_details_close': 'Chiudi',
     'song_detail_album': 'Album',
@@ -1585,16 +1596,16 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
 };
 
 export const useTranslation = (languageId: AppLanguageId) => {
-  const t = (key: string, fallback?: string): string => {
+  const t = useCallback((key: string, fallback?: string): string => {
     const languageTranslations = translations[languageId];
     if (!languageTranslations) {
       console.warn(`[i18n] Translations not found for language: ${languageId}`);
       return fallback ?? key;
     }
     return languageTranslations[key] ?? fallback ?? key;
-  };
+  }, [languageId]);
 
-  return { t };
+  return useMemo(() => ({ t }), [t]);
 };
 
 export const getTranslation = (languageId: AppLanguageId, key: string, fallback?: string): string => {

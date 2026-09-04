@@ -2,7 +2,15 @@ import { useEffect, useRef, useSyncExternalStore } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Localization from 'expo-localization';
 
-export type AppThemeId = 'fesa' | 'oceano' | 'uva' | 'rosa' | 'salvia' | 'grafito';
+export type AppThemeId =
+  | 'light'
+  | 'dark'
+  | 'masculine'
+  | 'feminine'
+  | 'unisex'
+  | 'ocean'
+  | 'amber'
+  | 'plum';
 export type AppLanguageId = 'es' | 'en' | 'pt' | 'fr' | 'it';
 export type TabId = 'Inicio' | 'Favoritos' | 'Playlist' | 'Pistas' | 'Álbumes' | 'Artistas' | 'Carpetas';
 
@@ -49,64 +57,84 @@ const APP_SETTINGS_STORAGE_KEY = '@fesa:app-settings';
 
 export const APP_THEMES: AppTheme[] = [
   {
-    id: 'fesa',
-    name: 'Fesa',
-    background: '#1d1d1f',
-    surface: '#252525',
-    accent: '#f5f5f5',
-    text: '#ffffff',
-    mutedText: '#b6b6b6',
-    border: '#333333',
+    id: 'light',
+    name: 'Light',
+    background: '#f4f4f1',
+    surface: '#ffffff',
+    accent: '#1c1c1e',
+    text: '#1c1c1e',
+    mutedText: '#6b6b70',
+    border: '#e3e3e0',
   },
   {
-    id: 'oceano',
-    name: 'Azul Nocturno',
-    background: '#0f172a',
-    surface: '#1e293b',
-    accent: '#93c5fd',
-    text: '#f8fafc',
-    mutedText: '#94a3b8',
-    border: '#334155',
+    id: 'dark',
+    name: 'Dark',
+    background: '#15171a',
+    surface: '#1f2227',
+    accent: '#f2f2f3',
+    text: '#f2f2f3',
+    mutedText: '#9a9a9f',
+    border: '#2a2d33',
   },
   {
-    id: 'uva',
-    name: 'Lavanda',
-    background: '#f5f3ff',
-    surface: '#ddd6fe',
-    accent: '#7c3aed',
-    text: '#251342',
-    mutedText: '#6b5f88',
-    border: '#c4b5fd',
+    id: 'masculine',
+    name: 'Masculine',
+    background: '#1a2230',
+    surface: '#232c3d',
+    accent: '#3b4a63',
+    text: '#e6e9ef',
+    mutedText: '#8a93a4',
+    border: '#2e3849',
   },
   {
-    id: 'rosa',
-    name: 'Arena',
-    background: '#f6f1e8',
-    surface: '#e7dccb',
-    accent: '#7c5a36',
-    text: '#2f2418',
-    mutedText: '#756653',
-    border: '#cdbfa9',
+    id: 'feminine',
+    name: 'Feminine',
+    background: '#f7eef0',
+    surface: '#fdf5f7',
+    accent: '#b07a86',
+    text: '#3a2a30',
+    mutedText: '#8c6f76',
+    border: '#ead9de',
   },
   {
-    id: 'salvia',
-    name: 'Salvia',
-    background: '#edf4ef',
-    surface: '#d5e3d8',
-    accent: '#3f6f5b',
-    text: '#14231c',
-    mutedText: '#5f7568',
-    border: '#aebfac',
+    id: 'unisex',
+    name: 'Unisex',
+    background: '#eef0ec',
+    surface: '#f6f7f4',
+    accent: '#7a8d6b',
+    text: '#23261f',
+    mutedText: '#6e7268',
+    border: '#d6dad0',
   },
   {
-    id: 'grafito',
-    name: 'Perla',
-    background: '#f8fafc',
-    surface: '#e2e8f0',
-    accent: '#475569',
-    text: '#0f172a',
-    mutedText: '#64748b',
-    border: '#cbd5e1',
+    id: 'ocean',
+    name: 'Ocean',
+    background: '#102a2e',
+    surface: '#183438',
+    accent: '#5c9d96',
+    text: '#e8f0ee',
+    mutedText: '#88a3a1',
+    border: '#1f3f44',
+  },
+  {
+    id: 'amber',
+    name: 'Amber',
+    background: '#f3ede4',
+    surface: '#faf5ec',
+    accent: '#c8895a',
+    text: '#2e2418',
+    mutedText: '#8a7964',
+    border: '#e2d6c3',
+  },
+  {
+    id: 'plum',
+    name: 'Plum',
+    background: '#ece6f0',
+    surface: '#f5f0f8',
+    accent: '#7a5c9d',
+    text: '#231a2e',
+    mutedText: '#75678a',
+    border: '#d4cad8',
   },
 ];
 
@@ -133,7 +161,7 @@ const DEFAULT_SETTINGS: PersistedAppSettings = {
   playbackRate: 1,
   lockScreenControlsEnabled: true,
   skipSilenceBetweenTracks: true,
-  themeId: 'fesa',
+  themeId: 'dark',
   languageId: 'es',
   tabs: DEFAULT_TABS,
   termsAcceptedAt: null,

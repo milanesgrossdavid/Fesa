@@ -15,7 +15,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { deleteAudioFile, getAudioFiles, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
-import { musicPlayer, useMusicPlayer } from '../audio/musicPlayer';
+import { musicPlayer, useMusicPlayerUi } from '../audio/musicPlayer';
 import { useAppSettingsHiddenSongIds, useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import AddSongToPlaylistModal from '../components/AddSongToPlaylistModal';
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
@@ -167,7 +167,7 @@ const PlaylistLibraryScreen = () => {
   const language = useAppSettingsLanguage();
   const hiddenSongIds = useAppSettingsHiddenSongIds();
   const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
-  const { currentSong, playing, playSong, togglePlayPause, setSelectionModeActive } = useMusicPlayer();
+  const { currentSong, playing, playSong, togglePlayPause, setSelectionModeActive } = useMusicPlayerUi();
 
   const requestPermissionsAndLoadMusic = useCallback(async () => {
     try {
@@ -707,6 +707,16 @@ const PlaylistLibraryScreen = () => {
     />
   );
 
+  const renderPlaylistItem = useCallback(({ item }: { item: any }) => (
+    <LibraryPlaylistListItem
+      playlist={item}
+      isSelected={selectedPlaylistIds.includes(item.id)}
+      onPress={() => (isPlaylistSelectionMode ? togglePlaylistSelection(item) : openGroup(item))}
+      onLongPress={() => togglePlaylistSelection(item)}
+      onActionsPress={() => togglePlaylistSelection(item)}
+    />
+  ), [isPlaylistSelectionMode, openGroup, selectedPlaylistIds, togglePlaylistSelection]);
+
   const selectedGroupModal = (
     <LibraryGroupDetailModal
       visible={groupModalVisible}
@@ -812,15 +822,7 @@ const PlaylistLibraryScreen = () => {
             ? SELECTION_BAR_BOTTOM_INSET
             : MINI_PLAYER_BOTTOM_INSET,
         }}
-        renderItem={({ item }) => (
-          <LibraryPlaylistListItem
-            playlist={item}
-            isSelected={selectedPlaylistIds.includes(item.id)}
-            onPress={() => isPlaylistSelectionMode ? togglePlaylistSelection(item) : openGroup(item)}
-            onLongPress={() => togglePlaylistSelection(item)}
-            onActionsPress={() => togglePlaylistSelection(item)}
-          />
-        )}
+        renderItem={renderPlaylistItem}
       />
 
       {selectedGroupModal}

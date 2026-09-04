@@ -16,7 +16,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { deleteAudioFile, getAudioFiles, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
-import { musicPlayer, useMusicPlayer } from '../audio/musicPlayer';
+import { musicPlayer, useMusicPlayerUi } from '../audio/musicPlayer';
 import { useAppSettingsHiddenSongIds, useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import { getTranslation, useTranslation } from '../i18n/translations';
 import AddSongToPlaylistModal from '../components/AddSongToPlaylistModal';
@@ -194,7 +194,7 @@ const HomeLibraryScreen = () => {
     playSong,
     togglePlayPause,
     setSelectionModeActive,
-  } = useMusicPlayer();
+  } = useMusicPlayerUi();
 
   const requestPermissionsAndLoadMusic = useCallback(async () => {
     try {
@@ -565,6 +565,25 @@ const HomeLibraryScreen = () => {
     Alert.alert('Listo', `“${song.title}” se definió como ${toneLabel}.`);
   };
 
+  const renderSelectedGroupItem = useCallback(({ item, index }: { item: Song; index: number }) => {
+    const isSelected = selectedSongIds.includes(item.id);
+
+    return (
+      <SongListItem
+        item={item}
+        isActive={currentSong?.id === item.id}
+        isPlaying={currentSong?.id === item.id && playing}
+        isSelected={isSelected}
+        onPress={() => (isSelectionMode ? toggleSelectedSong(item) : playFromList(selectedGroup!.songs, index))}
+        onLongPress={() => startSongSelection(item)}
+        onTogglePlayPause={togglePlayPause}
+        showDuration={false}
+        showSelectionIndicator={isSelectionMode}
+        onOpenTrackMenu={isSelectionMode ? undefined : openTrackMenu}
+      />
+    );
+  }, [currentSong, isSelectionMode, openTrackMenu, playing, playFromList, selectedGroup, selectedSongIds, startSongSelection, togglePlayPause, toggleSelectedSong]);
+
   const selectedGroupModal = (
     <LibraryGroupDetailModal
       visible={groupModalVisible}
@@ -574,24 +593,7 @@ const HomeLibraryScreen = () => {
       contentBottomPadding={isSelectionMode ? SELECTION_BAR_BOTTOM_INSET : MINI_PLAYER_BOTTOM_INSET}
       onClose={closeSelectedGroup}
       onPlayAll={selectedGroup ? () => playFromList(selectedGroup.songs, 0) : undefined}
-      renderItem={({ item, index }) => {
-        const isSelected = selectedSongIds.includes(item.id);
-
-        return (
-          <SongListItem
-            item={item}
-            isActive={currentSong?.id === item.id}
-            isPlaying={currentSong?.id === item.id && playing}
-            isSelected={isSelected}
-            onPress={() => isSelectionMode ? toggleSelectedSong(item) : playFromList(selectedGroup!.songs, index)}
-            onLongPress={() => startSongSelection(item)}
-            onTogglePlayPause={togglePlayPause}
-            showDuration={false}
-            showSelectionIndicator={isSelectionMode}
-            onOpenTrackMenu={isSelectionMode ? undefined : openTrackMenu}
-          />
-        );
-      }}
+      renderItem={renderSelectedGroupItem}
     >
       <SelectedSongsActionBar
         visible={isSelectionMode}

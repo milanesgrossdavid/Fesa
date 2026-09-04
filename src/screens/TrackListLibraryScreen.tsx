@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, FlatList, GestureResponderEvent, PermissionsA
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { deleteAudioFile, getAudioFiles, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
-import { useMusicPlayer } from '../audio/musicPlayer';
+import { useMusicPlayerUi } from '../audio/musicPlayer';
 import { useAppSettingsHiddenSongIds, useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import AddSongToPlaylistModal from '../components/AddSongToPlaylistModal';
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
@@ -105,7 +105,7 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
     playSong,
     togglePlayPause,
     setSelectionModeActive,
-  } = useMusicPlayer();
+  } = useMusicPlayerUi();
 
   const requestPermissionsAndLoadMusic = useCallback(async () => {
     try {
@@ -399,6 +399,30 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
     );
   };
 
+  // Hooks that must run on EVERY render must live before any conditional
+  // `return`. Previously this `useCallback` was declared after the early
+  // returns, which caused React's Rules of Hooks to throw when
+  // `showPlayer && currentSong` toggled.
+  const renderTrackItem = useCallback(({ item, index }: { item: Song; index: number }) => {
+    const isActive = currentSong?.id === item.id;
+    const isSelected = selectedSongIds.includes(item.id);
+
+    return (
+      <SongListItem
+        item={item}
+        isActive={isActive}
+        isPlaying={isActive && playing}
+        isSelected={isSelected}
+        onPress={() => (isSelectionMode ? toggleSelectedSong(item) : playFromList(sortedSongs, index))}
+        onLongPress={() => startSongSelection(item)}
+        onTogglePlayPause={togglePlayPause}
+        showDuration={false}
+        showSelectionIndicator={isSelectionMode}
+        onOpenTrackMenu={isSelectionMode ? undefined : openTrackMenu}
+      />
+    );
+  }, [currentSong, isSelectionMode, openTrackMenu, playing, playFromList, selectedSongIds, sortedSongs, startSongSelection, togglePlayPause, toggleSelectedSong]);
+
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center" style={{ backgroundColor: theme.background }}>
@@ -471,26 +495,7 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
           </View>
         }
         contentContainerStyle={{ paddingBottom: isSelectionMode ? SELECTION_BAR_BOTTOM_INSET : MINI_PLAYER_BOTTOM_INSET }}
-        renderItem={({ item, index }) => {
-          const isActive = currentSong?.id === item.id;
-
-          const isSelected = selectedSongIds.includes(item.id);
-
-          return (
-            <SongListItem
-              item={item}
-              isActive={isActive}
-              isPlaying={isActive && playing}
-              isSelected={isSelected}
-              onPress={() => isSelectionMode ? toggleSelectedSong(item) : playFromList(sortedSongs, index)}
-              onLongPress={() => startSongSelection(item)}
-              onTogglePlayPause={togglePlayPause}
-              showDuration={false}
-              showSelectionIndicator={isSelectionMode}
-              onOpenTrackMenu={isSelectionMode ? undefined : openTrackMenu}
-            />
-          );
-        }}
+        renderItem={renderTrackItem}
       />
 
       <SelectedSongsActionBar

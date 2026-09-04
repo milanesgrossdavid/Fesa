@@ -12,7 +12,7 @@ const SIZE_CONFIG = {
   md: { height: 20, width: 3, gap: 3 },
 } as const;
 
-const AudioWaveBars = ({
+const AudioWaveBars = React.memo(({
   playing = true,
   color = '#ffffff',
   size = 'sm',
@@ -125,6 +125,6 @@ const AudioWaveBars = ({
       {renderBar(thirdBar)}
     </View>
   );
-};
+});
 
 export default AudioWaveBars;

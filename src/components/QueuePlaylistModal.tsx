@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Song } from '../../modules/local-music';
-import { useMusicPlayer } from '../audio/musicPlayer';
+import { useMusicPlayerUi } from '../audio/musicPlayer';
 import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import { getTranslation } from '../i18n/translations';
 import { formatDuration } from '../utils/time';
@@ -174,7 +174,7 @@ const QueuePlaylistModal = ({
   const theme = useAppSettingsTheme();
   const language = useAppSettingsLanguage();
   const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
-  const { playing, moveQueueSong } = useMusicPlayer();
+  const { playing, moveQueueSong } = useMusicPlayerUi();
 
   const flatListRef = useRef<FlatList>(null);
   const listContainerRef = useRef<View>(null);

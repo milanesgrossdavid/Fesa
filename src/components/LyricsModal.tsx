@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   FlatList,
@@ -21,7 +21,7 @@ import { captureRef } from "react-native-view-shot";
 
 import { LinearGradient } from "expo-linear-gradient";
 
-import { useDominantColor, withAlpha } from "../hooks/useDominantColor";
+import { useDominantColor, withAlpha, hexToHsl, hslToHex } from "../hooks/useDominantColor";
 
 import Ionicons from "@expo/vector-icons/Ionicons";
 
@@ -46,7 +46,19 @@ const FESA_LOGO = require("../../assets/icon-foreground.png");
 // (avoids the per-line onLayout scroll jank).
 const LYRIC_LINE_HEIGHT = 44;
 
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(Math.max(value, min), max);
+
 const SHARE_THEMES = [
+  {
+    id: "dynamic",
+    name: "Color de la canción",
+    background: "#1c1c1c",
+    card: "#262626",
+    text: "#f8f8f8",
+    muted: "#d6d6d6",
+    accent: "#ffffff",
+  },
   {
     id: "deep",
     name: "Azul profundo",
@@ -138,6 +150,50 @@ const SHARE_THEMES = [
     accent: "#ffffff",
   },
 ] as const;
+
+type ShareTheme = (typeof SHARE_THEMES)[number];
+
+const buildDynamicShareTheme = (baseHex: string): ShareTheme => {
+  if (!/^#[0-9A-Fa-f]{6}$/.test(baseHex)) {
+    return SHARE_THEMES[0];
+  }
+  const { hue, saturation, lightness } = hexToHsl(baseHex);
+  const background = hslToHex(
+    hue,
+    clamp(saturation, 0.55, 0.85),
+    clamp(lightness * 0.55 + 0.06, 0.14, 0.32),
+  );
+  const card = hslToHex(
+    hue,
+    clamp(saturation, 0.55, 0.9),
+    clamp(lightness * 0.7 + 0.08, 0.2, 0.42),
+  );
+  const text = hslToHex(
+    hue,
+    clamp(saturation * 0.4, 0.12, 0.4),
+    0.96,
+  );
+  const muted = hslToHex(
+    hue,
+    clamp(saturation * 0.55, 0.2, 0.55),
+    0.78,
+  );
+  const accent = hslToHex(
+    (hue + 18) % 360,
+    clamp(Math.max(saturation, 0.55), 0.55, 0.9),
+    clamp(Math.max(lightness, 0.45), 0.45, 0.72),
+  );
+
+  return {
+    id: "dynamic",
+    name: "Color de la canción",
+    background,
+    card,
+    text,
+    muted,
+    accent,
+  };
+};
 
 interface LyricsModalProps {
   song: Song | null;
@@ -252,10 +308,18 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
   const [sharePreviewVisible, setSharePreviewVisible] = useState(false);
   const [shareStart, setShareStart] = useState<number | null>(null);
   const [shareEnd, setShareEnd] = useState<number | null>(null);
-  const [shareThemeId, setShareThemeId] = useState<(typeof SHARE_THEMES)[number]["id"]>("deep");
+  const [shareThemeId, setShareThemeId] = useState<(typeof SHARE_THEMES)[number]["id"]>("dynamic");
   const [saveFeedback, setSaveFeedback] = useState<"success" | "error" | null>(null);
 
-  const shareTheme = SHARE_THEMES.find((theme) => theme.id === shareThemeId) ?? SHARE_THEMES[0];
+  const dynamicShareTheme = useMemo(
+    () => buildDynamicShareTheme(dominantColor),
+    [dominantColor],
+  );
+
+  const shareTheme: ShareTheme =
+    shareThemeId === "dynamic"
+      ? dynamicShareTheme
+      : SHARE_THEMES.find((theme) => theme.id === shareThemeId) ?? dynamicShareTheme;
 
   const selectedShareLines =
     shareStart === null || shareEnd === null
@@ -306,18 +370,9 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
         const title = song.title || "";
         const album = song.album || "";
 
-        console.log("Fetching lyrics for:", {
-          artist,
-          title,
-          album,
-          songId: song.id,
-        });
-
         const localLyrics = await getLocalLyrics(song.id);
 
         if (localLyrics) {
-          console.log("Found local lyrics");
-
           setLyricsRaw(localLyrics);
 
           const parsed = parseLRC(localLyrics);
@@ -373,8 +428,6 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
         for (const attempt of attempts) {
           if (aborted) return;
 
-          console.log(`Attempt: ${attempt.desc}`);
-
           try {
             const params = new URLSearchParams();
 
@@ -386,8 +439,6 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
             }
 
             const url = `https://lrclib.net/api/get?${params.toString()}`;
-
-            console.log("API URL:", url);
 
             const controller = new AbortController();
 
@@ -405,38 +456,23 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
 
             clearTimeout(timeoutId);
 
-            console.log("API Response status:", res.status);
-
             if (res.ok) {
               const data = await res.json();
-
-              console.log("API Response data:", {
-                hasSyncedLyrics: !!data.syncedLyrics,
-                hasPlainLyrics: !!data.plainLyrics,
-                syncedLength: data.syncedLyrics?.length,
-                plainLength: data.plainLyrics?.length,
-              });
 
               if (aborted) return;
 
               const lyrics = getLyricsText(data);
 
               if (lyrics) {
-                console.log("Found lyrics, saving locally...");
-
                 await saveLocalLyrics(song.id, lyrics);
 
                 setLyricsRaw(lyrics);
 
                 const parsed = parseLRC(lyrics);
 
-                console.log("Parsed lines:", parsed.length);
-
                 const nextLines = parsed.length
                   ? parsed
                   : toFallbackLines(lyrics);
-
-                console.log("Final lines:", nextLines.length);
 
                 setLines(nextLines);
 
@@ -444,31 +480,14 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
                 setLoading(false);
 
                 return;
-              } else {
-                console.log(
-                  "API returned data but no lyrics field, trying next attempt...",
-                );
               }
-            } else {
-              console.log(
-                "API response not ok:",
-                res.status,
-                res.statusText,
-                "trying next attempt...",
-              );
             }
-          } catch (attemptError) {
-            console.log(
-              "Attempt error:",
-              attemptError,
-              "trying next attempt...",
-            );
+          } catch {
+            // Try the next attempt on any network/parse error.
           }
         }
 
         if (aborted) return;
-
-        console.log("Trying search endpoint...");
 
         try {
           const searchParams = new URLSearchParams();
@@ -476,8 +495,6 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
           searchParams.append("q", `${normalizedArtist} ${title}`);
 
           const searchUrl = `https://lrclib.net/api/search?${searchParams.toString()}`;
-
-          console.log("Search URL:", searchUrl);
 
           const controller = new AbortController();
 
@@ -494,8 +511,6 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
 
           clearTimeout(timeoutId);
 
-          console.log("Search Response status:", res.status);
-
           if (res.ok) {
             const data = await res.json();
 
@@ -505,10 +520,6 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
               const lyrics = getLyricsText(first);
 
               if (lyrics) {
-                console.log(
-                  "Found lyrics from search, saving locally...",
-                );
-
                 await saveLocalLyrics(song.id, lyrics);
 
                 setLyricsRaw(lyrics);
@@ -528,13 +539,11 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
               }
             }
           }
-        } catch (searchError) {
-          console.log("Search endpoint error:", searchError);
+        } catch {
+          // Fall through to the not-found state below.
         }
 
         if (aborted) return;
-
-        console.log("No lyrics found after all attempts");
 
         setError(t('player_lyrics_not_found', 'No lyrics found.'));
 
@@ -657,6 +666,15 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
 
     setShareSelectionVisible(true);
   };
+
+  // Default to the color-based theme every time the share preview opens,
+  // and whenever the playing track changes. The user's manual override is
+  // still respected for the duration of that preview session.
+  useEffect(() => {
+    if (sharePreviewVisible) {
+      setShareThemeId("dynamic");
+    }
+  }, [sharePreviewVisible, song?.id]);
 
   useEffect(() => {
     if (!shareSelectionVisible || activeIndex < 0 || !selectionScrollRef.current) {
@@ -1470,6 +1488,8 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
             <View className="mt-auto flex-row flex-wrap items-center justify-center gap-2 pb-5 pt-8">
               {SHARE_THEMES.map((themeOption) => {
                 const isSelected = themeOption.id === shareThemeId;
+                const previewTheme =
+                  themeOption.id === "dynamic" ? dynamicShareTheme : themeOption;
 
                 return (
                   <Pressable
@@ -1484,6 +1504,8 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
                       marginHorizontal: 4,
                       alignItems: "center",
                       justifyContent: "center",
+                      borderWidth: isSelected ? 2 : 0,
+                      borderColor: isSelected ? previewTheme.text : "transparent",
                     }}
                   >
                     <View
@@ -1492,7 +1514,7 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
                         height: 38,
                         marginHorizontal: 4,
                         borderRadius: 12,
-                        backgroundColor: themeOption.background,
+                        backgroundColor: previewTheme.background,
                         borderWidth: themeOption.id === "brand" ? 1 : 0,
                         borderColor: themeOption.id === "brand" ? "rgba(255,255,255,0.15)" : "transparent",
                         alignItems: "center",
@@ -1511,7 +1533,7 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
                             width: 18,
                             height: 18,
                             borderRadius: 999,
-                            backgroundColor: themeOption.accent,
+                            backgroundColor: previewTheme.accent,
                             opacity: 1,
                           }}
                         />

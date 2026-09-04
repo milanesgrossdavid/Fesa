@@ -15,7 +15,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { deleteAudioFile, getAudioFiles, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
-import { useMusicPlayer } from '../audio/musicPlayer';
+import { useMusicPlayerUi } from '../audio/musicPlayer';
 import { useAppSettingsHiddenSongIds, useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import { getTranslation } from '../i18n/translations';
 import AddSongToPlaylistModal from '../components/AddSongToPlaylistModal';
@@ -179,7 +179,7 @@ const GroupedLibraryScreen = ({ mode, title }: GroupedLibraryScreenProps) => {
   const language = useAppSettingsLanguage();
   const hiddenSongIds = useAppSettingsHiddenSongIds();
   const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
-  const { currentSong, playing, playSong, togglePlayPause, setSelectionModeActive } = useMusicPlayer();
+  const { currentSong, playing, playSong, togglePlayPause, setSelectionModeActive } = useMusicPlayerUi();
 
   const requestPermissionsAndLoadMusic = useCallback(async () => {
     try {
@@ -494,6 +494,12 @@ const GroupedLibraryScreen = ({ mode, title }: GroupedLibraryScreenProps) => {
     );
   }, [currentSong, isSelectionMode, openTrackMenu, playing, playFromList, selectedGroup, selectedSongIds, startSongSelection, togglePlayPause, toggleSelectedSong]);
 
+  const renderGroupListItem = useCallback(({ item }: { item: SongGroup }) => (
+    isVisualGridMode
+      ? <LibraryGroupGridCard group={item} isArtist={mode === 'artists'} onPress={() => openGroup(item)} />
+      : <LibraryGroupListItem group={item} onPress={() => openGroup(item)} />
+  ), [isVisualGridMode, mode, openGroup]);
+
   const selectedGroupModal = (
     <LibraryGroupDetailModal
       visible={groupModalVisible}
@@ -561,11 +567,7 @@ const GroupedLibraryScreen = ({ mode, title }: GroupedLibraryScreenProps) => {
           </Text>
         }
         contentContainerStyle={{ paddingBottom: isSelectionMode ? SELECTION_BAR_BOTTOM_INSET : MINI_PLAYER_BOTTOM_INSET }}
-        renderItem={({ item }) => isVisualGridMode ? (
-          <LibraryGroupGridCard group={item} isArtist={mode === 'artists'} onPress={() => openGroup(item)} />
-        ) : (
-          <LibraryGroupListItem group={item} onPress={() => openGroup(item)} />
-        )}
+        renderItem={renderGroupListItem}
       />
 
       <SelectedSongsActionBar

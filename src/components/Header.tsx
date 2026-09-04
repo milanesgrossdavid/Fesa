@@ -1,11 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { FlatList, Modal, Pressable, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppSettingsModal from './AppSettingsModal';
 import LibraryArtwork from './LibraryArtwork';
 import { SearchIcon, SettingsIcon } from '../Icons';
 import { getAudioFilesWithPermission, Song } from '../../modules/local-music';
-import { useMusicPlayer } from '../audio/musicPlayer';
+import { useMusicPlayerUi } from '../audio/musicPlayer';
 import { getTranslation } from '../i18n/translations';
 import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,7 +19,7 @@ const Header = () => {
   // library on every keystroke.
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [songs, setSongs] = useState<Song[]>([]);
-  const { playSong, requestShowPlayer } = useMusicPlayer();
+  const { playSong, requestShowPlayer } = useMusicPlayerUi();
   const theme = useAppSettingsTheme();
   const language = useAppSettingsLanguage();
 

@@ -19,6 +19,8 @@ const AutoScrollingText = React.memo(function AutoScrollingText({
   const lastContainerWidthRef = useRef(0);
 
   useEffect(() => {
+    // Reset the offset and the measured text width whenever the content
+    // changes. The animation effect below re-runs to start a new loop.
     offset.stopAnimation();
     offset.setValue(0);
     setTextWidth(0);
@@ -26,12 +28,16 @@ const AutoScrollingText = React.memo(function AutoScrollingText({
   }, [children, offset]);
 
   useEffect(() => {
-    offset.stopAnimation();
-    offset.setValue(0);
-
+    // Only restart the loop when the children string actually changes.
+    // Container-width changes are handled separately: we don't want to
+    // jump the user back to the start of the scroll just because the
+    // row width fluctuated (e.g. during a screen rotation).
     if (!textWidth || !containerWidth) {
       return;
     }
+
+    offset.stopAnimation();
+    offset.setValue(0);
 
     const overflow = textWidth - containerWidth;
     if (overflow <= 1) {
@@ -59,7 +65,8 @@ const AutoScrollingText = React.memo(function AutoScrollingText({
 
     animation.start();
     return () => animation.stop();
-  }, [children, containerWidth, offset, textWidth]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [children, textWidth, containerWidth]);
 
   const hiddenTextStyle = useMemo(
     () => ({
@@ -100,7 +107,6 @@ const AutoScrollingText = React.memo(function AutoScrollingText({
       </Animated.Text>
       <Text
         className={className}
-        key={children}
         numberOfLines={1}
         onTextLayout={({ nativeEvent }) => {
           const nextWidth = nativeEvent.lines[0]?.width ?? 0;

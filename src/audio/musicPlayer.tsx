@@ -173,7 +173,7 @@ const getCurrentSong = () => {
 
 const updateSnapshot = () => {
   const currentSong = getCurrentSong();
-  cachedSnapshot = {
+  const nextFull: MusicPlayerSnapshot = {
     queue,
     currentIndex,
     currentSong,
@@ -188,6 +188,29 @@ const updateSnapshot = () => {
     selectionModeActive,
     showPlayerRequested,
   };
+
+  // Stable references for the full snapshot too: when nothing observable
+  // changed, keep the same `cachedSnapshot` reference so `useSyncExternalStore`
+  // doesn't notify every consumer for nothing (e.g. an internal counter that
+  // doesn't affect the public API).
+  if (
+    cachedSnapshot.queue === nextFull.queue &&
+    cachedSnapshot.currentIndex === nextFull.currentIndex &&
+    cachedSnapshot.currentSong === nextFull.currentSong &&
+    cachedSnapshot.playing === nextFull.playing &&
+    cachedSnapshot.currentTime === nextFull.currentTime &&
+    cachedSnapshot.durationSeconds === nextFull.durationSeconds &&
+    cachedSnapshot.volume === nextFull.volume &&
+    cachedSnapshot.shuffleEnabled === nextFull.shuffleEnabled &&
+    cachedSnapshot.playbackMode === nextFull.playbackMode &&
+    cachedSnapshot.favoriteSongIds === nextFull.favoriteSongIds &&
+    cachedSnapshot.listeningStatsVersion === nextFull.listeningStatsVersion &&
+    cachedSnapshot.selectionModeActive === nextFull.selectionModeActive &&
+    cachedSnapshot.showPlayerRequested === nextFull.showPlayerRequested
+  ) {
+    return;
+  }
+  cachedSnapshot = nextFull;
 
   if (
     cachedUiSnapshot.queue !== queue ||
@@ -493,6 +516,11 @@ const loadAndPlay = async (index: number, recordHistory = true) => {
 
   currentIndex = index;
   proactivelySkippedTrackKey = null;
+  // Publish the new currentSong synchronously *before* the async
+  // player.replace() so React renders the new track metadata immediately.
+  // Without this, the UI keeps rendering the previously played song for
+  // a frame or two while the native MediaPlayer swap is still in flight.
+  emit();
   const song = prepareCurrentSong();
 
   if (!song) {
@@ -891,6 +919,11 @@ const playSong = async (songs: Song[], index: number) => {
   }
 
   queue = songs;
+  currentIndex = index;
+  // Publish the new currentSong synchronously so PlayerScreen doesn't
+  // briefly show the previously played track while loadAndPlay's
+  // async player.replace() is still pending on the native bridge.
+  emit();
   if (selectedSong?.id !== currentSong?.id || restoredPositionSeconds === null) {
     restoredPositionSeconds = null;
   }
