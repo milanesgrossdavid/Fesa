@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import LibraryArtwork from './LibraryArtwork';
-import { useAppSettings } from '../settings/appSettings';
+import { useAppSettingsTheme } from '../settings/appSettings';
 
 type LibraryGroupListItemData = {
   id: string;
@@ -16,13 +16,10 @@ interface LibraryGroupListItemProps {
 }
 
 const LibraryGroupListItem = ({ group, onPress }: LibraryGroupListItemProps) => {
-  const { theme } = useAppSettings();
+  const theme = useAppSettingsTheme();
 
   return (
-    <Pressable
-      className="mx-3 mb-2 rounded-[24px] px-4 py-3"
-      onPress={onPress}
-    >
+    <Pressable className="mx-3 mb-2 rounded-[24px]  px-4 py-3" onPress={onPress}>
       <View className="flex-row items-center">
         <LibraryArtwork
           artwork={group.artwork}

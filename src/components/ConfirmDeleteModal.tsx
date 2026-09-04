@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { DeleteIcon } from '../Icons';
 import { getTranslation } from '../i18n/translations';
-import { useAppSettings } from '../settings/appSettings';
+import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import LibraryArtwork from './LibraryArtwork';
 
 interface ConfirmDeleteModalProps {
@@ -31,13 +31,15 @@ const ConfirmDeleteModal = ({
   onClose,
   onConfirm,
 }: ConfirmDeleteModalProps) => {
-  const { theme, language } = useAppSettings();
+  const theme = useAppSettingsTheme();
+  const language = useAppSettingsLanguage();
   const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const isWhiteAccent = accent === 'white';
   const resolvedTitle = title ?? t('remove', 'Remove');
   const resolvedConfirmLabel = confirmLabel ?? t('delete', 'Delete');
   const accentColor = isWhiteAccent ? theme.text : '#ff5252';
-  const confirmTextColor = isWhiteAccent ? '#ffffff' : '#ffffff';
+  const confirmButtonBackground = isWhiteAccent ? theme.text : accentColor;
+  const confirmButtonTextColor = isWhiteAccent ? theme.background : '#ffffff';
 
   return (
     <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
@@ -110,21 +112,20 @@ const ConfirmDeleteModal = ({
             <Pressable
               className="w-full items-center rounded-full py-4"
               style={{
-                backgroundColor: theme.surface,
+                backgroundColor: confirmButtonBackground,
                 borderWidth: 1,
                 borderColor: isWhiteAccent ? 'rgba(255,255,255,0.12)' : 'rgba(255,82,82,0.5)',
               }}
               onPress={onConfirm}
             >
-              <Text className="text-center text-base font-extrabold" style={{ color: theme.text }}>
+              <Text className="text-center text-base font-extrabold" style={{ color: confirmButtonTextColor }}>
                 {resolvedConfirmLabel}
               </Text>
             </Pressable>
             <Pressable
               className="w-full items-center rounded-full border py-4"
               style={{
-                                backgroundColor: theme.surface,
-
+                backgroundColor: theme.surface,
                 borderColor: 'rgba(255,255,255,0.10)',
               }}
               onPress={onClose}

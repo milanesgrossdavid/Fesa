@@ -26,7 +26,9 @@ const LibraryPlaylistListItem = ({
   onActionsPress,
 }: LibraryPlaylistListItemProps) => (
   <Pressable
-    className={`mx-5 mb-3 overflow-hidden rounded-[26px] border px-4 py-4 ${isSelected ? 'border-[#f5f5f5] bg-white/10' : 'border-[#333333] bg-[#252525]'}`}
+    className={`mx-5 mb-3 overflow-hidden rounded-[26px] border px-4 py-4 ${
+      isSelected ? 'border-white/20 bg-white/10' : 'border-[#333333] bg-[#252525]'
+    }`}
     onPress={onPress}
     onLongPress={onLongPress}
   >

@@ -1,11 +1,12 @@
-import React from 'react';
-import { GestureResponderEvent, Image, Pressable, View, Text } from 'react-native';
+import React, { memo, useCallback } from 'react';
+import { GestureResponderEvent, Pressable, View, Text } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { Song } from '../../modules/local-music';
 import { getTranslation } from '../i18n/translations';
 import { CheckIcon, DotsIcon } from '../Icons';
 import { formatDuration } from '../utils/time';
 import AudioWaveBars from './AudioWaveBars';
-import { useAppSettings } from '../settings/appSettings';
+import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 
 const DEFAULT_MUSIC_ARTWORK = require('../../assets/musicNotFound.jpg');
 
@@ -36,15 +37,27 @@ const SongListItem = ({
   showDuration = true,
   showSelectionIndicator = false,
 }: SongListItemProps) => {
-  const { theme, language } = useAppSettings();
-  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
+  const theme = useAppSettingsTheme();
+  const language = useAppSettingsLanguage();
+  const unknownArtistLabel = getTranslation(language.id as any, 'unknown_artist', 'Unknown Artist');
+  const unknownAlbumLabel = getTranslation(language.id as any, 'unknown_album', 'Unknown Album');
+
+  const handleArtworkPress = useCallback(() => {
+    if (isActive) onTogglePlayPause?.();
+    else onPress?.();
+  }, [isActive, onPress, onTogglePlayPause]);
+
+  const handleMenuPress = useCallback((event: GestureResponderEvent) => {
+    event.stopPropagation();
+    onOpenTrackMenu?.(item, event);
+  }, [item, onOpenTrackMenu]);
 
   return (
     <Pressable
-      className={`mx-4 mb-2 flex-row items-center rounded-2xl border px-2 py-2`}
+      className="mx-4 mb-2 flex-row items-center rounded-2xl border px-2 py-2"
       style={{
-        backgroundColor: isSelected ? 'rgba(255,255,255,0.1)' : isActive ? 'rgba(255,255,255,0.045)' : 'transparent',
-        borderColor: isSelected ? 'rgba(255,255,255,0.4)' : isActive ? 'rgba(255,255,255,0.2)' : 'transparent',
+        backgroundColor: isSelected ? theme.accent + '1A' : isActive ? theme.surface : 'transparent',
+        borderColor: isSelected ? theme.accent : isActive ? theme.border : 'transparent',
       }}
       onPress={onPress}
       onLongPress={onLongPress}
@@ -63,14 +76,25 @@ const SongListItem = ({
         </View>
       ) : null}
       <Pressable
-        className={`mr-4 h-12 w-12 items-center justify-center overflow-hidden rounded-2xl`}
-        style={{ backgroundColor: isActive ? 'rgba(255,255,255,0.2)' : theme.surface }}
-        onPress={isActive ? onTogglePlayPause : onPress}
+        className="mr-4 h-12 w-12 items-center justify-center overflow-hidden rounded-2xl"
+        style={{ backgroundColor: isActive ? theme.surface : theme.background }}
+        onPress={handleArtworkPress}
       >
         {item.artwork ? (
-          <Image source={{ uri: item.artwork }} className="h-full w-full rounded-lg" resizeMode="cover" />
+          <ExpoImage
+            source={{ uri: item.artwork }}
+            style={{ width: '100%', height: '100%', borderRadius: 8 }}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            recyclingKey={item.artwork}
+            transition={80}
+          />
         ) : (
-          <Image source={DEFAULT_MUSIC_ARTWORK} className="h-full w-full rounded-lg" resizeMode="cover" />
+          <ExpoImage
+            source={DEFAULT_MUSIC_ARTWORK}
+            style={{ width: '100%', height: '100%', borderRadius: 8 }}
+            contentFit="cover"
+          />
         )}
       </Pressable>
       <View className="flex-1 pr-3">
@@ -78,7 +102,7 @@ const SongListItem = ({
           {item.title}
         </Text>
         <Text className="text-sm" style={{ color: theme.mutedText }} numberOfLines={1}>
-          {item.artist || t('unknown_artist', 'Unknown Artist')} • {item.album || t('unknown_album', 'Unknown Album')}
+          {item.artist || unknownArtistLabel} • {item.album || unknownAlbumLabel}
         </Text>
       </View>
       <View className="flex-row items-center gap-3">
@@ -92,10 +116,7 @@ const SongListItem = ({
           <Pressable
             className="h-9 w-9 items-center justify-center rounded-full"
             hitSlop={8}
-            onPress={event => {
-              event.stopPropagation();
-              onOpenTrackMenu(item, event);
-            }}
+            onPress={handleMenuPress}
           >
             <DotsIcon size={22} color={theme.text} />
           </Pressable>
@@ -105,4 +126,20 @@ const SongListItem = ({
   );
 };
 
-export default SongListItem;
+function areEqual(prev: SongListItemProps, next: SongListItemProps) {
+  return (
+    prev.item === next.item
+    && prev.isActive === next.isActive
+    && prev.isPlaying === next.isPlaying
+    && prev.isSelected === next.isSelected
+    && prev.onPress === next.onPress
+    && prev.onLongPress === next.onLongPress
+    && prev.onTogglePlayPause === next.onTogglePlayPause
+    && prev.onOpenTrackMenu === next.onOpenTrackMenu
+    && prev.rightAction === next.rightAction
+    && prev.showDuration === next.showDuration
+    && prev.showSelectionIndicator === next.showSelectionIndicator
+  );
+}
+
+export default memo(SongListItem, areEqual);

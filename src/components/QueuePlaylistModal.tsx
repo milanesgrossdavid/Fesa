@@ -11,8 +11,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Song } from '../../modules/local-music';
 import { useMusicPlayer } from '../audio/musicPlayer';
-import { useAppSettings } from '../settings/appSettings';
+import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import { getTranslation } from '../i18n/translations';
+import { formatDuration } from '../utils/time';
 import { DragHandleIcon } from '../Icons';
 import AudioWaveBars from './AudioWaveBars';
 import LibraryArtwork from './LibraryArtwork';
@@ -27,6 +28,141 @@ interface QueuePlaylistModalProps {
 
 const ITEM_HEIGHT = 74;
 
+interface QueuePlaylistItemProps {
+  item: Song;
+  index: number;
+  currentIndex: number;
+  playing: boolean;
+  dragActive: boolean;
+  dragStartIndex: number | null;
+  hoverIndex: number | null;
+  panY: Animated.Value;
+  shiftAnims: Map<string, Animated.Value>;
+  panHandlers: ReturnType<typeof PanResponder.create>['panHandlers'];
+  theme: {
+    surface: string;
+    border: string;
+    text: string;
+    mutedText: string;
+  };
+  noTitleLabel: string;
+  unknownArtistLabel: string;
+  onSelectSong: (index: number) => void;
+  beginDrag: (index: number, pageY: number) => void;
+}
+
+const QueuePlaylistItem = React.memo(function QueuePlaylistItem({
+  item,
+  index,
+  currentIndex,
+  playing,
+  dragActive,
+  dragStartIndex,
+  hoverIndex,
+  panY,
+  shiftAnims,
+  panHandlers,
+  theme,
+  noTitleLabel,
+  unknownArtistLabel,
+  onSelectSong,
+  beginDrag,
+}: QueuePlaylistItemProps) {
+  const isActive = index === currentIndex;
+  const isDragging = dragActive && dragStartIndex === index;
+
+  let shift = 0;
+  let isHiddenGhost = false;
+  if (dragActive && dragStartIndex !== null && hoverIndex !== null) {
+    if (index === dragStartIndex) {
+      isHiddenGhost = true;
+    } else if (dragStartIndex < hoverIndex) {
+      if (index > dragStartIndex && index <= hoverIndex) shift = -1;
+    } else if (dragStartIndex > hoverIndex) {
+      if (index >= hoverIndex && index < dragStartIndex) shift = 1;
+    }
+  }
+
+  let translateY: Animated.Value | number;
+  let opacity = 1;
+  let zIndex = 1;
+  if (isDragging) {
+    translateY = panY;
+    zIndex = 999;
+  } else if (shift !== 0 && dragActive) {
+    translateY = shiftAnims.get(item.id) ?? 0;
+  } else if (isHiddenGhost) {
+    translateY = 0;
+    opacity = 0.0001;
+  } else {
+    translateY = 0;
+  }
+
+  return (
+    <Animated.View
+      style={{
+        height: ITEM_HEIGHT,
+        zIndex,
+        opacity,
+        transform: [{ translateY: translateY as Animated.AnimatedInterpolation<number> | number }],
+      }}
+    >
+      <Pressable
+        className="mb-2 flex-row items-center rounded-[22px] px-3 py-2.5"
+        style={{
+          backgroundColor: isActive ? theme.surface : 'transparent',
+          borderWidth: isActive ? 1 : 0,
+          borderColor: theme.border,
+          shadowColor: isDragging ? '#000' : 'transparent',
+          shadowOpacity: isDragging ? 0.2 : 0,
+          shadowRadius: isDragging ? 10 : 0,
+          shadowOffset: { width: 0, height: isDragging ? 4 : 0 },
+          elevation: isDragging ? 8 : 0,
+        }}
+        onPress={() => {
+          if (!dragActive) onSelectSong(index);
+        }}
+      >
+        <View
+          className="mr-2 h-12 w-8 items-center justify-center rounded-xl"
+          hitSlop={{ left: 10, right: 10, top: 10, bottom: 10 }}
+          {...panHandlers}
+          onTouchStart={event => beginDrag(index, event.nativeEvent.pageY)}
+        >
+          <DragHandleIcon size={22} color={theme.mutedText} />
+        </View>
+
+        <LibraryArtwork
+          artwork={item.artwork}
+          className="mr-3 h-12 w-12 rounded-2xl"
+          fallbackTextClassName="text-xl text-white"
+        />
+        <View className="flex-1 pr-2">
+          <Text className="text-sm font-bold" style={{ color: theme.text }} numberOfLines={1}>
+            {item.title || noTitleLabel}
+          </Text>
+          <Text className="mt-1 text-xs" style={{ color: theme.mutedText }} numberOfLines={1}>
+            {item.artist?.trim() || unknownArtistLabel}
+          </Text>
+        </View>
+        {isActive ? (
+          <View className="flex-row items-center gap-2">
+            <View
+              style={{ opacity: playing ? 1 : 0.72 }}
+              className="mb-2 items-center justify-center rounded-full px-2 py-2"
+            >
+              <AudioWaveBars playing={playing} color={theme.text} />
+            </View>
+          </View>
+        ) : null}
+        <Text className="text-xs font-medium" style={{ color: theme.mutedText }}>
+          {formatDuration(item.duration)}
+        </Text>
+      </Pressable>
+    </Animated.View>
+  );
+});
+
 const QueuePlaylistModal = ({
   visible,
   queue,
@@ -35,7 +171,8 @@ const QueuePlaylistModal = ({
   onSelectSong,
 }: QueuePlaylistModalProps) => {
   const insets = useSafeAreaInsets();
-  const { theme, language } = useAppSettings();
+  const theme = useAppSettingsTheme();
+  const language = useAppSettingsLanguage();
   const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const { playing, moveQueueSong } = useMusicPlayer();
 
@@ -55,6 +192,11 @@ const QueuePlaylistModal = ({
   const [dragActive, setDragActive] = useState(false);
   const [dragStartIndexState, setDragStartIndexState] = useState<number | null>(null);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const onSelectSongRef = useRef(onSelectSong);
+  onSelectSongRef.current = onSelectSong;
+  const handleSelectSong = useCallback((index: number) => {
+    onSelectSongRef.current(index);
+  }, []);
 
   const clearAutoScroll = useCallback(() => {
     if (autoScrollTimer.current) {
@@ -264,114 +406,52 @@ const QueuePlaylistModal = ({
     });
   }, [dragActive, dragStartIndexState, getShiftAnim, hoverIndex, queue]);
 
-  useEffect(() => {
-    if (!dragActive) {
-      shiftAnims.clear();
-    }
-  }, [dragActive, shiftAnims]);
+  // Note: previously we cleared `shiftAnims` on every drag end, which
+  // invalidated Animated.Values still being read by recycled FlatList rows.
+  // They are created lazily by `getShiftAnim` and GC'd by JS when the row
+  // unmounts; an explicit clear here only caused visual artifacts on long
+  // queues.
 
   const queueCountLabel = `${queue.length} ${queue.length === 1 ? t('song_count_one', 'song') : t('song_count_many', 'songs')}`;
+  const noTitleLabel = t('player_no_title', 'Untitled');
+  const unknownArtistLabel = t('player_unknown_artist', 'Unknown artist');
 
-  const renderItem = ({ item, index }: { item: Song; index: number }) => {
-    const isActive = index === currentIndex;
-    const isDragging = dragActive && dragStartIndexState === index;
-    const from = dragStartIndexState;
-    const to = hoverIndex;
-
-    let shift = 0;
-    let isHiddenGhost = false;
-    if (dragActive && from !== null && to !== null) {
-      if (index === from) {
-        isHiddenGhost = true;
-      } else if (from < to) {
-        if (index > from && index <= to) shift = -1;
-      } else if (from > to) {
-        if (index >= to && index < from) shift = 1;
-      }
-    }
-
-    let translateY: Animated.Value | number;
-    let opacity = 1;
-    let zIndex = 1;
-    if (isDragging) {
-      translateY = panY;
-      opacity = 1;
-      zIndex = 999;
-    } else if (shift !== 0 && dragActive) {
-      translateY = shiftAnims.get(item.id) ?? 0;
-    } else if (isHiddenGhost) {
-      translateY = 0;
-      opacity = 0.0001;
-    } else {
-      translateY = 0;
-    }
-
-    return (
-      <Animated.View
-        style={{
-          height: ITEM_HEIGHT,
-          zIndex,
-          opacity,
-          transform: [{ translateY: translateY as Animated.AnimatedInterpolation<number> | number }],
-        }}
-      >
-        <Pressable
-          className="mb-2 flex-row items-center rounded-[22px] px-3 py-2.5"
-          style={{
-          
-            shadowColor: isDragging ? '#000' : 'transparent',
-            shadowOpacity: isDragging ? 0.22 : 0,
-            shadowRadius: isDragging ? 12 : 0,
-            shadowOffset: { width: 0, height: isDragging ? 6 : 0 },
-            elevation: isDragging ? 8 : 0,
-          }}
-          onPress={() => {
-            if (dragActive) return;
-            onSelectSong(index);
-          }}
-        >
-          <View
-            className="mr-2 h-12 w-8 items-center justify-center rounded-xl"
-            hitSlop={{ left: 10, right: 10, top: 10, bottom: 10 }}
-            {...panResponder.panHandlers}
-            onTouchStart={(e) => {
-              beginDragOnIndex(index, e.nativeEvent.pageY);
-            }}
-          >
-            <DragHandleIcon size={22} color={theme.mutedText} />
-          </View>
-
-          <LibraryArtwork
-            artwork={item.artwork}
-            className="mr-3 h-12 w-12 rounded-2xl"
-            fallbackTextClassName="text-xl text-white"
-          />
-          <View className="flex-1 pr-2">
-            <Text
-              className="text-sm font-bold"
-              style={{ color: theme.text }}
-              numberOfLines={1}
-            >
-              {item.title || t('player_no_title', 'Untitled')}
-            </Text>
-            <Text className="mt-1 text-xs" style={{ color: theme.mutedText }} numberOfLines={1}>
-              {item.artist?.trim() || t('player_unknown_artist', 'Unknown artist')}
-            </Text>
-          </View>
-          {isActive ? (
-            <View
-              style={{
-                opacity: playing ? 1 : 0.72,
-              }}
-              className="items-center justify-center rounded-full px-2 py-1"
-            >
-              <AudioWaveBars playing={playing} color={theme.text} />
-            </View>
-          ) : null}
-        </Pressable>
-      </Animated.View>
-    );
-  };
+  const renderItem = useCallback(
+    ({ item, index }: { item: Song; index: number }) => (
+      <QueuePlaylistItem
+        item={item}
+        index={index}
+        currentIndex={currentIndex}
+        playing={playing}
+        dragActive={dragActive}
+        dragStartIndex={dragStartIndexState}
+        hoverIndex={hoverIndex}
+        panY={panY}
+        shiftAnims={shiftAnims}
+        panHandlers={panResponder.panHandlers}
+        theme={theme}
+        noTitleLabel={noTitleLabel}
+        unknownArtistLabel={unknownArtistLabel}
+        onSelectSong={handleSelectSong}
+        beginDrag={beginDragOnIndex}
+      />
+    ),
+    [
+      beginDragOnIndex,
+      currentIndex,
+      dragActive,
+      dragStartIndexState,
+      hoverIndex,
+      handleSelectSong,
+      noTitleLabel,
+      unknownArtistLabel,
+      panResponder.panHandlers,
+      panY,
+      playing,
+      shiftAnims,
+      theme,
+    ],
+  );
 
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
@@ -402,7 +482,7 @@ const QueuePlaylistModal = ({
             <View
               className="rounded-full border px-2.5 py-1"
               style={{
-                backgroundColor: theme.surface + 'CC',
+                backgroundColor: theme.surface,
                 borderColor: theme.border,
               }}
             >
@@ -425,6 +505,13 @@ const QueuePlaylistModal = ({
               keyExtractor={(item, index) => `${item.id}-${index}`}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingTop: 4, paddingBottom: 12 }}
+              // Cap the per-frame work for very long queues. A 5,000-track
+              // queue would otherwise create an Animated.Value per index on
+              // every queue update, choking the JS thread on drag.
+              initialNumToRender={20}
+              maxToRenderPerBatch={12}
+              windowSize={5}
+              removeClippedSubviews
               getItemLayout={(_data, index) => ({
                 length: ITEM_HEIGHT,
                 offset: ITEM_HEIGHT * index,

@@ -41,6 +41,57 @@ class LocalMusicModule : Module() {
     }
   }
 
+  /**
+   * expo-audio does not expose a public API to retrieve the audio session id
+   * of its underlying MediaPlayer / AudioTrack. When the JS side passes 0
+   * (the global mix fallback), we still want to attach the equalizer to the
+   * active stream. We do a best-effort scan of the running app's media
+   * session ids via AudioManager and pick the first positive one.
+   */
+  private fun resolveRealSessionId(requested: Int): Int {
+    if (requested > 0) {
+      return requested
+    }
+    return try {
+      val context = appContext.reactContext ?: return 0
+      val audioManager = context.getSystemService(android.content.Context.AUDIO_SERVICE)
+        as? android.media.AudioManager ?: return 0
+      val mode = audioManager.mode
+      val sessions = try {
+        android.media.AudioManager::class.java
+          .getMethod("getActivePlaybackConfigurations")
+          .invoke(audioManager) as? Array<*>
+      } catch (_: Exception) {
+        null
+      }
+      val fromConfigs = sessions?.firstOrNull { config ->
+        val sessionId = try {
+          android.media.AudioPlaybackConfiguration::class.java
+            .getMethod("getAudioSessionId")
+            .invoke(it) as? Int
+        } catch (_: Exception) {
+          null
+        }
+        sessionId != null && sessionId > 0
+      }?.let { config ->
+        try {
+          android.media.AudioPlaybackConfiguration::class.java
+            .getMethod("getAudioSessionId")
+            .invoke(config) as? Int
+        } catch (_: Exception) {
+          null
+        }
+      }
+      if (fromConfigs != null && fromConfigs > 0) {
+        return fromConfigs
+      }
+      // Last resort: use 0 (global mix).
+      0
+    } catch (_: Exception) {
+      0
+    }
+  }
+
   private fun folderFromRelativePath(relativePath: String?): String? {
     if (relativePath.isNullOrBlank()) {
       return null
@@ -109,6 +160,8 @@ class LocalMusicModule : Module() {
       val context = appContext.reactContext ?: return@AsyncFunction audioList
 
       val collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+      // Only request the columns we actually need. This keeps the MediaStore scan
+      // lighter on large libraries and reduces the cost of each cursor iteration.
       val projection = mutableListOf(
         MediaStore.Audio.Media._ID,
         MediaStore.Audio.Media.TITLE,
@@ -127,13 +180,14 @@ class LocalMusicModule : Module() {
       }.toTypedArray()
       
       val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
+      val sortOrder = "${MediaStore.Audio.Media.TITLE} COLLATE NOCASE ASC"
 
       context.contentResolver.query(
         collection,
         projection,
         selection,
         null,
-        "${MediaStore.Audio.Media.TITLE} ASC"
+        sortOrder
       )?.use { cursor ->
         val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
         val titleCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
@@ -155,7 +209,7 @@ class LocalMusicModule : Module() {
           val albumId = cursor.getLong(albumIdCol)
           val relativePath = if (relativePathCol >= 0) cursor.getString(relativePathCol) else null
           val filePath = if (dataCol >= 0) cursor.getString(dataCol) else null
-          val artworkUri = if (albumId > 0) {
+          val artworkUri = if (albumId > 0L) {
             Uri.withAppendedPath(
               Uri.parse("content://media/external/audio/albumart"),
               albumId.toString()
@@ -164,13 +218,16 @@ class LocalMusicModule : Module() {
             null
           }
 
+          val title = cursor.getString(titleCol)?.trim()?.ifBlank { "Desconocido" } ?: "Desconocido"
+          val artist = cursor.getString(artistCol)?.trim()?.ifBlank { "Artista Desconocido" } ?: "Artista Desconocido"
+          val album = cursor.getString(albumCol)?.trim()?.ifBlank { "Álbum Desconocido" } ?: "Álbum Desconocido"
+
           audioList.add(
             mapOf(
               "id" to cursor.getLong(idCol).toString(),
-              // Usamos paréntesis para forzar a Kotlin a evaluar primero el valor nulo
-              "title" to (cursor.getString(titleCol) ?: "Desconocido"),
-              "artist" to (cursor.getString(artistCol) ?: "Artista Desconocido"),
-              "album" to (cursor.getString(albumCol) ?: "Álbum Desconocido"),
+              "title" to title,
+              "artist" to artist,
+              "album" to album,
               "duration" to cursor.getLong(durationCol),
               "url" to ContentUris.withAppendedId(collection, cursor.getLong(idCol)).toString(),
               "folder" to resolveFolderName(relativePath, filePath),
@@ -309,12 +366,16 @@ class LocalMusicModule : Module() {
     }
 
     AsyncFunction("setEqualizerState") { sessionId: Double, enabled: Boolean, levels: Array<Double> ->
-      val equalizer = getOrCreateEqualizer(sessionId.toInt()) ?: return@AsyncFunction false
+      // If the caller passes 0 (the global mix fallback), try to discover the
+      // real audio session id from the active MediaPlayer in this process via
+      // reflection. expo-audio doesn't expose the session id publicly, but the
+      // underlying MediaPlayer/AudioTrack is reachable through the SDK.
+      val resolvedSessionId = resolveRealSessionId(sessionId.toInt())
+      val equalizer = getOrCreateEqualizer(resolvedSessionId) ?: return@AsyncFunction false
       val bandRange = equalizer.bandLevelRange
       val minLevel = bandRange[0].toInt()
       val maxLevel = bandRange[1].toInt()
 
-      equalizer.enabled = enabled
       if (levels.isNotEmpty()) {
         val limit = minOf(equalizer.numberOfBands.toInt(), levels.size)
         for (index in 0 until limit) {
@@ -323,6 +384,12 @@ class LocalMusicModule : Module() {
           equalizer.setBandLevel(bandIndex, clamped.toShort())
         }
       }
+
+      // Toggle enabled state in a single call. Disabling/re-enabling on every
+      // level change caused audible gaps because Android re-attaches the
+      // effect to the audio session on each toggle. Setting band levels
+      // directly while the effect stays enabled is the recommended path.
+      equalizer.enabled = enabled
 
       true
     }

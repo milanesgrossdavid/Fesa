@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useMusicPlayer } from '../audio/musicPlayer';
+import { useMusicPlayerUi } from '../audio/musicPlayer';
 import { getTranslation } from '../i18n/translations';
-import { useAppSettings } from '../settings/appSettings';
+import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import PlayerScreen from '../screens/PlayerScreen';
 import AutoScrollingText from './AutoScrollingText';
 import LibraryArtwork from './LibraryArtwork';
@@ -13,7 +13,8 @@ import QueuePlaylistModal from './QueuePlaylistModal';
 const MiniPlayer = () => {
   const [showPlayer, setShowPlayer] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
-  const { theme, language } = useAppSettings();
+  const theme = useAppSettingsTheme();
+  const language = useAppSettingsLanguage();
   const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const {
     queue,
@@ -21,13 +22,13 @@ const MiniPlayer = () => {
     currentSong,
     playing,
     selectionModeActive,
+    showPlayerRequested,
     playSong,
     playPrevious,
     playNext,
     togglePlayPause,
-    showPlayerRequested,
     clearShowPlayerRequest,
-  } = useMusicPlayer();
+  } = useMusicPlayerUi();
 
   useEffect(() => {
     if (!showPlayerRequested) {
@@ -60,16 +61,10 @@ const MiniPlayer = () => {
           />
 
           <View className="min-w-0 flex-1">
-            <AutoScrollingText
-              className="text-sm font-bold"
-              style={{ color: theme.text }}
-            >
+            <AutoScrollingText className="text-sm font-bold" style={{ color: theme.text }}>
               {currentSong.title}
             </AutoScrollingText>
-            <AutoScrollingText
-              className="mt-0.5 text-xs"
-              style={{ color: theme.mutedText }}
-            >
+            <AutoScrollingText className="mt-0.5 text-xs" style={{ color: theme.mutedText }}>
               {currentSong.artist || t('unknown_artist', 'Unknown Artist')}
             </AutoScrollingText>
           </View>

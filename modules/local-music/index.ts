@@ -1,5 +1,6 @@
 import { EventEmitter, requireNativeModule } from 'expo-modules-core';
 import { PermissionsAndroid, Platform } from 'react-native';
+import type { Permission } from 'react-native/Libraries/PermissionsAndroid/PermissionsAndroid';
 import { getAppSettingsSnapshot } from '../../src/settings/appSettings';
 
 export type Song = {
@@ -32,58 +33,101 @@ const LocalMusic = requireNativeModule('LocalMusic');
 const localMusicEmitter = new EventEmitter(LocalMusic);
 
 let audioFilesRequest: Promise<Song[]> | null = null;
+let audioFilesRequestIncludeHidden = false;
+let audioFilesLoadRequest: Promise<Song[]> | null = null;
+let audioFilesCache: Song[] | null = null;
+let audioFilesCacheTimestamp = 0;
 let metadataWritePermissionStatus: 'unknown' | 'granted' | 'denied' = 'unknown';
 
-export async function getAudioFiles(): Promise<Song[]> {
-  const songs = await LocalMusic.getAudioFiles();
-  const hiddenSongIds = new Set(getAppSettingsSnapshot().hiddenSongIds ?? []);
+const AUDIO_FILES_CACHE_TTL_MS = 30_000;
 
+function invalidateAudioFilesCache() {
+  audioFilesCache = null;
+  audioFilesCacheTimestamp = 0;
+  audioFilesRequest = null;
+  audioFilesRequestIncludeHidden = false;
+  audioFilesLoadRequest = null;
+}
+
+export async function getAudioFiles(includeHidden = false): Promise<Song[]> {
+  if (!audioFilesCache || Date.now() - audioFilesCacheTimestamp > AUDIO_FILES_CACHE_TTL_MS) {
+    if (!audioFilesLoadRequest) {
+      audioFilesLoadRequest = (LocalMusic.getAudioFiles() as Promise<Song[]>)
+        .then((result: Song[]) => {
+          audioFilesCache = result as Song[];
+          audioFilesCacheTimestamp = Date.now();
+          return audioFilesCache;
+        })
+        .finally(() => {
+          audioFilesLoadRequest = null;
+        });
+    }
+
+    await audioFilesLoadRequest;
+  }
+
+  const songs = audioFilesCache as Song[];
+
+  if (includeHidden) {
+    return songs;
+  }
+
+  const hiddenSongIds = new Set(getAppSettingsSnapshot().hiddenSongIds ?? []);
   return songs.filter(song => !hiddenSongIds.has(song.id));
 }
 
-export async function getAudioFilesWithPermission(): Promise<Song[]> {
-  if (audioFilesRequest) {
+export async function getAudioFilesWithPermission(includeHidden = false): Promise<Song[]> {
+  if (audioFilesRequest && audioFilesRequestIncludeHidden === includeHidden) {
     return audioFilesRequest;
   }
 
+  audioFilesRequestIncludeHidden = includeHidden;
   audioFilesRequest = (async () => {
-  try {
-    let granted = false;
+    try {
+      let granted = false;
 
-    if (Platform.OS === 'android') {
-      const version = typeof Platform.Version === 'string' 
-        ? parseInt(Platform.Version, 10) 
-        : Platform.Version;
+      if (Platform.OS === 'android') {
+        const version = typeof Platform.Version === 'string'
+          ? parseInt(Platform.Version, 10)
+          : Platform.Version;
 
-      const permission = version >= 33
-        ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_AUDIO
-        : PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE;
+        const permission = version >= 33
+          ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_AUDIO
+          : PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE;
 
-      const result = await PermissionsAndroid.request(permission);
-      granted = result === PermissionsAndroid.RESULTS.GRANTED;
-    } else {
-      granted = true;
+        const result = await PermissionsAndroid.request(permission);
+        granted = result === PermissionsAndroid.RESULTS.GRANTED;
+      } else {
+        granted = true;
+      }
+
+      if (granted) {
+        return await getAudioFiles(includeHidden);
+      }
+      return [];
+    } catch (error) {
+      console.error('Error requesting permissions or fetching audio files:', error);
+      return [];
     }
-
-    if (granted) {
-      return await getAudioFiles();
-    }
-    return [];
-  } catch (error) {
-    console.error('Error requesting permissions or fetching audio files:', error);
-    return [];
-  }
   })();
 
   try {
     return await audioFilesRequest;
   } finally {
-    audioFilesRequest = null;
+    if (audioFilesRequestIncludeHidden === includeHidden) {
+      audioFilesRequest = null;
+    }
   }
 }
 
 export async function deleteAudioFile(songId: string): Promise<boolean> {
-  return await LocalMusic.deleteAudioFile(songId);
+  const deleted = await LocalMusic.deleteAudioFile(songId);
+
+  if (deleted) {
+    invalidateAudioFilesCache();
+  }
+
+  return deleted;
 }
 
 export type EqualizerBandState = {
@@ -116,7 +160,7 @@ export async function ensureAudioMetadataWritePermission(): Promise<boolean> {
     ? parseInt(Platform.Version, 10)
     : Platform.Version;
 
-  const permissionsToRequest: string[] = [];
+  const permissionsToRequest: Permission[] = [];
 
   if (version >= 33) {
     permissionsToRequest.push(PermissionsAndroid.PERMISSIONS.READ_MEDIA_AUDIO);

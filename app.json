@@ -22,6 +22,7 @@
           "photosPermission": "Necesitamos acceder a tus fotos para cambiar la portada de una pista."
         }
       ],
+      "expo-media-library",
       [
         "expo-splash-screen",
         {
@@ -29,7 +30,10 @@
           "image": "./assets/splash-icon.png",
           "imageWidth": 200
         }
-      ]
+      ],
+      "expo-localization",
+      "expo-asset",
+      "expo-image"
     ],
     "ios": {
       "supportsTablet": true

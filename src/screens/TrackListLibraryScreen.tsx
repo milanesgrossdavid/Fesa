@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { deleteAudioFile, getAudioFiles, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
 import { useMusicPlayer } from '../audio/musicPlayer';
-import { useAppSettings } from '../settings/appSettings';
+import { useAppSettingsHiddenSongIds, useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import AddSongToPlaylistModal from '../components/AddSongToPlaylistModal';
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
 import CreatePlaylistModal from '../components/CreatePlaylistModal';
@@ -94,7 +94,9 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
   const [selectedSongIds, setSelectedSongIds] = useState<string[]>([]);
   const [trackSort, setTrackSort] = useState<TrackSortOption>('name');
   const [trackSortDirection, setTrackSortDirection] = useState<TrackSortDirection>('asc');
-  const { theme, language } = useAppSettings();
+  const theme = useAppSettingsTheme();
+  const language = useAppSettingsLanguage();
+  const hiddenSongIds = useAppSettingsHiddenSongIds();
   const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const {
     currentSong,
@@ -122,7 +124,7 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
 
   useEffect(() => {
     void requestPermissionsAndLoadMusic();
-  }, [requestPermissionsAndLoadMusic]);
+  }, [requestPermissionsAndLoadMusic, hiddenSongIds]);
 
   useEffect(() => {
     let mounted = true;

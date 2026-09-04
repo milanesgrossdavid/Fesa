@@ -1,7 +1,7 @@
 import React from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAppSettings } from '../settings/appSettings';
+import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import { getTranslation } from '../i18n/translations';
 
 const PRIVACY_POLICY_ITEMS = [
@@ -22,7 +22,8 @@ interface PrivacyPolicyModalProps {
 
 const PrivacyPolicyModal = ({ visible, onClose }: PrivacyPolicyModalProps) => {
   const insets = useSafeAreaInsets();
-  const { theme, language } = useAppSettings();
+  const theme = useAppSettingsTheme();
+  const language = useAppSettingsLanguage();
   const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const policyItems = PRIVACY_POLICY_ITEMS.map((_, index) => t(`privacy_item_${index + 1}`, PRIVACY_POLICY_ITEMS[index]));
 
@@ -57,7 +58,9 @@ const PrivacyPolicyModal = ({ visible, onClose }: PrivacyPolicyModalProps) => {
                     borderBottomColor: theme.border,
                   }}
                 >
-                  <Text className="text-sm leading-6" style={{ color: theme.text }}>{item}</Text>
+                  <Text className="text-sm leading-6" style={{ color: theme.text }}>
+                    {item}
+                  </Text>
                 </View>
               ))}
             </View>

@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Text, View } from 'react-native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { NavigationContainer, DarkTheme } from '@react-navigation/native';
+import { enableFreeze, enableScreens } from 'react-native-screens';
 import InicioScreen from '../screens/InicioScreen';
 import FavoritosScreen from '../screens/FavoritosScreen';
 import PlaylistScreen from '../screens/PlaylistScreen';
@@ -12,7 +13,10 @@ import ArtistasScreen from '../screens/ArtistasScreen';
 import CarpetasScreen from '../screens/CarpetasScreen';
 import MiniPlayer from '../components/MiniPlayer';
 import { getTranslation } from '../i18n/translations';
-import { DEFAULT_TABS, TabId, useAppSettings } from '../settings/appSettings';
+import { DEFAULT_TABS, TabId, useAppSettingsLanguage, useAppSettingsTabs, useAppSettingsTheme } from '../settings/appSettings';
+
+enableScreens(true);
+enableFreeze(true);
 
 const Tab = createMaterialTopTabNavigator();
 const LAST_LIBRARY_TAB_KEY = '@fesa:lastLibraryTab';
@@ -44,13 +48,14 @@ const getTabLabel = (tabId: TabId, languageId: string) => {
 };
 
 const TabNavigator = () => {
-  const { theme, tabs, language } = useAppSettings();
+  const theme = useAppSettingsTheme();
+  const tabs = useAppSettingsTabs();
+  const language = useAppSettingsLanguage();
   const [lastTabLoaded, setLastTabLoaded] = useState(false);
   const [lastTab, setLastTab] = useState<TabId | null>(null);
-  const visibleTabs = tabs.filter(tab => tab.enabled);
-  const fallbackTabs = DEFAULT_TABS.filter(tab => tab.enabled);
+  const visibleTabs = useMemo(() => tabs.filter(tab => tab.enabled), [tabs]);
+  const fallbackTabs = useMemo(() => DEFAULT_TABS.filter(tab => tab.enabled), []);
   const renderedTabs = visibleTabs.length ? visibleTabs : fallbackTabs;
-  const tabsOrderKey = renderedTabs.map(tab => tab.id).join('|');
   const initialRouteName = useMemo(() => {
     const fallback = renderedTabs[0]?.id ?? 'Inicio';
     return lastTab && renderedTabs.some(tab => tab.id === lastTab) ? lastTab : fallback;
@@ -104,7 +109,6 @@ const TabNavigator = () => {
         }}
       >
         <Tab.Navigator
-          key={tabsOrderKey}
           initialRouteName={initialRouteName}
           screenOptions={{
             animationEnabled: true,
@@ -138,12 +142,20 @@ const TabNavigator = () => {
             ),
             tabBarStyle: {
               backgroundColor: theme.background,
+              borderBottomWidth: 0,
+              borderTopColor: theme.border,
               elevation: 0,
               shadowOpacity: 0,
-              borderBottomWidth: 0,
             },
             tabBarActiveTintColor: theme.text,
             tabBarInactiveTintColor: theme.mutedText,
+            // Avoid forcing a remount when the visible-tabs list reorders:
+            // change of order no longer wipes the scroll/state of each tab.
+            lazy: true,
+            // react-native-screens freezeOnBlur is enabled globally via
+            // `enableFreeze(true)`; the per-screen prop isn't accepted on
+            // Material Top Tabs options, but the global freeze still
+            // suspends off-screen tabs.
           }}
         >
           {renderedTabs.map(tab => (

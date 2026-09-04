@@ -1,38 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Song } from '../../modules/local-music';
 import { getTranslation } from '../i18n/translations';
 import { formatDuration } from '../utils/time';
-import { useAppSettings } from '../settings/appSettings';
+import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
+import { formatDateValue, normalizeValue, UNKNOWN_ALBUM } from '../utils/text';
 import LibraryArtwork from './LibraryArtwork';
-import { FontAwesome5 } from '@expo/vector-icons';
-
-const UNKNOWN_ALBUM = 'Álbum Desconocido';
-const UNKNOWN_ARTIST = 'Artista Desconocido';
 
 interface SongDetailsModalProps {
   song: Song | null;
+  visible?: boolean;
   onClose: () => void;
 }
-
-const normalizeValue = (value: string | null | undefined, fallback: string) => {
-  const cleanValue = value?.trim();
-  return cleanValue || fallback;
-};
-
-const formatDateValue = (value?: number | string | null, fallbackLabel = 'No disponible') => {
-  if (value == null || value === '') {
-    return fallbackLabel;
-  }
-
-  if (typeof value === 'number') {
-    const millis = value < 1_000_000_000_000 ? value * 1000 : value;
-    return new Date(millis).toLocaleString('es-ES');
-  }
-
-  return String(value);
-};
 
 const DetailRow = ({
   label,
@@ -57,17 +37,17 @@ const DetailRow = ({
   </View>
 );
 
-const SongDetailsModal = ({ song, onClose }: SongDetailsModalProps) => {
+const SongDetailsModal = ({ song, visible, onClose }: SongDetailsModalProps) => {
   const insets = useSafeAreaInsets();
-  const { theme, language } = useAppSettings();
+  const theme = useAppSettingsTheme();
+  const language = useAppSettingsLanguage();
   const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
-  const [isEditing, setIsEditing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const isOpen = visible ?? Boolean(song);
+  const [isEditing] = useState(false);
   const [draft, setDraft] = useState<{ title: string; artist: string; album: string; artwork: string | null } | null>(null);
 
   useEffect(() => {
     if (!song) {
-      setIsEditing(false);
       setDraft(null);
       return;
     }
@@ -78,7 +58,6 @@ const SongDetailsModal = ({ song, onClose }: SongDetailsModalProps) => {
       album: song.album || '',
       artwork: song.artwork || null,
     });
-    setIsEditing(false);
   }, [song]);
 
   const visibleSong = song ? {
@@ -89,24 +68,8 @@ const SongDetailsModal = ({ song, onClose }: SongDetailsModalProps) => {
     artwork: draft?.artwork ?? song.artwork,
   } : null;
 
-  const updateDraft = (field: 'title' | 'artist' | 'album' | 'artwork', value: string) => {
-    setDraft(current => current ? { ...current, [field]: value } : current);
-  };
-
-  const handleEditPress = async () => {
-    return;
-  };
-
-  const handleSaveChanges = async () => {
-    return;
-  };
-
-  const handlePickArtwork = async () => {
-    return;
-  };
-
   return (
-    <Modal transparent visible={Boolean(song)} animationType="slide" onRequestClose={onClose}>
+    <Modal transparent visible={isOpen} animationType="slide" onRequestClose={onClose}>
       <View className="flex-1 justify-end">
         <Pressable className="absolute inset-0 bg-black/70" onPress={onClose} />
         {song && visibleSong ? (
@@ -134,7 +97,11 @@ const SongDetailsModal = ({ song, onClose }: SongDetailsModalProps) => {
               </Text>
 
               <View className="flex-row items-center gap-2">
-                <Pressable onPress={onClose} className="rounded-full px-3 py-1.5">
+                <Pressable
+                  onPress={onClose}
+                  className="rounded-full border px-3 py-1.5"
+                  style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+                >
                   <Text className="text-base font-semibold" style={{ color: theme.text }}>
                     {t('song_details_close', 'Close')}
                   </Text>
@@ -152,24 +119,25 @@ const SongDetailsModal = ({ song, onClose }: SongDetailsModalProps) => {
                   />
                 </View>
 
-                <>
-                  <Text
-                    className="mt-5 text-center text-[28px] font-bold leading-8"
-                    style={{ color: theme.text }}
-                    numberOfLines={2}
-                  >
-                    {visibleSong.title}
-                  </Text>
-                  <Text className="mt-2 text-center text-base" style={{ color: theme.mutedText }} numberOfLines={1}>
-                    {normalizeValue(visibleSong.artist, UNKNOWN_ARTIST)}
-                  </Text>
-                </>
+                <Text
+                  className="mt-5 text-center text-[28px] font-bold leading-8"
+                  style={{ color: theme.text }}
+                  numberOfLines={2}
+                >
+                  {visibleSong.title}
+                </Text>
+                <Text className="mt-2 text-center text-base" style={{ color: theme.mutedText }} numberOfLines={1}>
+                  {normalizeValue(visibleSong.artist, t('unknown_artist', 'Unknown Artist'))}
+                </Text>
               </View>
 
-              <View className="overflow-hidden rounded-[26px]" style={{ backgroundColor: theme.surface + 'CC', borderWidth: 1, borderColor: theme.border }}>
+              <View
+                className="overflow-hidden rounded-[26px]"
+                style={{ backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border }}
+              >
                 <DetailRow
                   label={t('song_detail_album', 'Album')}
-                  value={normalizeValue(visibleSong.album, t('unknown_album', 'Unknown Album'))}
+                  value={normalizeValue(visibleSong.album, UNKNOWN_ALBUM)}
                   mutedColor={theme.mutedText}
                   textColor={theme.text}
                   borderColor={theme.border}

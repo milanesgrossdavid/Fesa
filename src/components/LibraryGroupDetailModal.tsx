@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Song } from '../../modules/local-music';
 import { getTranslation } from '../i18n/translations';
 import { BackIcon, PlayIcon } from '../Icons';
-import { useAppSettings } from '../settings/appSettings';
+import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import { MINI_PLAYER_BOTTOM_INSET } from '../utils/layout';
 import LibraryArtwork from './LibraryArtwork';
 
@@ -55,7 +55,8 @@ const LibraryGroupDetailModal = ({
   children,
 }: LibraryGroupDetailModalProps) => {
   const insets = useSafeAreaInsets();
-  const { theme, language } = useAppSettings();
+  const theme = useAppSettingsTheme();
+  const language = useAppSettingsLanguage();
   const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const isArtist = variant === 'artist';
   const songCount = group?.songs.length ?? 0;
@@ -89,6 +90,10 @@ const LibraryGroupDetailModal = ({
             style={{ backgroundColor: theme.background }}
             data={group.songs}
             keyExtractor={item => item.id}
+            initialNumToRender={12}
+            maxToRenderPerBatch={10}
+            windowSize={7}
+            removeClippedSubviews
             ListHeaderComponent={
               <View style={{ paddingTop: Math.max(insets.top, 12) }}>
                 <View className="mb-2 items-center px-5 pt-1">
@@ -98,6 +103,7 @@ const LibraryGroupDetailModal = ({
                 <View className="mb-4 flex-row items-center justify-between px-4">
                   <Pressable
                     className="h-10 w-10 items-center justify-center rounded-full"
+                    style={{ backgroundColor: theme.surface }}
                     onPress={onClose}
                   >
                     <BackIcon size={22} color={theme.text} />

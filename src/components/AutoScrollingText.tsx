@@ -16,6 +16,7 @@ const AutoScrollingText = React.memo(function AutoScrollingText({
   const [containerWidth, setContainerWidth] = useState(0);
   const [textWidth, setTextWidth] = useState(0);
   const lastTextWidthRef = useRef(0);
+  const lastContainerWidthRef = useRef(0);
 
   useEffect(() => {
     offset.stopAnimation();
@@ -28,10 +29,14 @@ const AutoScrollingText = React.memo(function AutoScrollingText({
     offset.stopAnimation();
     offset.setValue(0);
 
-    if (!textWidth || !containerWidth) return;
+    if (!textWidth || !containerWidth) {
+      return;
+    }
 
     const overflow = textWidth - containerWidth;
-    if (overflow <= 1) return;
+    if (overflow <= 1) {
+      return;
+    }
 
     const animation = Animated.loop(
       Animated.sequence([
@@ -49,7 +54,7 @@ const AutoScrollingText = React.memo(function AutoScrollingText({
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
-      ]),
+      ])
     );
 
     animation.start();
@@ -67,10 +72,18 @@ const AutoScrollingText = React.memo(function AutoScrollingText({
     []
   );
 
+  const handleContainerLayout = ({ nativeEvent }: { nativeEvent: { layout: { width: number } } }) => {
+    const nextWidth = nativeEvent.layout.width;
+    if (nextWidth > 0 && Math.abs(nextWidth - lastContainerWidthRef.current) > 1) {
+      lastContainerWidthRef.current = nextWidth;
+      setContainerWidth(nextWidth);
+    }
+  };
+
   return (
     <View
       className="overflow-hidden"
-      onLayout={({ nativeEvent }) => setContainerWidth(nativeEvent.layout.width)}
+      onLayout={handleContainerLayout}
     >
       <Animated.Text
         className={className}
@@ -91,7 +104,7 @@ const AutoScrollingText = React.memo(function AutoScrollingText({
         numberOfLines={1}
         onTextLayout={({ nativeEvent }) => {
           const nextWidth = nativeEvent.lines[0]?.width ?? 0;
-          if (nextWidth !== lastTextWidthRef.current) {
+          if (nextWidth > 0 && nextWidth !== lastTextWidthRef.current) {
             lastTextWidthRef.current = nextWidth;
             setTextWidth(nextWidth);
           }

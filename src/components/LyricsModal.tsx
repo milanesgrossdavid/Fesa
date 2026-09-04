@@ -1,18 +1,23 @@
 import React, { useEffect, useRef, useState } from "react";
 
 import {
+  FlatList,
   Modal,
   View,
   Text,
   Pressable,
   ScrollView,
   ActivityIndicator,
+  Alert,
   Image,
+  Share,
 } from "react-native";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { BlurView } from "expo-blur";
+import { Asset, requestPermissionsAsync } from "expo-media-library";
+import { captureRef } from "react-native-view-shot";
 
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -24,16 +29,115 @@ import { BackwardIcon, ForwardIcon } from "../Icons";
 
 import { formatDuration } from "../utils/time";
 
-import { useAppSettings } from "../settings/appSettings";
+import { useAppSettingsLanguage, useAppSettingsTheme } from "../settings/appSettings";
 import { getTranslation } from "../i18n/translations";
 
-import { useMusicPlayer } from "../audio/musicPlayer";
+import { useMusicPlayerUi, usePlaybackProgress } from "../audio/musicPlayer";
 
 import type { Song } from "../../modules/local-music";
 
 import { FontAwesome5 } from "@expo/vector-icons";
 
 const DEFAULT_MUSIC_ARTWORK = require("../../assets/musicNotFound.jpg");
+const FESA_LOGO = require("../../assets/icon-foreground.png");
+
+// Fixed line height for the lyrics FlatList. Matches fontSize 22/16 + the
+// internal Text line height so `getItemLayout` produces correct offsets
+// (avoids the per-line onLayout scroll jank).
+const LYRIC_LINE_HEIGHT = 44;
+
+const SHARE_THEMES = [
+  {
+    id: "deep",
+    name: "Azul profundo",
+    background: "#0c2c3a",
+    card: "#123d4d",
+    text: "#f5f7fa",
+    muted: "#bdd7e3",
+    accent: "#7bc7d8",
+  },
+  {
+    id: "sand",
+    name: "Arena",
+    background: "#3f2b1f",
+    card: "#5a3728",
+    text: "#f7f2ee",
+    muted: "#d9c2b0",
+    accent: "#f3d1b5",
+  },
+  {
+    id: "slate",
+    name: "Grafito",
+    background: "#20283a",
+    card: "#2d374f",
+    text: "#edf4ff",
+    muted: "#b5c4dd",
+    accent: "#9ac7ff",
+  },
+  {
+    id: "mint",
+    name: "Menta",
+    background: "#0d2d2d",
+    card: "#164242",
+    text: "#eefef8",
+    muted: "#c2e5d9",
+    accent: "#8de0c4",
+  },
+  {
+    id: "rose",
+    name: "Rosa",
+    background: "#3d1e34",
+    card: "#5a2d4c",
+    text: "#fff7fb",
+    muted: "#f0d0e0",
+    accent: "#ffb0d5",
+  },
+  {
+    id: "sunset",
+    name: "Atardecer",
+    background: "#3a1f2b",
+    card: "#5a2f46",
+    text: "#fff5ee",
+    muted: "#f4d2ba",
+    accent: "#ff9f6e",
+  },
+  {
+    id: "forest",
+    name: "Bosque",
+    background: "#11251a",
+    card: "#1f3d2c",
+    text: "#eefbf3",
+    muted: "#cfe9d6",
+    accent: "#76d7a2",
+  },
+  {
+    id: "lavender",
+    name: "Lavanda",
+    background: "#1d1a2f",
+    card: "#2f2a4d",
+    text: "#f5f1ff",
+    muted: "#d7d0f8",
+    accent: "#ada3ff",
+  },
+  {
+    id: "amber",
+    name: "Ámbar",
+    background: "#2a1b0f",
+    card: "#4a2f1b",
+    text: "#fff8ee",
+    muted: "#f2d7b3",
+    accent: "#ffbf69",
+  },
+  {
+    id: "brand",
+    name: "FESA",
+    background: "#000000",
+    card: "#101010",
+    text: "#f5f7fa",
+    muted: "#d1d5db",
+    accent: "#ffffff",
+  },
+] as const;
 
 interface LyricsModalProps {
   song: Song | null;
@@ -115,22 +219,22 @@ const saveLocalLyrics = async (
 };
 
 const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
-  const { theme, language } = useAppSettings();
+  const theme = useAppSettingsTheme();
+  const language = useAppSettingsLanguage();
   const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
 
   const {
-    currentTime,
     playing,
     togglePlayPause,
     playNext,
     playPrevious,
     seekTo,
-    durationSeconds,
     favoriteSongIds,
     toggleFavoriteSong,
-  } = useMusicPlayer();
+  } = useMusicPlayerUi();
+  const { currentTime, durationSeconds } = usePlaybackProgress();
 
-  const dominantColor = useDominantColor(song?.artwork ?? null, "#1c1c1c");
+  const dominantColor = useDominantColor(visible && song ? (song.artwork ?? null) : null, "#1c1c1c");
 
   const [lyricsRaw, setLyricsRaw] = useState<string | null>(null);
 
@@ -144,6 +248,22 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
 
   const [activeIndex, setActiveIndex] = useState<number>(-1);
 
+  const [shareSelectionVisible, setShareSelectionVisible] = useState(false);
+  const [sharePreviewVisible, setSharePreviewVisible] = useState(false);
+  const [shareStart, setShareStart] = useState<number | null>(null);
+  const [shareEnd, setShareEnd] = useState<number | null>(null);
+  const [shareThemeId, setShareThemeId] = useState<(typeof SHARE_THEMES)[number]["id"]>("deep");
+  const [saveFeedback, setSaveFeedback] = useState<"success" | "error" | null>(null);
+
+  const shareTheme = SHARE_THEMES.find((theme) => theme.id === shareThemeId) ?? SHARE_THEMES[0];
+
+  const selectedShareLines =
+    shareStart === null || shareEnd === null
+      ? []
+      : lines.slice(Math.min(shareStart, shareEnd), Math.max(shareStart, shareEnd) + 1);
+
+  const shareText = selectedShareLines.map((line) => line.text).join("\n") || "";
+
   // Progress scrub state
 
   const [scrubTime, setScrubTime] = useState<number | null>(null);
@@ -155,7 +275,9 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
     width: 0,
   });
 
-  const scrollRef = useRef<ScrollView | null>(null);
+  const scrollRef = useRef<FlatList<{ time: number; text: string }> | null>(null);
+  const selectionScrollRef = useRef<ScrollView | null>(null);
+  const shareCardRef = useRef<View | null>(null);
 
   const lineLayouts = useRef<Array<{ y: number; height: number }>>([]);
 
@@ -506,8 +628,8 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
         layout.height / 2,
     );
 
-    scrollRef.current.scrollTo({
-      y: targetY,
+    scrollRef.current?.scrollToOffset({
+      offset: Math.max(0, targetY),
       animated: false,
     });
   }, [activeIndex]);
@@ -524,225 +646,350 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
     containerHeight.current = e.nativeEvent.layout.height;
   };
 
+  const openShareSelection = () => {
+    if (activeIndex >= 0) {
+      setShareStart(activeIndex);
+      setShareEnd(activeIndex);
+    } else {
+      setShareStart(null);
+      setShareEnd(null);
+    }
+
+    setShareSelectionVisible(true);
+  };
+
+  useEffect(() => {
+    if (!shareSelectionVisible || activeIndex < 0 || !selectionScrollRef.current) {
+      return;
+    }
+
+    selectionScrollRef.current.scrollTo({
+      y: Math.max(0, activeIndex * 42),
+      animated: false,
+    });
+  }, [shareSelectionVisible]);
+
+  const removeLastSelectedLine = () => {
+    if (shareStart === null || shareEnd === null) {
+      return;
+    }
+
+    const minIndex = Math.min(shareStart, shareEnd);
+    const maxIndex = Math.max(shareStart, shareEnd);
+
+    if (maxIndex === minIndex) {
+      setShareStart(null);
+      setShareEnd(null);
+      return;
+    }
+
+    setShareStart(minIndex);
+    setShareEnd(maxIndex - 1);
+  };
+
+  const clearSelection = () => {
+    setShareStart(null);
+    setShareEnd(null);
+  };
+
+  const handleShareLinePress = (index: number) => {
+    if (shareStart === null) {
+      setShareStart(index);
+      setShareEnd(index);
+      return;
+    }
+
+    if (shareEnd === null) {
+      const nextStart = Math.min(shareStart, index);
+      const nextEnd = Math.max(shareStart, index);
+      setShareStart(nextStart);
+      setShareEnd(nextEnd);
+      return;
+    }
+
+    const nextStart = Math.min(shareStart, shareEnd, index);
+    const nextEnd = Math.max(shareStart, shareEnd, index);
+    setShareStart(nextStart);
+    setShareEnd(nextEnd);
+  };
+
+  const shareSelectedLyrics = async () => {
+    if (!shareText.trim()) {
+      return;
+    }
+
+    const preview = `${song?.title ?? "Canción"}\n${song?.artist ?? "Artista"}\n\n${shareText}`;
+
+    try {
+      await Share.share({
+        message: preview,
+        title: song?.title ?? "Letra de la canción",
+      });
+    } catch (error) {
+      console.error("Error sharing lyrics:", error);
+    }
+  };
+
+  const saveLyricsCard = async () => {
+    if (!shareCardRef.current || !shareText.trim()) {
+      return;
+    }
+
+    try {
+      const permission = await requestPermissionsAsync(true, ["photo"]);
+      if (!permission.granted) {
+        Alert.alert(
+          t("lyrics_save_permission_title", "Permiso necesario"),
+          t("lyrics_save_permission_message", "Permite el acceso a fotos para guardar la letra."),
+        );
+        return;
+      }
+
+      const uri = await captureRef(shareCardRef, {
+        format: "png",
+        quality: 1,
+        result: "tmpfile",
+      });
+      await Asset.create(uri);
+      setSaveFeedback("success");
+    } catch (error) {
+      console.error("Error saving lyrics card:", error);
+      setSaveFeedback("error");
+    }
+  };
+
   return (
-    <Modal
-      transparent
-      visible={visible}
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <View className="flex-1">
-        <BlurView
-          intensity={100}
-          tint="dark"
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-          }}
-        />
+    <>
+      <Modal
+        transparent
+        visible={visible}
+        animationType="fade"
+        onRequestClose={onClose}
+      >
+        <View className="flex-1">
+          <BlurView
+            intensity={60}
+            tint="dark"
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+            }}
+          />
 
-        <LinearGradient
-          colors={[
-            dominantColor,
-            withAlpha(dominantColor, 1),
-            "#000000",
-          ]}
-          locations={[0, 0.45, 1]}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            opacity: 0.98,
-          }}
-        />
+          <LinearGradient
+            colors={[
+              dominantColor,
+              withAlpha(dominantColor, 1),
+              "#000000",
+            ]}
+            locations={[0, 0.45, 1]}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              opacity: 0.98,
+            }}
+          />
 
-        {/* Don't close on backdrop tap; only on hardware back */}
+          {/* Don't close on backdrop tap; only on hardware back */}
 
-        <View
-          style={{
-            flex: 1,
-            paddingHorizontal: 18,
-            paddingTop: 40,
-          }}
-        >
           <View
             style={{
               flex: 1,
-              justifyContent: "center",
+              paddingHorizontal: 18,
+              paddingTop: 40,
             }}
           >
             <View
               style={{
-                backgroundColor: "rgba(0,0,0,0.18)",
-                borderRadius: 12,
-                paddingHorizontal: 12,
-                paddingVertical: 18,
+                flex: 1,
+                justifyContent: "center",
               }}
             >
-              <View style={{ marginBottom: 18 }}>
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                  }}
-                >
+              <View
+                style={{
+                  backgroundColor: "rgba(0,0,0,0.18)",
+                  borderRadius: 12,
+                  paddingHorizontal: 12,
+                  paddingVertical: 18,
+                }}
+              >
+                <View style={{ marginBottom: 18 }}>
                   <View
                     style={{
-                      width: 80,
-                      height: 80,
-                      borderRadius: 18,
-                      overflow: "hidden",
-                      backgroundColor: "rgba(255,255,255,0.1)",
-                      elevation: 8,
-                      shadowColor: "#000",
-                      shadowOpacity: 0.25,
-                      shadowRadius: 12,
-                      shadowOffset: {
-                        width: 0,
-                        height: 6,
-                      },
-                    }}
-                  >
-                    {song?.artwork ? (
-                      <Image
-                        source={{ uri: song.artwork }}
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                        }}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <Image
-                        source={DEFAULT_MUSIC_ARTWORK}
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                        }}
-                        resizeMode="cover"
-                      />
-                    )}
-                  </View>
-
-                  <View
-                    style={{
-                      flex: 1,
-                      marginLeft: 14,
-                      marginRight: 6,
-                    }}
-                  >
-                    <Text
-                      numberOfLines={2}
-                      style={{
-                        color: "#ffffff",
-                        fontSize: 26,
-                        fontWeight: "800",
-                        lineHeight: 34,
-                      }}
-                    >
-                      {song?.title || t('player_no_title', 'Untitled')}
-                    </Text>
-
-                    <Text
-                      numberOfLines={1}
-                      style={{
-                        color: "rgba(255,255,255,0.8)",
-                        fontSize: 16,
-                        marginTop: 8,
-                      }}
-                    >
-                      {song?.artist || t('player_unknown_artist', 'Unknown artist')}
-                    </Text>
-                  </View>
-
-                  <View
-                    style={{
-                      display: "flex",
+                      flexDirection: "row",
                       alignItems: "center",
-                      justifyContent: "center",
                     }}
                   >
-                    <Pressable
-                      accessibilityRole="button"
+                    <View
                       style={{
-                        width: 24,
-                        height: 24,
-                        borderRadius: 23,
+                        width: 80,
+                        height: 80,
+                        borderRadius: 18,
+                        overflow: "hidden",
+                        backgroundColor: "rgba(255,255,255,0.1)",
+                        elevation: 8,
+                        shadowColor: "#000",
+                        shadowOpacity: 0.25,
+                        shadowRadius: 12,
+                        shadowOffset: {
+                          width: 0,
+                          height: 6,
+                        },
+                      }}
+                    >
+                      {song?.artwork ? (
+                        <Image
+                          source={{ uri: song.artwork }}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                          }}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <Image
+                          source={DEFAULT_MUSIC_ARTWORK}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                          }}
+                          resizeMode="cover"
+                        />
+                      )}
+                    </View>
+
+                    <View
+                      style={{
+                        flex: 1,
+                        marginLeft: 14,
+                        marginRight: 6,
+                      }}
+                    >
+                      <Text
+                        numberOfLines={2}
+                        style={{
+                          color: "#ffffff",
+                          fontSize: 26,
+                          fontWeight: "800",
+                          lineHeight: 34,
+                        }}
+                      >
+                        {song?.title || t('player_no_title', 'Untitled')}
+                      </Text>
+
+                      <Text
+                        numberOfLines={1}
+                        style={{
+                          color: "rgba(255,255,255,0.8)",
+                          fontSize: 16,
+                          marginTop: 8,
+                        }}
+                      >
+                        {song?.artist || t('player_unknown_artist', 'Unknown artist')}
+                      </Text>
+                    </View>
+
+                    <View
+                      style={{
+                        display: "flex",
+                        flexDirection: "row",
                         alignItems: "center",
                         justifyContent: "center",
-                      }}
-                      onPress={() => {
-                        if (!song) return;
-
-                        void toggleFavoriteSong(song.id);
+                        gap: 12,
                       }}
                     >
-                      <Ionicons
-                        name={
-                          song &&
-                          favoriteSongIds.includes(song.id)
-                            ? "star"
-                            : "star-outline"
-                        }
-                        size={24}
-                        color="#ffffff"
-                      />
-                    </Pressable>
+                      <Pressable
+                        accessibilityRole="button"
+                        style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: 23,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                        onPress={() => {
+                          if (!song) return;
+
+                          void toggleFavoriteSong(song.id);
+                        }}
+                      >
+                        <Ionicons
+                          name={
+                            song &&
+                            favoriteSongIds.includes(song.id)
+                              ? "star"
+                              : "star-outline"
+                          }
+                          size={24}
+                          color="#ffffff"
+                        />
+                      </Pressable>
+                    </View>
                   </View>
                 </View>
-              </View>
 
-              <View
-                style={{ height: 360 }}
-                onLayout={onScrollViewLayout}
-              >
-                {loading ? (
-                  <View className="flex-1 items-center justify-center px-4">
-                    <ActivityIndicator
-                      size="small"
-                      color="#ffffff"
-                    />
+                <View
+                  style={{ height: 360 }}
+                  onLayout={onScrollViewLayout}
+                >
+                  {loading ? (
+                    <View className="flex-1 items-center justify-center px-4">
+                      <ActivityIndicator
+                        size="small"
+                        color="#ffffff"
+                      />
 
-                    <Text
-                      style={{
-                        color: theme.mutedText,
-                        textAlign: "center",
-                        fontSize: 16,
-                        marginTop: 12,
+                      <Text
+                        style={{
+                          color: theme.mutedText,
+                          textAlign: "center",
+                          fontSize: 16,
+                          marginTop: 12,
+                        }}
+                      >
+                        {t('player_lyrics_loading', 'Searching for song lyrics...')}
+                      </Text>
+                    </View>
+                  ) : error ? (
+                    <View className="flex-1 items-center justify-center px-4">
+                      <Text
+                        style={{
+                          color: theme.mutedText,
+                          textAlign: "center",
+                        }}
+                      >
+                        {error}
+                      </Text>
+                    </View>
+                  ) : lines && lines.length ? (
+                    <FlatList
+                      ref={(ref) => {
+                        scrollRef.current = ref;
                       }}
-                    >
-                      {t('player_lyrics_loading', 'Searching for song lyrics...')}
-                    </Text>
-                  </View>
-                ) : error ? (
-                  <View className="flex-1 items-center justify-center px-4">
-                    <Text
-                      style={{
-                        color: theme.mutedText,
-                        textAlign: "center",
-                      }}
-                    >
-                      {error}
-                    </Text>
-                  </View>
-                ) : lines && lines.length ? (
-                  <ScrollView
-                    ref={(ref) => {
-                      scrollRef.current = ref;
-                    }}
-                  >
-                    <View style={{ paddingVertical: 40 }}>
-                      {lines.map((line, i) => {
+                      data={lines}
+                      keyExtractor={(item, index) => `${index}-${item.time}`}
+                      // stable keyExtractor prevents re-mount when `lines` is
+                      // re-assigned during the multi-attempt fetch.
+                      initialNumToRender={20}
+                      maxToRenderPerBatch={15}
+                      windowSize={5}
+                      removeClippedSubviews
+                      getItemLayout={(_data, index) => ({
+                        length: LYRIC_LINE_HEIGHT,
+                        offset: LYRIC_LINE_HEIGHT * index,
+                        index,
+                      })}
+                      contentContainerStyle={{ paddingVertical: 40 }}
+                      renderItem={({ item: line, index: i }) => {
                         const isActive = i === activeIndex;
-
                         return (
                           <View
-                            key={`${i}-${line.time}`}
                             onLayout={(e) =>
                               onLineLayout(
                                 i,
@@ -751,8 +998,9 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
                               )
                             }
                             style={{
+                              height: LYRIC_LINE_HEIGHT,
                               alignItems: "center",
-                              marginVertical: 6,
+                              justifyContent: "center",
                             }}
                           >
                             <Text
@@ -771,209 +1019,587 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
                             </Text>
                           </View>
                         );
-                      })}
+                      }}
+                    />
+                  ) : (
+                    <View className="flex-1 items-center justify-center px-4">
+                      <Text style={{ color: theme.mutedText }}>
+                        {t('player_lyrics_unavailable', 'No lyrics available.')}
+                      </Text>
                     </View>
-                  </ScrollView>
-                ) : (
-                  <View className="flex-1 items-center justify-center px-4">
-                    <Text style={{ color: theme.mutedText }}>
-                      {t('player_lyrics_unavailable', 'No lyrics available.')}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </View>
-
-            {/* Bottom controls: progress + playback controls */}
-
-            <View
-              style={{
-                paddingTop: 14,
-                paddingBottom: 18,
-              }}
-            >
-              <View
-                ref={(ref) => {
-                  progressBarRef.current = ref;
-                }}
-                onLayout={(e) => {
-                  const nextLayout = {
-                    x: e.nativeEvent.layout.x,
-                    width: e.nativeEvent.layout.width,
-                  };
-
-                  setProgressBarLayout((prev) =>
-                    prev.x === nextLayout.x &&
-                    prev.width === nextLayout.width
-                      ? prev
-                      : nextLayout,
-                  );
-                }}
-                style={{ height: 36 }}
-                onStartShouldSetResponder={() => true}
-                onMoveShouldSetResponder={() => true}
-                onResponderGrant={(e) => {
-                  const locX = e.nativeEvent.locationX;
-
-                  const pct = Math.max(
-                    0,
-                    Math.min(
-                      1,
-                      locX / (progressBarLayout.width || 1),
-                    ),
-                  );
-
-                  const dur = durationSeconds || 0;
-
-                  setScrubTime(pct * dur);
-                }}
-                onResponderMove={(e) => {
-                  const locX = e.nativeEvent.locationX;
-
-                  const pct = Math.max(
-                    0,
-                    Math.min(
-                      1,
-                      locX / (progressBarLayout.width || 1),
-                    ),
-                  );
-
-                  const dur = durationSeconds || 0;
-
-                  setScrubTime(pct * dur);
-                }}
-                onResponderRelease={(e) => {
-                  const locX = e.nativeEvent.locationX;
-
-                  const pct = Math.max(
-                    0,
-                    Math.min(
-                      1,
-                      locX / (progressBarLayout.width || 1),
-                    ),
-                  );
-
-                  const dur = durationSeconds || 0;
-
-                  const target = pct * dur;
-
-                  setScrubTime(null);
-
-                  void seekTo(target);
-                }}
-              >
-                <View
-                  style={{
-                    height: 6,
-                    borderRadius: 6,
-                    backgroundColor:
-                      "rgba(255,255,255,0.12)",
-                    overflow: "hidden",
-                  }}
-                >
-                  <View
-                    pointerEvents="none"
-                    style={{
-                      height: 6,
-                      backgroundColor: "#fff",
-                      width: `${
-                        ((scrubTime ?? currentTime) /
-                          (durationSeconds || 1)) *
-                        100
-                      }%`,
-                    }}
-                  />
+                  )}
                 </View>
               </View>
 
-              <View className="-mt-1 flex-row items-center justify-between">
-                <Text
-                  style={{
-                    color: "#fff",
-                    fontWeight: "600",
-                    fontSize: 12,
-                  }}
-                >
-                  {formatDuration(
-                    Math.round(
-                      (scrubTime ?? currentTime) * 1000,
-                    ),
-                  )}
-                </Text>
-
-                <Text
-                  style={{
-                    color: "#fff",
-                    fontWeight: "600",
-                    fontSize: 12,
-                  }}
-                >
-                  -
-                  {formatDuration(
-                    Math.round(
-                      Math.max(
-                        (durationSeconds || 0) -
-                          (scrubTime ?? currentTime),
-                        0,
-                      ) * 1000,
-                    ),
-                  )}
-                </Text>
-              </View>
+              {/* Bottom controls: progress + playback controls */}
 
               <View
                 style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginTop: 12,
+                  paddingTop: 14,
+                  paddingBottom: 18,
                 }}
               >
-                <Pressable
-                  onPress={() => void playPrevious()}
-                  style={{
-                    padding: 8,
-                    marginHorizontal: 18,
+                <View
+                  ref={(ref) => {
+                    progressBarRef.current = ref;
+                  }}
+                  onLayout={(e) => {
+                    const nextLayout = {
+                      x: e.nativeEvent.layout.x,
+                      width: e.nativeEvent.layout.width,
+                    };
+
+                    setProgressBarLayout((prev) =>
+                      prev.x === nextLayout.x &&
+                      prev.width === nextLayout.width
+                        ? prev
+                        : nextLayout,
+                    );
+                  }}
+                  style={{ height: 36 }}
+                  onStartShouldSetResponder={() => true}
+                  onMoveShouldSetResponder={() => true}
+                  onResponderGrant={(e) => {
+                    const locX = e.nativeEvent.locationX;
+
+                    const pct = Math.max(
+                      0,
+                      Math.min(
+                        1,
+                        locX / (progressBarLayout.width || 1),
+                      ),
+                    );
+
+                    const dur = durationSeconds || 0;
+
+                    setScrubTime(pct * dur);
+                  }}
+                  onResponderMove={(e) => {
+                    const locX = e.nativeEvent.locationX;
+
+                    const pct = Math.max(
+                      0,
+                      Math.min(
+                        1,
+                        locX / (progressBarLayout.width || 1),
+                      ),
+                    );
+
+                    const dur = durationSeconds || 0;
+
+                    setScrubTime(pct * dur);
+                  }}
+                  onResponderRelease={(e) => {
+                    const locX = e.nativeEvent.locationX;
+
+                    const pct = Math.max(
+                      0,
+                      Math.min(
+                        1,
+                        locX / (progressBarLayout.width || 1),
+                      ),
+                    );
+
+                    const dur = durationSeconds || 0;
+
+                    const target = pct * dur;
+
+                    setScrubTime(null);
+
+                    void seekTo(target);
                   }}
                 >
-                  <BackwardIcon
-                    size={36}
-                    color="#ffffff"
-                  />
-                </Pressable>
+                  <View
+                    style={{
+                      height: 6,
+                      borderRadius: 6,
+                      backgroundColor:
+                        "rgba(255,255,255,0.12)",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <View
+                      pointerEvents="none"
+                      style={{
+                        height: 6,
+                        backgroundColor: "#fff",
+                        width: `${
+                          ((scrubTime ?? currentTime) /
+                            (durationSeconds || 1)) *
+                          100
+                        }%`,
+                      }}
+                    />
+                  </View>
+                </View>
+
+                <View className="-mt-1 flex-row items-center justify-between">
+                  <Text
+                    style={{
+                      color: "#fff",
+                      fontWeight: "600",
+                      fontSize: 12,
+                    }}
+                  >
+                    {formatDuration(
+                      Math.round(
+                        (scrubTime ?? currentTime) * 1000,
+                      ),
+                    )}
+                  </Text>
+
+                  <Text
+                    style={{
+                      color: "#fff",
+                      fontWeight: "600",
+                      fontSize: 12,
+                    }}
+                  >
+                    -
+                    {formatDuration(
+                      Math.round(
+                        Math.max(
+                          (durationSeconds || 0) -
+                            (scrubTime ?? currentTime),
+                          0,
+                        ) * 1000,
+                      ),
+                    )}
+                  </Text>
+                </View>
+
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginTop: 12,
+                  }}
+                >
+                  <Pressable
+                    onPress={() => void playPrevious()}
+                    style={{
+                      padding: 8,
+                      marginHorizontal: 18,
+                    }}
+                  >
+                    <BackwardIcon
+                      size={36}
+                      color="#ffffff"
+                    />
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => void togglePlayPause()}
+                    style={{
+                      padding: 8,
+                      marginHorizontal: 18,
+                    }}
+                  >
+                    <FontAwesome5
+                      name={playing ? "pause" : "play"}
+                      size={44}
+                      color="#ffffff"
+                    />
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => void playNext()}
+                    style={{
+                      padding: 8,
+                      marginHorizontal: 18,
+                    }}
+                  >
+                    <ForwardIcon
+                      size={36}
+                      color="#ffffff"
+                    />
+                  </Pressable>
+                </View>
 
                 <Pressable
-                  onPress={() => void togglePlayPause()}
+                  onPress={openShareSelection}
                   style={{
-                    padding: 8,
-                    marginHorizontal: 18,
+                    alignSelf: "center",
+                    marginTop: 18,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    paddingHorizontal: 18,
+                    paddingVertical: 10,
+                    borderRadius: 999,
+                    backgroundColor: "rgba(255,255,255,0.94)",
+                    minWidth: 170,
+                    shadowColor: "#000",
+                    shadowOpacity: 0.18,
+                    shadowRadius: 10,
+                    shadowOffset: { width: 0, height: 4 },
+                    elevation: 4,
                   }}
                 >
-                  <FontAwesome5
-                    name={playing ? "pause" : "play"}
-                    size={44}
-                    color="#ffffff"
-                  />
-                </Pressable>
-
-                <Pressable
-                  onPress={() => void playNext()}
-                  style={{
-                    padding: 8,
-                    marginHorizontal: 18,
-                  }}
-                >
-                  <ForwardIcon
-                    size={36}
-                    color="#ffffff"
-                  />
+                  <FontAwesome5 name="cloudsmith" size={18} color="#111827" />
+                  <Text
+                    style={{
+                      color: "#111827",
+                      fontSize: 16,
+                      fontWeight: "700",
+                      letterSpacing: 0.2,
+                    }}
+                  >
+                    {t('lyrics_share_action', 'Share')}
+                  </Text>
                 </Pressable>
               </View>
             </View>
           </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+
+      <Modal
+        transparent
+        visible={shareSelectionVisible}
+        animationType="fade"
+        onRequestClose={() => setShareSelectionVisible(false)}
+      >
+        <View className="flex-1" style={{ backgroundColor: `${theme.background}cc` }}>
+          <View
+            className="flex-1 px-5 pb-6 pt-14"
+            style={{
+              backgroundColor: theme.background,
+            }}
+          >
+            <View className="mb-6 flex-row items-center justify-between">
+              <View className="flex-1 pr-4">
+                <Text className="text-3xl font-bold" style={{ color: theme.text }}>
+                  {t('lyrics_share_select_title', 'Select lyrics')}
+                </Text>
+                <Text className="mt-1 text-sm" style={{ color: theme.mutedText }}>
+                  {song?.title || t('player_lyrics', 'Lyrics')}
+                </Text>
+              </View>
+              <Pressable onPress={() => setShareSelectionVisible(false)}>
+                <Ionicons name="close" size={28} color={theme.text} />
+              </Pressable>
+            </View>
+
+            <View className="mb-4 flex-row items-center justify-between gap-2">
+              <Pressable
+                onPress={clearSelection}
+                disabled={shareStart === null || shareEnd === null}
+                className="flex-1 items-center justify-center rounded-full py-3"
+                style={{
+                  backgroundColor: shareStart !== null && shareEnd !== null ? theme.surface : `${theme.surface}88`,
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                }}
+              >
+                <Text className="text-base font-semibold" style={{ color: theme.text }}>Borrar todo</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={removeLastSelectedLine}
+                disabled={shareStart === null || shareEnd === null}
+                className="flex-1 items-center justify-center rounded-full py-3"
+                style={{
+                  backgroundColor: shareStart !== null && shareEnd !== null ? theme.surface : `${theme.surface}88`,
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                }}
+              >
+                <Text className="text-base font-semibold" style={{ color: theme.text }}>Quitar última</Text>
+              </Pressable>
+            </View>
+
+            <ScrollView
+              ref={(ref) => {
+                selectionScrollRef.current = ref;
+              }}
+              showsVerticalScrollIndicator={false}
+            >
+              {lines.length === 0 ? (
+                <Text className="text-base" style={{ color: theme.mutedText }}>
+                  {t('lyrics_share_empty', 'No lyrics available to share.')}
+                </Text>
+              ) : (
+                <View className="gap-2 pb-4">
+                  {lines.map((line, index) => {
+                    const isSelected =
+                      shareStart !== null &&
+                      shareEnd !== null &&
+                      index >= Math.min(shareStart, shareEnd) &&
+                      index <= Math.max(shareStart, shareEnd);
+
+                    return (
+                      <Pressable
+                        key={`${index}-${line.time}`}
+                        onPress={() => handleShareLinePress(index)}
+                        style={{
+                          paddingVertical: 10,
+                          paddingHorizontal: 12,
+                          borderRadius: 14,
+                          backgroundColor: isSelected ? theme.accent : theme.surface,
+                          borderWidth: 1,
+                          borderColor: isSelected ? theme.accent : theme.border,
+                        }}
+                      >
+                        <Text
+                          numberOfLines={2}
+                          style={{
+                            color: isSelected ? theme.background : theme.text,
+                            fontSize: 15,
+                            fontWeight: isSelected ? "700" : "500",
+                            lineHeight: 22,
+                          }}
+                        >
+                          {line.text || " "}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
+            </ScrollView>
+
+            <View className="mt-4 pt-2">
+              <Pressable
+                disabled={shareStart === null || shareEnd === null}
+                onPress={() => {
+                  if (shareStart === null || shareEnd === null) {
+                    return;
+                  }
+
+                  setShareSelectionVisible(false);
+                  setSharePreviewVisible(true);
+                }}
+                style={{
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: 999,
+                  paddingVertical: 16,
+                  backgroundColor: shareStart !== null && shareEnd !== null ? theme.accent : `${theme.surface}88`,
+                }}
+              >
+                <Text
+                  style={{
+                    color: shareStart !== null && shareEnd !== null ? theme.background : theme.mutedText,
+                    fontSize: 18,
+                    fontWeight: "700",
+                  }}
+                >
+                  {t('lyrics_share_next', 'Next')}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        transparent
+        visible={sharePreviewVisible}
+        animationType="fade"
+        onRequestClose={() => setSharePreviewVisible(false)}
+      >
+        <View className="flex-1 bg-black/70">
+          <View
+            className="flex-1 px-5 pb-6 pt-14"
+            style={{
+              backgroundColor: shareTheme.background,
+            }}
+          >
+            <View className="mb-4 flex-row items-center justify-end">
+              <Pressable onPress={() => setSharePreviewVisible(false)}>
+                <Ionicons name="close" size={28} color={shareTheme.text} />
+              </Pressable>
+            </View>
+
+            <View className="flex-1 justify-center">
+              <View
+                ref={shareCardRef}
+                collapsable={false}
+                className="rounded-[24px] p-5"
+                style={{
+                  backgroundColor: shareTheme.card,
+                  borderWidth: 1,
+                  borderColor: "rgba(255,255,255,0.12)",
+                }}
+              >
+                <View className="mb-4 flex-row items-center">
+                  <View
+                    className="mr-4 overflow-hidden rounded-[12px]"
+                    style={{ width: 54, height: 54 }}
+                  >
+                    {song?.artwork ? (
+                      <Image source={{ uri: song.artwork }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+                    ) : (
+                      <Image source={DEFAULT_MUSIC_ARTWORK} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+                    )}
+                  </View>
+
+                  <View className="flex-1">
+                    <Text className="text-xl font-bold" style={{ color: shareTheme.text }}>
+                      {song?.title || "Canción"}
+                    </Text>
+                    <Text className="text-base" style={{ color: shareTheme.muted }}>
+                      {song?.artist || "Artista"}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={{ height: 1, backgroundColor: `${shareTheme.text}18`, marginBottom: 26 }} />
+
+                <Text
+                  style={{
+                    color: shareTheme.text,
+                    fontSize: 24,
+                    fontWeight: "700",
+                    lineHeight: 32,
+                  }}
+                >
+                  {shareText || t('lyrics_share_prompt', 'Select a section of the lyrics.')}
+                </Text>
+
+                <View className="mt-8 flex-row items-center">
+                  <Image source={FESA_LOGO} style={{ width: 28, height: 28 }} resizeMode="contain" />
+                  <Text style={{ color: shareTheme.muted, fontSize: 16, fontWeight: "700" }}>FESA</Text>
+                </View>
+              </View>
+            </View>
+
+            <View className="mt-auto flex-row flex-wrap items-center justify-center gap-2 pb-5 pt-8">
+              {SHARE_THEMES.map((themeOption) => {
+                const isSelected = themeOption.id === shareThemeId;
+
+                return (
+                  <Pressable
+                    key={themeOption.id}
+                    onPress={() => setShareThemeId(themeOption.id)}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 18,
+                      marginVertical: 4,
+                      padding: 6,
+                      marginHorizontal: 4,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 38,
+                        height: 38,
+                        marginHorizontal: 4,
+                        borderRadius: 12,
+                        backgroundColor: themeOption.background,
+                        borderWidth: themeOption.id === "brand" ? 1 : 0,
+                        borderColor: themeOption.id === "brand" ? "rgba(255,255,255,0.15)" : "transparent",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        overflow: "hidden",
+                      }}
+                    >
+                      {themeOption.id === "brand" ? (
+                        <View style={{ alignItems: "center", justifyContent: "center" }}>
+                          <Ionicons name="musical-note" size={14} color="#ffffff" />
+                          <Text style={{ color: "#ffffff", fontSize: 8, fontWeight: "800", letterSpacing: 0.8 }}>FESA</Text>
+                        </View>
+                      ) : (
+                        <View
+                          style={{
+                            width: 18,
+                            height: 18,
+                            borderRadius: 999,
+                            backgroundColor: themeOption.accent,
+                            opacity: 1,
+                          }}
+                        />
+                      )}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Pressable
+              onPress={() => { void saveLyricsCard(); }}
+              disabled={!shareText.trim()}
+              className="items-center justify-center rounded-full py-4"
+              style={{
+                backgroundColor: shareText.trim() ? theme.accent : `${theme.surface}88`,
+                borderWidth: 1,
+                borderColor: theme.border,
+              }}
+            >
+              <Text style={{ color: shareText.trim() ? theme.background : theme.mutedText, fontSize: 18, fontWeight: "800" }}>
+                {t("lyrics_save_action", "Guardar")}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        transparent
+        visible={saveFeedback !== null}
+        animationType="fade"
+        onRequestClose={() => setSaveFeedback(null)}
+      >
+        <View
+          className="flex-1 items-center justify-center px-6"
+          style={{ backgroundColor: `${theme.background}cc` }}
+        >
+          <View
+            className="w-full max-w-sm items-center rounded-[24px] p-6"
+            style={{
+              backgroundColor: theme.surface,
+              borderWidth: 1,
+              borderColor: theme.border,
+              shadowColor: "#000",
+              shadowOpacity: 0.3,
+              shadowRadius: 18,
+              shadowOffset: { width: 0, height: 8 },
+              elevation: 8,
+            }}
+          >
+            <View
+              className="mb-4 h-16 w-16 items-center justify-center rounded-full"
+              style={{
+                backgroundColor: saveFeedback === "success" ? `${theme.accent}24` : "#ef444424",
+              }}
+            >
+              <Ionicons
+                name={saveFeedback === "success" ? "checkmark" : "close"}
+                size={34}
+                color={saveFeedback === "success" ? theme.accent : "#ef4444"}
+              />
+            </View>
+
+            <Text className="text-center text-xl font-bold" style={{ color: theme.text }}>
+              {saveFeedback === "success"
+                ? t("lyrics_save_success_title", "Guardado")
+                : t("lyrics_save_error_title", "No se pudo guardar")}
+            </Text>
+            <Text className="mt-2 text-center text-base leading-6" style={{ color: theme.mutedText }}>
+              {saveFeedback === "success"
+                ? t("lyrics_save_success_message", "La selección se guardó en tus fotos.")
+                : t("lyrics_save_error_message", "No se pudo guardar la selección en el dispositivo.")}
+            </Text>
+
+            <Pressable
+              onPress={() => setSaveFeedback(null)}
+              className="mt-6 w-full items-center justify-center rounded-full py-3"
+              style={{ backgroundColor: theme.accent }}
+            >
+              <Text className="text-base font-bold" style={{ color: theme.background }}>
+                {t("done", "Listo")}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 };
 

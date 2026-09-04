@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import LibraryArtwork from './LibraryArtwork';
-import { useAppSettings } from '../settings/appSettings';
+import { useAppSettingsTheme } from '../settings/appSettings';
 
 type PlaylistCardData = {
   id: string;
@@ -16,13 +16,10 @@ interface LibraryPlaylistCardProps {
 }
 
 const LibraryPlaylistCard = ({ playlist, onPress }: LibraryPlaylistCardProps) => {
-  const { theme } = useAppSettings();
+  const theme = useAppSettingsTheme();
 
   return (
-    <Pressable
-      className="mb-5 flex-1 rounded-[26px] p-3"
-      onPress={onPress}
-    >
+    <Pressable className="mb-5 flex-1 rounded-[26px] p-3" onPress={onPress}>
       <View className="overflow-hidden rounded-[22px]">
         <LibraryArtwork
           artwork={playlist.songs[0]?.artwork}

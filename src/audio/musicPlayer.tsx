@@ -1,4 +1,4 @@
-import { useEffect, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -9,6 +9,7 @@ import {
 import type { Song } from '../../modules/local-music';
 import {
   addNotificationActionListener,
+  setEqualizerState,
   showMusicNotification,
   stopMusicNotification,
 } from '../../modules/local-music';
@@ -64,6 +65,10 @@ type MusicPlayerSnapshot = {
   showPlayerRequested: boolean;
 };
 
+type MusicPlayerUiSnapshot = Omit<MusicPlayerSnapshot, 'currentTime' | 'durationSeconds' | 'volume'>;
+
+type PlaybackProgressSnapshot = Pick<MusicPlayerSnapshot, 'currentTime' | 'durationSeconds'>;
+
 type PersistedPlaybackState = {
   queue: Song[];
   currentIndex: number;
@@ -75,10 +80,11 @@ const MOST_PLAYED_SONGS_STORAGE_KEY = '@fesa:most-played-songs';
 const FAVORITE_SONGS_STORAGE_KEY = '@fesa:favorite-songs';
 
 let player = createAudioPlayer(null, {
-  updateInterval: 500,
+  updateInterval: 1000,
 }) as PatchedAudioPlayer;
 
 let initialized = false;
+let initializationPromise: Promise<void> | null = null;
 let hydratedLastSession = false;
 let hydratedFavorites = false;
 let sourceLoaded = false;
@@ -97,6 +103,7 @@ let showPlayerRequested = false;
 let restoredPositionSeconds: number | null = null;
 let proactivelySkippedTrackKey: string | null = null;
 let playbackHistory: string[] = [];
+let trackTransitionInFlight = false;
 let cachedSnapshot: MusicPlayerSnapshot = {
   queue,
   currentIndex,
@@ -112,6 +119,23 @@ let cachedSnapshot: MusicPlayerSnapshot = {
   selectionModeActive,
   showPlayerRequested: false,
 };
+let cachedUiSnapshot: MusicPlayerUiSnapshot = {
+  queue,
+  currentIndex,
+  currentSong: null,
+  playing,
+  shuffleEnabled,
+  playbackMode,
+  favoriteSongIds,
+  listeningStatsVersion,
+  selectionModeActive,
+  showPlayerRequested: false,
+};
+let cachedProgressSnapshot: PlaybackProgressSnapshot = {
+  currentTime,
+  durationSeconds,
+};
+let cachedVolume = volume;
 
 const listeners = new Set<() => void>();
 let settingsUnsubscribe: (() => void) | null = null;
@@ -148,10 +172,11 @@ const getCurrentSong = () => {
 };
 
 const updateSnapshot = () => {
+  const currentSong = getCurrentSong();
   cachedSnapshot = {
     queue,
     currentIndex,
-    currentSong: getCurrentSong(),
+    currentSong,
     playing,
     currentTime,
     durationSeconds,
@@ -163,6 +188,39 @@ const updateSnapshot = () => {
     selectionModeActive,
     showPlayerRequested,
   };
+
+  if (
+    cachedUiSnapshot.queue !== queue ||
+    cachedUiSnapshot.currentIndex !== currentIndex ||
+    cachedUiSnapshot.currentSong !== currentSong ||
+    cachedUiSnapshot.playing !== playing ||
+    cachedUiSnapshot.shuffleEnabled !== shuffleEnabled ||
+    cachedUiSnapshot.playbackMode !== playbackMode ||
+    cachedUiSnapshot.favoriteSongIds !== favoriteSongIds ||
+    cachedUiSnapshot.listeningStatsVersion !== listeningStatsVersion ||
+    cachedUiSnapshot.selectionModeActive !== selectionModeActive ||
+    cachedUiSnapshot.showPlayerRequested !== showPlayerRequested
+  ) {
+    cachedUiSnapshot = {
+      queue,
+      currentIndex,
+      currentSong,
+      playing,
+      shuffleEnabled,
+      playbackMode,
+      favoriteSongIds,
+      listeningStatsVersion,
+      selectionModeActive,
+      showPlayerRequested,
+    };
+  }
+
+  if (
+    cachedProgressSnapshot.currentTime !== currentTime ||
+    cachedProgressSnapshot.durationSeconds !== durationSeconds
+  ) {
+    cachedProgressSnapshot = { currentTime, durationSeconds };
+  }
 };
 
 const emit = () => {
@@ -171,6 +229,9 @@ const emit = () => {
 };
 
 const getSnapshot = (): MusicPlayerSnapshot => cachedSnapshot;
+const getUiSnapshot = (): MusicPlayerUiSnapshot => cachedUiSnapshot;
+const getProgressSnapshot = (): PlaybackProgressSnapshot => cachedProgressSnapshot;
+const getVolumeSnapshot = (): number => cachedVolume;
 
 export const getAudioSessionId = () => {
   const candidate = (player as any)?.audioSessionId ?? (player as any)?.getAudioSessionId?.();
@@ -180,6 +241,29 @@ export const getAudioSessionId = () => {
   }
 
   return Platform.OS === 'android' ? 0 : null;
+};
+
+/**
+ * Persist the latest equalizer band levels at module scope so we can
+ * re-apply them automatically after each track change. expo-audio replaces
+ * the underlying MediaPlayer on every `replace()`, which silently detaches
+ * any previously attached audio effects; re-applying from module scope
+ * keeps the EQ active across the whole session.
+ */
+export const setEqualizerLevels = (levels: number[]) => {
+  equalizerBandLevels = levels;
+  const sessionId = getAudioSessionId() ?? 0;
+  if (sessionId >= 0) {
+    void setEqualizerState(sessionId, equalizerEnabled, levels);
+  }
+};
+
+export const setEqualizerEnabled = (enabled: boolean) => {
+  equalizerEnabled = enabled;
+  const sessionId = getAudioSessionId() ?? 0;
+  if (sessionId >= 0) {
+    void setEqualizerState(sessionId, enabled, equalizerBandLevels);
+  }
 };
 
 const buildLockScreenArtworkUrl = (artwork?: string | null) => {
@@ -229,13 +313,9 @@ const publishAndroidNotification = (song: Song, positionSeconds: number, isPlayi
   });
 };
 
-const wait = (milliseconds: number) => new Promise(resolve => {
-  setTimeout(resolve, milliseconds);
-});
-
 let lastPlaybackPersistMs = 0;
 let playbackPersistRevision = 0;
-let playbackPersistChain = Promise.resolve();
+let playbackPersistInFlight = false;
 const persistPlaybackState = async (
   force = false,
   override?: { currentIndex: number; currentTime: number },
@@ -258,19 +338,19 @@ const persistPlaybackState = async (
     currentTime: override?.currentTime ?? currentTime,
   };
 
-  playbackPersistChain = playbackPersistChain.then(async () => {
-    if (persistRevision !== playbackPersistRevision) {
-      return;
-    }
-
-    try {
-      await AsyncStorage.setItem(LAST_PLAYBACK_STORAGE_KEY, JSON.stringify(playbackState));
-    } catch (error) {
-      console.warn('No se pudo guardar la última canción:', error);
-    }
-  });
-
-  await playbackPersistChain;
+  // Single in-flight write per revision. Coalesce rapid calls into the
+  // latest state — earlier revs bail out. Avoids unbounded promise-chain
+  // growth on long playback sessions.
+  if (playbackPersistInFlight) return;
+  playbackPersistInFlight = true;
+  try {
+    await AsyncStorage.setItem(LAST_PLAYBACK_STORAGE_KEY, JSON.stringify(playbackState));
+    if (persistRevision === playbackPersistRevision) return;
+  } catch (error) {
+    console.warn('No se pudo guardar la última canción:', error);
+  } finally {
+    playbackPersistInFlight = false;
+  }
 };
 
 const activateLockScreen = (song: Song) => {
@@ -284,6 +364,8 @@ const activateLockScreen = (song: Song) => {
   }
 
   const metadata = buildMetadata(song);
+  // setActiveForLockScreen already receives the metadata; no need to call
+  // updateLockScreenMetadata separately — that was duplicating the bridge roundtrip.
   player.setActiveForLockScreen(
     true,
     metadata,
@@ -293,7 +375,6 @@ const activateLockScreen = (song: Song) => {
       showSeekForward: false,
     }
   );
-  player.updateLockScreenMetadata(metadata);
 };
 
 const syncLockScreenState = (song?: Song | null) => {
@@ -309,6 +390,11 @@ const syncLockScreenState = (song?: Song | null) => {
 };
 
 let lastNotificationUpdateMs = 0;
+// Module-scope equalizer state so we can re-apply it after every track change
+// or after the first playback (expo-audio resets the audio session on each
+// replace / first play, which silently detaches audio effects).
+let equalizerEnabled = true;
+let equalizerBandLevels: number[] = [];
 const updateAndroidNotification = (force = false) => {
   if (Platform.OS !== 'android') {
     return;
@@ -377,7 +463,8 @@ const trackSongPlayback = async (song: Song) => {
 
     await AsyncStorage.setItem(MOST_PLAYED_SONGS_STORAGE_KEY, JSON.stringify(parsedMostPlayedSongs));
     listeningStatsVersion += 1;
-    emit();
+    // Defer emit so it doesn't coincide with the transition animation frame.
+    setImmediate(() => emit());
   } catch (error) {
     console.warn('No se pudo rastrear la reproduccion de la cancion:', error);
   }
@@ -421,13 +508,34 @@ const loadAndPlay = async (index: number, recordHistory = true) => {
 
   player.volume = volume;
   player.play();
-  void trackSongPlayback(song);
-  applyRuntimeSettings();
-
   playing = true;
-  syncLockScreenState(song);
-  void persistPlaybackState();
-  emit();
+
+  // Re-apply the equalizer immediately after a source change. expo-audio
+  // replaces the underlying MediaPlayer/AudioTrack on every replace(), which
+  // invalidates any attached audio effects; without re-applying, the EQ
+  // silently stops working after the first track change.
+  const sessionId = getAudioSessionId() ?? 0;
+  if (equalizerBandLevels.length && sessionId >= 0) {
+    void setEqualizerState(sessionId, equalizerEnabled, equalizerBandLevels);
+  }
+
+  // Fire-and-forget heavy side effects so the UI thread isn't blocked at
+  // transition time (avoids the "stutter" between tracks).
+  // 1) AsyncStorage write for most-played stats.
+  setImmediate(() => {
+    void trackSongPlayback(song);
+  });
+  // 2) Lock screen / notification refresh.
+  setImmediate(() => {
+    syncLockScreenState(song);
+  });
+  // 3) Persisted last-playback write.
+  setImmediate(() => {
+    void persistPlaybackState();
+  });
+  // applyRuntimeSettings() already ran inside prepareCurrentSong(); skip duplicate.
+
+  // The first playbackStatusUpdate will emit() within ms — avoid double render.
 };
 
 
@@ -462,21 +570,23 @@ const getNextTrackIndex = () => {
 };
 
 const playNext = async (manual = true) => {
-  if (!queue.length) {
+  if (!queue.length || trackTransitionInFlight) {
     return;
   }
 
-  const nextIndex = getNextTrackIndex();
+  trackTransitionInFlight = true;
 
-  if (nextIndex === null) {
-    pause();
-    return;
-  }
+  try {
+    const nextIndex = getNextTrackIndex();
 
-  if (manual) {
+    if (nextIndex === null) {
+      pause();
+      return;
+    }
+
     await loadAndPlay(nextIndex);
-  } else {
-    await loadAndPlay(nextIndex);
+  } finally {
+    trackTransitionInFlight = false;
   }
 };
 
@@ -530,7 +640,7 @@ const handlePlaybackStatus = (status: any, sourcePlayer: PatchedAudioPlayer) => 
       ? currentSong.duration / 1000
       : durationSeconds;
   const progressChanged =
-    Math.abs(nextCurrentTime - currentTime) >= 0.2 ||
+    Math.abs(nextCurrentTime - currentTime) >= 0.5 ||
     Math.abs(nextDurationSeconds - durationSeconds) >= 0.2;
   const currentTrackKey = currentSong ? `${currentSong.id}:${currentIndex}` : null;
 
@@ -581,90 +691,100 @@ const ensureInitialized = async () => {
     return;
   }
 
-  initialized = true;
-  await hydrateAppSettings();
-  applyRuntimeSettings();
-
-  await setAudioModeAsync({
-    playsInSilentMode: true,
-    shouldPlayInBackground: true,
-    interruptionMode: 'doNotMix',
-  });
-
-  if (Platform.OS === 'android') {
-    try {
-      await requestNotificationPermissionsAsync();
-    } catch {
-      // En Android < 13 puede no hacer falta pedir permiso de notificaciones.
-    }
-  }
-
-  player.addListener?.('remoteNext', () => {
-    void playNext();
-  });
-
-  player.addListener?.('remotePrevious', () => {
-    void playPrevious();
-  });
-
-  player.addListener?.('remotePlay', () => {
-    if (!playing) {
-      void togglePlayPause();
-    }
-  });
-
-  player.addListener?.('remotePause', () => {
-    if (playing) {
-      void togglePlayPause();
-    }
-  });
-
-  player.addListener?.('remoteTogglePlayPause', () => {
-    void togglePlayPause();
-  });
-
-  player.addListener?.('remoteShuffle', () => {
-    setShuffleEnabled(!shuffleEnabled);
-  });
-
-  player.addListener?.('remoteRepeat', () => {
-    cyclePlaybackMode();
-  });
-
-  wirePlaybackListeners();
-
-  if (!settingsUnsubscribe) {
-    settingsUnsubscribe = subscribeAppSettings(() => {
+  if (!initializationPromise) {
+    initializationPromise = (async () => {
+      await hydrateAppSettings();
       applyRuntimeSettings();
-      syncLockScreenState(getCurrentSong());
-      emit();
-    });
-  }
 
-  if (!sleepTimerUnsubscribe) {
-    sleepTimerUnsubscribe = registerSleepTimerListener(() => {
-      pause();
-    });
-  }
+      await setAudioModeAsync({
+        playsInSilentMode: true,
+        shouldPlayInBackground: true,
+        interruptionMode: 'doNotMix',
+      });
 
-  if (Platform.OS === 'android' && !notificationActionUnsubscribe) {
-    const subscription = addNotificationActionListener((action, positionMs) => {
-      if (action === 'previous') {
-        void playPrevious();
-      } else if (action === 'next') {
-        void playNext();
-      } else if (action === 'toggle') {
-        void togglePlayPause();
-      } else if (action === 'rewind') {
-        seekTo(currentTime - 10);
-      } else if (action === 'forward') {
-        seekTo(currentTime + 10);
-      } else if (action === 'seek' && positionMs !== undefined) {
-        seekTo(positionMs / 1000);
+      if (Platform.OS === 'android') {
+        try {
+          await requestNotificationPermissionsAsync();
+        } catch {
+          // En Android < 13 puede no hacer falta pedir permiso de notificaciones.
+        }
       }
+
+      player.addListener?.('remoteNext', () => {
+        void playNext();
+      });
+
+      player.addListener?.('remotePrevious', () => {
+        void playPrevious();
+      });
+
+      player.addListener?.('remotePlay', () => {
+        if (!playing) {
+          void togglePlayPause();
+        }
+      });
+
+      player.addListener?.('remotePause', () => {
+        if (playing) {
+          void togglePlayPause();
+        }
+      });
+
+      player.addListener?.('remoteTogglePlayPause', () => {
+        void togglePlayPause();
+      });
+
+      player.addListener?.('remoteShuffle', () => {
+        toggleShuffle();
+      });
+
+      player.addListener?.('remoteRepeat', () => {
+        cyclePlaybackMode();
+      });
+
+      wirePlaybackListeners();
+
+      if (!settingsUnsubscribe) {
+        settingsUnsubscribe = subscribeAppSettings(() => {
+          applyRuntimeSettings();
+          syncLockScreenState(getCurrentSong());
+          emit();
+        });
+      }
+
+      if (!sleepTimerUnsubscribe) {
+        sleepTimerUnsubscribe = registerSleepTimerListener(() => {
+          pause();
+        });
+      }
+
+      if (Platform.OS === 'android' && !notificationActionUnsubscribe) {
+        const subscription = addNotificationActionListener((action, positionMs) => {
+          if (action === 'previous') {
+            void playPrevious();
+          } else if (action === 'next') {
+            void playNext();
+          } else if (action === 'toggle') {
+            void togglePlayPause();
+          } else if (action === 'rewind') {
+            seekTo(currentTime - 10);
+          } else if (action === 'forward') {
+            seekTo(currentTime + 10);
+          } else if (action === 'seek' && positionMs !== undefined) {
+            seekTo(positionMs / 1000);
+          }
+        });
+        notificationActionUnsubscribe = () => subscription.remove();
+      }
+
+      initialized = true;
+    })().catch(error => {
+      initializationPromise = null;
+      throw error;
     });
-    notificationActionUnsubscribe = () => subscription.remove();
   }
+
+  await initializationPromise;
 };
 
 const subscribe = (listener: () => void) => {
@@ -806,6 +926,13 @@ const togglePlayPause = async () => {
     player.play();
     playing = true;
     void persistPlaybackState();
+
+    // First-play path: the EQ must be re-attached after prepareCurrentSong
+    // because expo-audio creates a new audio session the first time it plays.
+    const sessionId = getAudioSessionId() ?? 0;
+    if (equalizerBandLevels.length && sessionId >= 0) {
+      void setEqualizerState(sessionId, equalizerEnabled, equalizerBandLevels);
+    }
   }
 
   void persistPlaybackState(true);
@@ -832,13 +959,22 @@ const seekTo = (seconds: number) => {
 
 const setVolume = (nextVolume: number) => {
   volume = Math.min(Math.max(nextVolume, 0), 1);
+  cachedVolume = volume;
   player.volume = volume;
   emit();
 };
 
 const setShuffleEnabled = (enabled: boolean) => {
+  if (shuffleEnabled === enabled) {
+    return;
+  }
+
   shuffleEnabled = enabled;
   emit();
+};
+
+const toggleShuffle = () => {
+  setShuffleEnabled(!shuffleEnabled);
 };
 
 const setPlaybackMode = (mode: PlaybackMode) => {
@@ -954,6 +1090,7 @@ export const musicPlayer = {
   seekTo,
   setVolume,
   setShuffleEnabled,
+  toggleShuffle,
   setPlaybackMode,
   setSelectionModeActive,
   cyclePlaybackMode,
@@ -967,6 +1104,8 @@ export const musicPlayer = {
   requestShowPlayer,
   clearShowPlayerRequest,
   getAudioSessionId,
+  setEqualizerLevels,
+  setEqualizerEnabled,
 };
 
 export const useMusicPlayer = () => {
@@ -977,25 +1116,70 @@ export const useMusicPlayer = () => {
     void restoreLastSession();
   }, []);
 
-  return {
-    ...snapshot,
-    playSong,
-    playNext,
-    playPrevious,
-    togglePlayPause,
-    pause,
-    seekTo,
-    setVolume,
-    setShuffleEnabled,
-    setPlaybackMode,
-    setSelectionModeActive,
-    cyclePlaybackMode,
-    hydrateFavorites,
-    isFavoriteSong,
-    toggleFavoriteSong,
-    restoreLastSession,
-    moveQueueSong,
-    requestShowPlayer,
-    clearShowPlayerRequest,
-  };
+  return useMemo(
+    () => ({
+      ...snapshot,
+      playSong,
+      playNext,
+      playPrevious,
+      togglePlayPause,
+      pause,
+      seekTo,
+      setVolume,
+      setShuffleEnabled,
+      toggleShuffle,
+      setPlaybackMode,
+      setSelectionModeActive,
+      cyclePlaybackMode,
+      hydrateFavorites,
+      isFavoriteSong,
+      toggleFavoriteSong,
+      restoreLastSession,
+      moveQueueSong,
+      requestShowPlayer,
+      clearShowPlayerRequest,
+    }),
+    [snapshot]
+  );
 };
+
+export const useMusicPlayerUi = () => {
+  const snapshot = useSyncExternalStore(subscribe, getUiSnapshot, getUiSnapshot);
+
+  useEffect(() => {
+    void hydrateFavorites();
+    void restoreLastSession();
+  }, []);
+
+  return useMemo(
+    () => ({
+      ...snapshot,
+      playSong,
+      playNext,
+      playPrevious,
+      togglePlayPause,
+      pause,
+      seekTo,
+      setVolume,
+      setShuffleEnabled,
+      toggleShuffle,
+      setPlaybackMode,
+      setSelectionModeActive,
+      cyclePlaybackMode,
+      hydrateFavorites,
+      isFavoriteSong,
+      toggleFavoriteSong,
+      restoreLastSession,
+      moveQueueSong,
+      requestShowPlayer,
+      clearShowPlayerRequest,
+    }),
+    [snapshot]
+  );
+};
+
+export const usePlaybackProgress = () =>
+  useSyncExternalStore(subscribe, getProgressSnapshot, getProgressSnapshot);
+
+export const usePlayerVolume = () =>
+  useSyncExternalStore(subscribe, getVolumeSnapshot, getVolumeSnapshot);

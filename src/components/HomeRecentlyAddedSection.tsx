@@ -2,7 +2,7 @@ import React from 'react';
 import { GestureResponderEvent, Text, View } from 'react-native';
 import { Song } from '../../modules/local-music';
 import SongListItem from './SongListItem';
-import { useAppSettings } from '../settings/appSettings';
+import { useAppSettingsTheme } from '../settings/appSettings';
 
 type SongGroup = {
   id: string;
@@ -41,29 +41,31 @@ const HomeRecentlyAddedSection = ({
   onStartSongSelection,
   onOpenTrackMenu,
 }: HomeRecentlyAddedSectionProps) => {
-  const { theme } = useAppSettings();
-   return (
-  <View className="py-4">
-    {songs.map((song, index) => {
-      const isSelected = selectedSongIds.includes(song.id);
+  const theme = useAppSettingsTheme();
 
-      return (
-        <SongListItem
-          key={song.id}
-          item={song}
-          isActive={currentSongId === song.id}
-          isPlaying={currentSongId === song.id && playing}
-          isSelected={isSelected}
-          onPress={() => isSelectionMode ? onToggleSongSelection?.(song) : onPlaySong(index)}
-          onLongPress={() => onStartSongSelection?.(song)}
-          onTogglePlayPause={onTogglePlayPause}
-          showDuration={false}
-          showSelectionIndicator={isSelectionMode}
-          onOpenTrackMenu={isSelectionMode ? undefined : onOpenTrackMenu}
-        />
-      );
-    })}
-  </View>
-)};
+  return (
+    <View className="py-4">
+      {songs.map((song, index) => {
+        const isSelected = selectedSongIds.includes(song.id);
+
+        return (
+          <SongListItem
+            key={song.id}
+            item={song}
+            isActive={currentSongId === song.id}
+            isPlaying={currentSongId === song.id && playing}
+            isSelected={isSelected}
+            onPress={() => (isSelectionMode ? onToggleSongSelection?.(song) : onPlaySong(index))}
+            onLongPress={() => onStartSongSelection?.(song)}
+            onTogglePlayPause={onTogglePlayPause}
+            showDuration={false}
+            showSelectionIndicator={isSelectionMode}
+            onOpenTrackMenu={isSelectionMode ? undefined : onOpenTrackMenu}
+          />
+        );
+      })}
+    </View>
+  );
+};
 
 export default HomeRecentlyAddedSection;

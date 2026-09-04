@@ -2,7 +2,7 @@ import React from 'react';
 import { Pressable, View } from 'react-native';
 import LibraryArtwork from './LibraryArtwork';
 import AutoScrollingText from './AutoScrollingText';
-import { useAppSettings } from '../settings/appSettings';
+import { useAppSettingsTheme } from '../settings/appSettings';
 
 type LibraryGroupCardData = {
   id: string;
@@ -18,13 +18,10 @@ interface LibraryGroupGridCardProps {
 }
 
 const LibraryGroupGridCard = ({ group, isArtist, onPress }: LibraryGroupGridCardProps) => {
-  const { theme } = useAppSettings();
+  const theme = useAppSettingsTheme();
 
   return (
-    <Pressable
-      className="mb-5 flex-1 rounded-[26px]  p-3"
-      onPress={onPress}
-    >
+    <Pressable className="mb-5 flex-1 rounded-[26px] p-3" onPress={onPress}>
       <View className="overflow-hidden rounded-[22px]">
         <LibraryArtwork
           artwork={group.artwork}

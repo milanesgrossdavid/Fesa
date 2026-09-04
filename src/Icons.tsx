@@ -2,10 +2,12 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import Octicons from '@expo/vector-icons/Octicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
+import type { StyleProp, TextStyle } from 'react-native';
 
 interface IconProps {
   size?: number;
   color?: string;
+    style?: StyleProp<TextStyle>;
 }
 
 export const FilterIcon = ({ size, color }: IconProps) => (
@@ -40,8 +42,8 @@ export const SortDescIcon = ({ size, color }: IconProps) => (
     <Octicons name="sort-desc" size={size} color={color}  />
 );
 
-export const SearchIcon = ({ size, color }: IconProps) => (
-    <Ionicons name="search" size={size} color={color} />
+export const SearchIcon = ({ size, color, style }: IconProps) => (
+    <Ionicons name="search" size={size} color={color} style={style} />
 );
 
 export const DotsIcon = ({ size, color }: IconProps) => (

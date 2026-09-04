@@ -4,7 +4,7 @@ import { Song } from '../../modules/local-music';
 import { PlayIcon } from '../Icons';
 import LibraryArtwork from './LibraryArtwork';
 import AutoScrollingText from './AutoScrollingText';
-import { useAppSettings } from '../settings/appSettings';
+import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import { useTranslation } from '../i18n/translations';
 
 interface HomeRecommendedSongsCarouselProps {
@@ -25,15 +25,15 @@ const HomeRecommendedSongsCarousel = ({
 }: HomeRecommendedSongsCarouselProps) => {
   const scrollX = useRef(new Animated.Value(0)).current;
   const circularSongs = useMemo(
-    () => songs.length > 3 ? [...songs, ...songs] : songs,
+    () => (songs.length > 3 ? [...songs, ...songs] : songs),
     [songs]
   );
   const cardWidth = Math.min(SCREEN_WIDTH * 0.68, 270);
   const cardGap = 18;
   const snapInterval = cardWidth + cardGap;
-  const { theme, language } = useAppSettings();
+  const theme = useAppSettingsTheme();
+  const language = useAppSettingsLanguage();
   const { t } = useTranslation(language.id);
-  
 
   return (
     <View className="py-4">
@@ -78,14 +78,11 @@ const HomeRecommendedSongsCarousel = ({
 
             return (
               <Animated.View style={{ opacity, transform: [{ translateY }, { scale }] }}>
-                <View
-                  className="overflow-hidden rounded-[34px] bg-[#333333]"
-                  style={{ width: cardWidth }}
-                >
+                <View className="overflow-hidden rounded-[34px] bg-[#333333]" style={{ width: cardWidth }}>
                   <View className="aspect-[1.55] w-full">
                     <LibraryArtwork artwork={song.artwork} className="h-full w-full rounded-[34px]" />
-                    <View className="absolute bottom-0 left-0 right-0 flex flex-row items-center justify-between py-2 px-4 bg-black/30">
-                      <View className="mr-2 flex-1 flex-col">
+                    <View className="absolute bottom-0 left-0 right-0 flex-row items-center justify-between bg-black/30 px-4 py-2">
+                      <View className="mr-2 flex-1">
                         <AutoScrollingText key={`${song.id}-title`} className="text-lg font-bold text-white">
                           {song.title}
                         </AutoScrollingText>

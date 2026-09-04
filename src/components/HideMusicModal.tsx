@@ -3,7 +3,7 @@ import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Song } from '../../modules/local-music';
-import { useAppSettings } from '../settings/appSettings';
+import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import { getTranslation } from '../i18n/translations';
 import LibraryArtwork from './LibraryArtwork';
 
@@ -17,10 +17,20 @@ interface HideMusicModalProps {
 
 const HideMusicModal = ({ visible, songs, hiddenSongIds, onClose, onToggleHidden }: HideMusicModalProps) => {
   const insets = useSafeAreaInsets();
-  const { theme, language } = useAppSettings();
+  const theme = useAppSettingsTheme();
+  const language = useAppSettingsLanguage();
   const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
 
-  const sortedSongs = useMemo(() => [...songs].sort((a, b) => a.title.localeCompare(b.title)), [songs]);
+  const sortedSongs = useMemo(() => [...songs].sort((a, b) => {
+    const aHidden = hiddenSongIds.includes(a.id);
+    const bHidden = hiddenSongIds.includes(b.id);
+
+    if (aHidden !== bHidden) {
+      return aHidden ? -1 : 1;
+    }
+
+    return a.title.localeCompare(b.title);
+  }), [hiddenSongIds, songs]);
 
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
@@ -70,8 +80,9 @@ const HideMusicModal = ({ visible, songs, hiddenSongIds, onClose, onToggleHidden
                 return (
                   <Pressable
                     key={song.id}
-                    className="mb-2 flex-row items-center rounded-[22px]  px-3 py-3"
+                    className="mb-2 flex-row items-center rounded-[22px] px-3 py-3"
                     style={{
+                      backgroundColor: theme.surface,
                       opacity: isHidden ? 0.8 : 1,
                     }}
                     onPress={() => onToggleHidden(song.id)}

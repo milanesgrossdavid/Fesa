@@ -32,6 +32,33 @@ class MusicNotificationService : Service() {
   private var currentArtworkBitmap: Bitmap? = null
   private var mediaSession: MediaSessionCompat? = null
   private var lastState: NotificationState? = null
+  private var lastRenderedSignature: String? = null
+
+  private fun notificationSignature(state: NotificationState): String {
+    return listOf(
+      state.title,
+      state.artist,
+      state.artworkUri ?: "",
+      state.playing.toString(),
+      state.positionMs.toString(),
+      state.durationMs.toString()
+    ).joinToString("|")
+  }
+
+  private fun shouldRefreshNotification(previous: NotificationState?, current: NotificationState): Boolean {
+    if (previous == null) return true
+
+    val previousPosition = previous.positionMs
+    val currentPosition = current.positionMs
+    val positionDelta = kotlin.math.abs(currentPosition - previousPosition)
+
+    return previous.title != current.title ||
+      previous.artist != current.artist ||
+      previous.artworkUri != current.artworkUri ||
+      previous.playing != current.playing ||
+      positionDelta >= 1_000L ||
+      previous.durationMs != current.durationMs
+  }
 
   override fun onBind(intent: Intent?): IBinder? = null
 
@@ -59,7 +86,15 @@ class MusicNotificationService : Service() {
 
   private fun showOrUpdate(state: NotificationState) {
     ensureChannel()
+
+    val previousState = lastState
+    val shouldUpdate = shouldRefreshNotification(previousState, state)
     lastState = state
+
+    if (!shouldUpdate) {
+      updateMediaSession(state, currentArtworkBitmap)
+      return
+    }
 
     val artworkUri = state.artworkUri
     if (artworkUri != currentArtworkUri) {
@@ -77,6 +112,7 @@ class MusicNotificationService : Service() {
         }
       } else {
         updateMediaSession(state, null)
+        postNotification(state)
       }
     } else {
       updateMediaSession(state, currentArtworkBitmap)
@@ -86,6 +122,12 @@ class MusicNotificationService : Service() {
   }
 
   private fun postNotification(state: NotificationState) {
+    val signature = notificationSignature(state)
+    if (signature == lastRenderedSignature) {
+      return
+    }
+    lastRenderedSignature = signature
+
     val small = buildRemoteViews(R.layout.notif_music_small, state)
     val big = buildRemoteViews(R.layout.notif_music_big, state)
 
@@ -232,24 +274,62 @@ class MusicNotificationService : Service() {
   private fun loadBitmap(uriString: String): Bitmap? {
     return try {
       val uri = Uri.parse(uriString)
-      when (uri.scheme) {
-        "content", "file", "android.resource" -> contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+      val options = BitmapFactory.Options().apply {
+        inJustDecodeBounds = true
+      }
+
+      val decodeBounds = when (uri.scheme) {
+        "content", "file", "android.resource" -> contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
         "http", "https" -> {
           val conn = java.net.URL(uriString).openConnection()
           conn.connectTimeout = 5000
           conn.readTimeout = 8000
-          (conn.getInputStream() as? InputStream)?.use { BitmapFactory.decodeStream(it) }
+          (conn.getInputStream() as? InputStream)?.use { BitmapFactory.decodeStream(it, null, options) }
         }
         null -> {
           // Absolute file path fallback
-          BitmapFactory.decodeFile(uriString)
+          BitmapFactory.decodeFile(uriString, options)
         }
+        else -> null
+      }
+
+      val inSampleSize = calculateInSampleSize(options, 512, 512)
+      val bitmapOptions = BitmapFactory.Options().apply {
+        this.inSampleSize = inSampleSize
+        inPreferredConfig = Bitmap.Config.RGB_565
+      }
+
+      when (uri.scheme) {
+        "content", "file", "android.resource" -> contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bitmapOptions) }
+        "http", "https" -> {
+          val conn = java.net.URL(uriString).openConnection()
+          conn.connectTimeout = 5000
+          conn.readTimeout = 8000
+          (conn.getInputStream() as? InputStream)?.use { BitmapFactory.decodeStream(it, null, bitmapOptions) }
+        }
+        null -> BitmapFactory.decodeFile(uriString, bitmapOptions)
         else -> null
       }
     } catch (e: Exception) {
       Log.w(TAG, "Failed to load artwork: $uriString", e)
       null
     }
+  }
+
+  private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
+    val height = options.outHeight
+    val width = options.outWidth
+    var inSampleSize = 1
+
+    if (height > reqHeight || width > reqWidth) {
+      val halfHeight = height / 2
+      val halfWidth = width / 2
+      while (halfHeight / inSampleSize >= reqHeight && halfWidth / inSampleSize >= reqWidth) {
+        inSampleSize *= 2
+      }
+    }
+
+    return inSampleSize
   }
 
   private fun ensureMediaSession() {

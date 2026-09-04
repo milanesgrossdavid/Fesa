@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Modal, Pressable, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppSettingsModal from './AppSettingsModal';
@@ -7,7 +7,7 @@ import { SearchIcon, SettingsIcon } from '../Icons';
 import { getAudioFilesWithPermission, Song } from '../../modules/local-music';
 import { useMusicPlayer } from '../audio/musicPlayer';
 import { getTranslation } from '../i18n/translations';
-import { useAppSettings } from '../settings/appSettings';
+import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import { Ionicons } from '@expo/vector-icons';
 
 const Header = () => {
@@ -15,11 +15,20 @@ const Header = () => {
   const [searchVisible, setSearchVisible] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [query, setQuery] = useState('');
+  // Debounced query prevents running O(n*m) Levenshtein over the whole
+  // library on every keystroke.
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [songs, setSongs] = useState<Song[]>([]);
   const { playSong, requestShowPlayer } = useMusicPlayer();
-  const { theme, language } = useAppSettings();
+  const theme = useAppSettingsTheme();
+  const language = useAppSettingsLanguage();
 
   const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
+
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedQuery(query), 120);
+    return () => clearTimeout(handle);
+  }, [query]);
 
   useEffect(() => {
     if (!searchVisible || songs.length) {
@@ -31,73 +40,58 @@ const Header = () => {
       .catch(error => console.error('Error al cargar música para búsqueda:', error));
   }, [searchVisible, songs.length]);
 
-  const levenshteinDistance = (a: string, b: string) => {
-    const aLength = a.length;
-    const bLength = b.length;
-
-    if (aLength === 0) return bLength;
-    if (bLength === 0) return aLength;
-
-    const matrix: number[][] = Array.from({ length: aLength + 1 }, (_, row) =>
-      Array.from({ length: bLength + 1 }, (_, col) => (row === 0 ? col : col === 0 ? row : 0))
-    );
-
-    for (let i = 1; i <= aLength; i += 1) {
-      for (let j = 1; j <= bLength; j += 1) {
-        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j] + 1,
-          matrix[i][j - 1] + 1,
-          matrix[i - 1][j - 1] + cost
-        );
-      }
+  // Precompute a lowercase haystack per song once when the library loads.
+  // Scoring then uses cheap prefix / substring matches — orders of magnitude
+  // faster than per-keystroke Levenshtein over the whole library.
+  const searchIndex = useMemo(() => {
+    const termsBySong = new Map<string, { titlePrefix: string; titleContains: string; titleWords: string[]; artistPrefix: string; artistContains: string; albumPrefix: string; albumContains: string; }>();
+    for (const song of songs) {
+      const title = (song.title || '').toLowerCase();
+      const artist = (song.artist || '').toLowerCase();
+      const album = (song.album || '').toLowerCase();
+      const titleWords = title.split(/[^a-z0-9]+/).filter(Boolean);
+      termsBySong.set(song.id, {
+        titlePrefix: title,
+        titleContains: title,
+        titleWords,
+        artistPrefix: artist,
+        artistContains: artist,
+        albumPrefix: album,
+        albumContains: album,
+      });
     }
+    return termsBySong;
+  }, [songs]);
 
-    return matrix[aLength][bLength];
-  };
+  const scoreSong = (song: Song, term: string) => {
+    const entry = searchIndex.get(song.id);
+    if (!entry) return Number.MAX_SAFE_INTEGER;
 
-  const computeFieldScore = (queryText: string, fieldText: string) => {
-    if (!fieldText) {
-      return Number.MAX_SAFE_INTEGER;
-    }
-
-    if (fieldText.includes(queryText)) {
+    // Best score = lowest number. Order: exact prefix < contains < word match.
+    if (entry.titlePrefix.startsWith(term) || entry.artistPrefix.startsWith(term) || entry.albumPrefix.startsWith(term)) {
       return 0;
     }
-
-    const words = fieldText.split(/[^a-z0-9]+/).filter(Boolean);
-    const candidates = [fieldText, ...words];
-
-    return Math.min(...candidates.map(candidate => levenshteinDistance(queryText, candidate)));
+    if (entry.titleContains.includes(term) || entry.artistContains.includes(term) || entry.albumContains.includes(term)) {
+      return 1;
+    }
+    if (entry.titleWords.some(w => w.startsWith(term))) return 2;
+    return Number.MAX_SAFE_INTEGER;
   };
 
   const filteredSongs = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
+    const term = debouncedQuery.trim().toLowerCase();
 
-    if (!normalizedQuery) {
+    if (!term) {
       return [];
     }
 
-    const maxDistance = Math.max(2, Math.round(normalizedQuery.length * 0.5));
-
     return songs
-      .map(song => {
-        const title = song.title.toLowerCase();
-        const artist = song.artist.toLowerCase();
-        const album = song.album.toLowerCase();
-
-        const score = Math.min(
-          computeFieldScore(normalizedQuery, title),
-          computeFieldScore(normalizedQuery, artist),
-          computeFieldScore(normalizedQuery, album),
-        );
-
-        return { song, score };
-      })
-      .filter(({ score }) => score <= maxDistance)
+      .map(song => ({ song, score: scoreSong(song, term) }))
+      .filter(({ score }) => score !== Number.MAX_SAFE_INTEGER)
       .sort((a, b) => a.score - b.score || a.song.title.localeCompare(b.song.title))
-      .map(({ song }) => song);
-  }, [query, songs]);
+      .map(({ song }) => song)
+      .slice(0, 200);
+  }, [debouncedQuery, searchIndex, songs]);
 
   const closeSearch = () => {
     setSearchVisible(false);
@@ -147,38 +141,36 @@ const Header = () => {
           }}
         >
           <View style={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8 }}>
-                    <View className="flex-row items-center" style={{ height: 44 }}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('close', 'Close')}
-              style={({ pressed }) => ({
-                height: 32,
-                minWidth: 32,
-                paddingHorizontal: 4,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: pressed ? 0.5 : 1,
-              })}
-              onPress={closeSearch}
-            >
-              <Ionicons name="chevron-back" size={26} color={theme.accent} />
-              
-            </Pressable>
-            <Text
-              style={{
-              color: theme.text,
-              fontSize: 28,
-              fontWeight: '700',
-              letterSpacing: 0.37,
-              paddingHorizontal: 4,
-            }}
-            >
-              {t('search_modal_title', 'Search')}
-            </Text>
+            <View className="flex-row items-center" style={{ height: 44 }}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('close', 'Close')}
+                style={({ pressed }) => ({
+                  height: 32,
+                  minWidth: 32,
+                  paddingHorizontal: 4,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  opacity: pressed ? 0.5 : 1,
+                })}
+                onPress={closeSearch}
+              >
+                <Ionicons name="chevron-back" size={26} color={theme.accent} />
+              </Pressable>
+              <Text
+                style={{
+                  color: theme.text,
+                  fontSize: 28,
+                  fontWeight: '700',
+                  letterSpacing: 0.37,
+                  paddingHorizontal: 4,
+                }}
+              >
+                {t('search_modal_title', 'Search')}
+              </Text>
+            </View>
           </View>
-                    
-                  </View>
 
           <View className="mb-4 px-4">
             <View

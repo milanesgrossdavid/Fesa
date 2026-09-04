@@ -1,12 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
-  Image,
   Modal,
   PanResponder,
   Platform,
   Pressable,
-  ScrollView,
   Text,
   View,
   type GestureResponderEvent,
@@ -14,6 +12,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { Image } from "react-native";
 import * as Font from "expo-font";
 import {
   deleteAudioFile,
@@ -26,8 +25,16 @@ import {
   Song,
   ToneType,
 } from "../../modules/local-music";
-import { getAudioSessionId, useMusicPlayer } from "../audio/musicPlayer";
+import {
+  getAudioSessionId,
+  setEqualizerEnabled as setEqualizerEnabledState,
+  setEqualizerLevels,
+  useMusicPlayerUi,
+  usePlaybackProgress,
+  usePlayerVolume,
+} from "../audio/musicPlayer";
 import AppSettingsModal from "../components/AppSettingsModal";
+import AppModal from "../components/AppModal";
 import AudioWaveBars from "../components/AudioWaveBars";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import QueuePlaylistModal from "../components/QueuePlaylistModal";
@@ -54,11 +61,12 @@ import {
 } from "../Icons";
 import { formatDuration } from "../utils/time";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
-import { useAppSettings } from "../settings/appSettings";
+import { useAppSettingsLanguage, useAppSettingsTheme } from "../settings/appSettings";
 import { getTranslation } from "../i18n/translations";
+import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import { useDominantColor, withAlpha } from "../hooks/useDominantColor";
-import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
+import { getGradientColors, useDominantColor, withAlpha } from "../hooks/useDominantColor";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 interface PlayerScreenProps {
   onBack: () => void;
@@ -88,15 +96,40 @@ const EQUALIZER_PRESETS: Record<string, number[]> = {
   Club: [6, 8, 7, 5, 4, 3, 2],
 };
 
-const LOCK_DATE_FONT = "BlackOpsOne-Regular";
-const LOCK_TIME_FONT = "BlackOpsOne-Regular";
+const equalizerPresetLabels: Record<string, string> = {
+  Flat: 'Flat',
+  Bass: 'Bass',
+  Vocal: 'Vocal',
+  Rock: 'Rock',
+  Pop: 'Pop',
+  Treble: 'Treble',
+  Club: 'Club',
+};
+
+const LOCK_DATE_FONT = "Fesa-LockDate";
 const UNKNOWN_ALBUM = "Álbum Desconocido";
 const UNKNOWN_ARTIST = "Artista Desconocido";
 const DEFAULT_MUSIC_ARTWORK = require("../../assets/musicNotFound.jpg");
+let lockFontPromise: Promise<void> | null = null;
+
 const normalizeValue = (value: string | null | undefined, fallback: string) =>
   value?.trim() || fallback;
 
-const VerticalEqualizerSlider = ({
+const getContrastColorForBackground = (backgroundColor: string, fallback: string = '#ffffff') => {
+  const hex = backgroundColor?.startsWith('#') ? backgroundColor : fallback;
+  const normalized = hex.replace('#', '');
+
+  if (normalized.length !== 6) return fallback;
+
+  const red = parseInt(normalized.slice(0, 2), 16);
+  const green = parseInt(normalized.slice(2, 4), 16);
+  const blue = parseInt(normalized.slice(4, 6), 16);
+  const luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255;
+
+  return luminance > 0.6 ? '#111111' : '#ffffff';
+};
+
+const VerticalEqualizerSlider = React.memo(({
   band,
   activeColor,
   onChange,
@@ -106,21 +139,20 @@ const VerticalEqualizerSlider = ({
   onChange: (nextLevel: number) => void;
 }) => {
   const trackRef = useRef<View>(null);
+  const trackLayoutRef = useRef({ top: 0, height: 0 });
+  const bandRef = useRef(band);
+  bandRef.current = band;
 
   const updateLevelFromPointer = (pointerY: number) => {
-    if (!trackRef.current) {
-      return;
-    }
+    const { top, height } = trackLayoutRef.current;
+    if (!height) return;
 
-    trackRef.current.measureInWindow((x, y, width, height) => {
-      const top = y;
-      const bottom = y + height;
-      const safeHeight = Math.max(height, 1);
-      const clampedY = Math.min(Math.max(pointerY, top), bottom);
-      const percent = (bottom - clampedY) / safeHeight;
-      const nextLevel = band.minLevel + (band.maxLevel - band.minLevel) * percent;
-      onChange(Math.round(nextLevel));
-    });
+    const bottom = top + height;
+    const clampedY = Math.min(Math.max(pointerY, top), bottom);
+    const percent = (bottom - clampedY) / height;
+    const current = bandRef.current;
+    const nextLevel = current.minLevel + (current.maxLevel - current.minLevel) * percent;
+    onChange(Math.round(nextLevel));
   };
 
   const panResponder = useRef(
@@ -128,7 +160,15 @@ const VerticalEqualizerSlider = ({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: (_, gestureState) => {
-        updateLevelFromPointer(gestureState.y0);
+        if (trackLayoutRef.current.height) {
+          updateLevelFromPointer(gestureState.y0);
+          return;
+        }
+
+        trackRef.current?.measureInWindow((_x, y, _width, height) => {
+          trackLayoutRef.current = { top: y, height };
+          updateLevelFromPointer(gestureState.y0);
+        });
       },
       onPanResponderMove: (_, gestureState) => {
         updateLevelFromPointer(gestureState.moveY);
@@ -152,6 +192,11 @@ const VerticalEqualizerSlider = ({
           borderColor: activeColor + '66',
           overflow: 'visible',
         }}
+        onLayout={() => {
+          trackRef.current?.measureInWindow((_x, y, _width, height) => {
+            trackLayoutRef.current = { top: y, height };
+          });
+        }}
         {...panResponder.panHandlers}
       >
         <View
@@ -171,7 +216,7 @@ const VerticalEqualizerSlider = ({
             height: 18,
             backgroundColor: activeColor,
             left: '50%',
-            transform: [{ translateX: -9 }, {translateY: 18}],
+            transform: [{ translateX: -9 }, { translateY: 18 }],
             bottom: `${Math.max(6, fillPercent)}%`,
             shadowColor: '#000',
             shadowOpacity: 0.28,
@@ -182,16 +227,321 @@ const VerticalEqualizerSlider = ({
       </View>
     </View>
   );
+});
+
+const EqualizerBandControl = React.memo(({
+  band,
+  activeColor,
+  onChange,
+}: {
+  band: EqualizerBand;
+  activeColor: string;
+  onChange: (index: number, level: number) => void;
+}) => {
+  const [level, setLevel] = useState(band.level);
+
+  useEffect(() => {
+    setLevel(band.level);
+  }, [band.level]);
+
+  const handleChange = useCallback(
+    (nextLevel: number) => {
+      setLevel(nextLevel);
+      onChange(band.index, nextLevel);
+    },
+    [band.index, onChange],
+  );
+
+  return (
+    <View className="items-center" style={{ width: `${100 / 7}%` }}>
+      <Text className="mb-2 text-[10px] font-bold" style={{ color: '#999' }}>
+        {band.frequency >= 1000 ? `${Math.round(band.frequency / 1000)}k` : `${Math.round(band.frequency)}`}
+      </Text>
+      <VerticalEqualizerSlider
+        band={{ ...band, level }}
+        activeColor={activeColor}
+        onChange={handleChange}
+      />
+      <Text className="mt-2 text-[10px] font-bold" style={{ color: '#fff' }}>
+        {level} dB
+      </Text>
+    </View>
+  );
+});
+
+const VolumeSlider = React.memo(({ setVolume }: { setVolume: (value: number) => void }) => {
+  const volume = usePlayerVolume();
+  const volumeBarRef = useRef<View>(null);
+  const volumeBarLayoutRef = useRef({ x: 0, width: 0 });
+
+  const handleLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width } = event.nativeEvent.layout;
+    requestAnimationFrame(() => {
+      volumeBarRef.current?.measureInWindow((x, _y, measuredWidth) => {
+        volumeBarLayoutRef.current = { x, width: measuredWidth || width };
+      });
+    });
+  }, []);
+
+  const handleGesture = useCallback(
+    (event: GestureResponderEvent) => {
+      const { x, width } = volumeBarLayoutRef.current;
+      if (!width) return;
+      const touchX = x ? event.nativeEvent.pageX - x : event.nativeEvent.locationX;
+      setVolume(Math.min(Math.max(touchX / width, 0), 1));
+    },
+    [setVolume],
+  );
+
+  return (
+    <View className="mt-6 flex-row items-center gap-3">
+      <VolumeLowIcon size={22} color="#f5f5f5" />
+      <View
+        className="h-8 flex-1 justify-center"
+        onStartShouldSetResponder={() => true}
+        onMoveShouldSetResponder={() => true}
+        onResponderGrant={handleGesture}
+        onResponderMove={handleGesture}
+      >
+        <View ref={volumeBarRef} className="relative h-2 justify-center rounded-full bg-white/20" onLayout={handleLayout}>
+          <View pointerEvents="none" className="h-2 rounded-full bg-white" style={{ width: `${volume * 100}%` }} />
+          <View pointerEvents="none" className="absolute h-3.5 w-3.5 rounded-full bg-white" style={{ left: `${volume * 100}%`, transform: [{ translateX: -7 }] }} />
+        </View>
+      </View>
+      <VolumeHighIcon size={22} color="#f5f5f5" />
+    </View>
+  );
+});
+
+const PlaybackProgressBar = React.memo(({
+  seekTo,
+  barClassName,
+  thumbClassName,
+  containerClassName = "mt-7",
+  trackBackgroundColor,
+  thumbOffset = -8,
+}: {
+  seekTo: (seconds: number) => void;
+  barClassName: string;
+  thumbClassName: string;
+  containerClassName?: string;
+  trackBackgroundColor?: string;
+  thumbOffset?: number;
+}) => {
+  const { currentTime, durationSeconds } = usePlaybackProgress();
+  const progressBarRef = useRef<View>(null);
+  const [scrubTime, setScrubTime] = useState<number | null>(null);
+  const activeBarRef = useRef({ x: 0, width: 0 });
+  const playbackDuration = durationSeconds || 0;
+  const displayTime = scrubTime ?? currentTime;
+  const progress = playbackDuration > 0
+    ? Math.min(Math.max(displayTime / playbackDuration, 0), 1)
+    : 0;
+
+  const handleLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width } = event.nativeEvent.layout;
+    requestAnimationFrame(() => {
+      progressBarRef.current?.measureInWindow((x, _y, measuredWidth) => {
+        activeBarRef.current = { x, width: measuredWidth || width };
+      });
+    });
+  }, []);
+
+  const getTimeFromGesture = useCallback(
+    (event: GestureResponderEvent) => {
+      if (!activeBarRef.current.width || !playbackDuration) return null;
+      const touchX = activeBarRef.current.x
+        ? event.nativeEvent.pageX - activeBarRef.current.x
+        : event.nativeEvent.locationX;
+      return Math.min(Math.max(touchX / activeBarRef.current.width, 0), 1) * playbackDuration;
+    },
+    [playbackDuration],
+  );
+
+  const handleGesture = useCallback(
+    (event: GestureResponderEvent) => {
+      const nextTime = getTimeFromGesture(event);
+      if (nextTime !== null) setScrubTime(nextTime);
+    },
+    [getTimeFromGesture],
+  );
+
+  const handleRelease = useCallback(
+    (event: GestureResponderEvent) => {
+      const nextTime = scrubTime ?? getTimeFromGesture(event);
+      setScrubTime(null);
+      if (nextTime !== null) seekTo(nextTime);
+    },
+    [getTimeFromGesture, scrubTime, seekTo],
+  );
+
+  return (
+    <View
+      className={containerClassName}
+      onStartShouldSetResponder={() => true}
+      onMoveShouldSetResponder={() => true}
+      onResponderGrant={handleGesture}
+      onResponderMove={handleGesture}
+      onResponderRelease={handleRelease}
+      onResponderTerminate={handleRelease}
+    >
+      <View className="h-9 justify-center">
+        <View
+          ref={progressBarRef}
+          className={barClassName}
+          style={{ backgroundColor: trackBackgroundColor ?? 'rgba(255,255,255,0.25)' }}
+          onLayout={handleLayout}
+        >
+          <View pointerEvents="none" className="h-2 rounded-full bg-white" style={{ width: `${progress * 100}%` }} />
+          <View
+            pointerEvents="none"
+            className={thumbClassName}
+            style={{ left: `${progress * 100}%`, transform: [{ translateX: thumbOffset }] }}
+          />
+        </View>
+      </View>
+      <View className="-mt-1 flex-row items-center justify-between">
+        <Text className="text-xs font-medium text-white/60">{formatDuration(Math.round(displayTime * 1000))}</Text>
+        <Text className="text-xs font-medium text-white/60">-{formatDuration(Math.round(Math.max(playbackDuration - displayTime, 0) * 1000))}</Text>
+      </View>
+    </View>
+  );
+});
+
+const CoverArt = React.memo(({ artwork }: { artwork?: string | null }) => (
+  <View className="aspect-square w-full max-w-[400px] items-center justify-center self-center overflow-hidden rounded-3xl bg-[#2a2a2a]">
+    {artwork ? (
+      <Image
+        source={{ uri: artwork }}
+        className="h-full w-full"
+        resizeMode="cover"
+        fadeDuration={0}
+        progressiveRenderingEnabled
+      />
+    ) : (
+      <Image source={DEFAULT_MUSIC_ARTWORK} className="h-full w-full" resizeMode="cover" fadeDuration={0} />
+    )}
+  </View>
+));
+
+type HeaderProps = {
+  onBack: () => void;
+  onOpenMiniPlayer: () => void;
+  onOpenLockScreen: () => void;
+  onOpenTrackMenu: () => void;
 };
+const PlayerHeader = React.memo(({ onBack, onOpenMiniPlayer, onOpenLockScreen, onOpenTrackMenu }: HeaderProps) => (
+  <View className="flex-row items-center justify-between">
+    <Pressable className="-ml-2 h-10 w-10 items-center justify-center" onPress={onBack}>
+      <BackIcon size={26} color="#f5f5f5" />
+    </Pressable>
+    <View className="-mr-2 flex-row items-center">
+      <Pressable className="h-10 w-10 items-center justify-center" onPress={onOpenMiniPlayer}>
+        <ImageIcon size={22} color="#f5f5f5" />
+      </Pressable>
+      <Pressable className="h-10 w-10 items-center justify-center" onPress={onOpenLockScreen}>
+        <LockScreenIcon size={22} color="#f5f5f5" />
+      </Pressable>
+      <Pressable className="h-10 w-10 items-center justify-center" onPress={onOpenTrackMenu}>
+        <DotsIcon size={24} color="#f5f5f5" />
+      </Pressable>
+    </View>
+  </View>
+));
+
+type SongInfoProps = {
+  title: string;
+  artist: string;
+  isFavorite: boolean;
+  onOpenQueue: () => void;
+  onToggleFavorite: () => void;
+};
+const SongInfo = React.memo(({ title, artist, isFavorite, onOpenQueue, onToggleFavorite }: SongInfoProps) => (
+  <View className="flex-row items-center">
+    <View className="flex-1 pr-4">
+      <AutoScrollingText className="text-2xl font-bold text-white">{title}</AutoScrollingText>
+      <AutoScrollingText className="mt-1 text-base text-white/60">{artist}</AutoScrollingText>
+    </View>
+    <View className="flex-row items-center gap-5">
+      <Pressable onPress={onOpenQueue}>
+        <PlaylistIcon size={26} color="#f5f5f5" />
+      </Pressable>
+      <Pressable onPress={onToggleFavorite}>
+        {isFavorite ? (
+          <FavoritedIcon size={26} color="#f5f5f5" />
+        ) : (
+          <UnfavoritedIcon size={26} color="#f5f5f5" />
+        )}
+      </Pressable>
+    </View>
+  </View>
+));
+
+type PlaybackControlsProps = {
+  playing: boolean;
+  shuffleEnabled: boolean;
+  repeatActive: boolean;
+  shuffleColor: string;
+  inactiveColor: string;
+  repeatIcon: React.ComponentType<{ size: number; color: string }>;
+  onToggleShuffle: () => void;
+  onPrevious: () => void;
+  onPlayPause: () => void;
+  onNext: () => void;
+  onCycleRepeat: () => void;
+  onOpenLyrics: () => void;
+};
+const PlaybackControls = React.memo((props: PlaybackControlsProps) => {
+  const {
+    playing, shuffleEnabled, repeatActive,
+    shuffleColor, inactiveColor, repeatIcon: RepeatIcon,
+    onToggleShuffle, onPrevious, onPlayPause, onNext, onCycleRepeat, onOpenLyrics,
+  } = props;
+
+  return (
+    <>
+      <View className="flex-row items-center justify-between px-1">
+        <Pressable className="h-12 w-12 items-center justify-center rounded-full" onPress={onToggleShuffle}>
+          <ShuffleIcon
+            size={24}
+            color={shuffleEnabled ? shuffleColor : inactiveColor}
+          />
+        </Pressable>
+        <Pressable className="h-12 w-12 items-center justify-center" onPress={onPrevious}>
+          <BackwardIcon size={36} color="#f5f5f5" />
+        </Pressable>
+        <Pressable className="h-20 w-20 items-center justify-center" onPress={onPlayPause}>
+          <FontAwesome5
+            name={playing ? "pause" : "play"}
+            size={44}
+            color="#f5f5f5"
+            style={{ marginLeft: playing ? 0 : 4 }}
+          />
+        </Pressable>
+        <Pressable className="h-12 w-12 items-center justify-center" onPress={onNext}>
+          <ForwardIcon size={36} color="#f5f5f5" />
+        </Pressable>
+        <Pressable className="h-12 w-12 items-center justify-center rounded-full" onPress={onCycleRepeat}>
+          <RepeatIcon
+            size={24}
+            color={repeatActive ? shuffleColor : inactiveColor}
+          />
+        </Pressable>
+      </View>
+      <View className="absolute bottom-0 items-center w-full justify-center">
+        <Pressable className="h-10 w-10 items-center justify-center rounded-full" onPress={onOpenLyrics}>
+          <MaterialCommunityIcons name="format-letter-case" size={22} color="#f5f5f5" />
+        </Pressable>
+      </View>
+    </>
+  );
+});
 
 const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
   const {
     currentSong,
     currentIndex,
     playing,
-    currentTime,
-    durationSeconds,
-    volume,
     queue,
     favoriteSongIds,
     shuffleEnabled,
@@ -205,24 +555,17 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
     cyclePlaybackMode,
     toggleFavoriteSong,
     togglePlayPause,
-  } = useMusicPlayer();
-  const { theme, language } = useAppSettings();
+  } = useMusicPlayerUi();
+  const theme = useAppSettingsTheme();
+  const language = useAppSettingsLanguage();
   const insets = useSafeAreaInsets();
-  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
+  const t = useCallback(
+    (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback),
+    [language.id],
+  );
 
-  const mainProgressBarRef = useRef<View>(null);
-  const miniProgressBarRef = useRef<View>(null);
-  const lockProgressBarRef = useRef<View>(null);
-  const volumeBarRef = useRef<View>(null);
-  const miniPlayerBlurTargetRef = useRef<View | null>(null);
   const [allSongs, setAllSongs] = useState<Song[]>([]);
 
-  const [mainProgressBar, setMainProgressBar] = useState({ x: 0, width: 0 });
-  const [miniProgressBar, setMiniProgressBar] = useState({ x: 0, width: 0 });
-  const [lockProgressBar, setLockProgressBar] = useState({ x: 0, width: 0 });
-  const [volumeBar, setVolumeBar] = useState({ x: 0, width: 0 });
-
-  const [scrubTime, setScrubTime] = useState<number | null>(null);
   const [queueVisible, setQueueVisible] = useState(false);
   const [miniPlayerVisible, setMiniPlayerVisible] = useState(false);
   const [lockScreenVisible, setLockScreenVisible] = useState(false);
@@ -238,35 +581,104 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
   const [equalizerLoading, setEqualizerLoading] = useState(false);
   const [equalizerSessionId, setEqualizerSessionId] = useState<number | null>(null);
   const [relatedSongs, setRelatedSongs] = useState<RelatedSongsState>(null);
-  const [lockFontsLoaded, setLockFontsLoaded] = useState(false);
 
-  const dominantColor = useDominantColor(currentSong?.artwork ?? null);
+  // Lazy-mount flags: each sub-modal only enters the tree when first opened,
+  // and is unmounted (not just hidden) after its close animation finishes.
+  // This prevents BlurView/LinearGradient/Icon trees from staying alive in the
+  // native view hierarchy when the user is on a different overlay.
+  const [miniPlayerMounted, setMiniPlayerMounted] = useState(false);
+  const [lockScreenMounted, setLockScreenMounted] = useState(false);
+  const [equalizerMounted, setEqualizerMounted] = useState(false);
+  const [defineAsMounted, setDefineAsMounted] = useState(false);
+  const [trackMenuMounted, setTrackMenuMounted] = useState(false);
 
+  // Track "transitioning out" so we can keep the Modal in the tree (with
+  // visible=false) while the close animation plays, then unmount it.
+  const [miniPlayerClosing, setMiniPlayerClosing] = useState(false);
+  const [lockScreenClosing, setLockScreenClosing] = useState(false);
+  const [equalizerClosing, setEqualizerClosing] = useState(false);
+  const [defineAsClosing, setDefineAsClosing] = useState(false);
+  const [trackMenuClosing, setTrackMenuClosing] = useState(false);
+
+  const requestCloseMiniPlayer = useCallback(() => {
+    setMiniPlayerVisible(false);
+    setMiniPlayerClosing(true);
+  }, []);
+  const requestCloseLockScreen = useCallback(() => {
+    setLockScreenVisible(false);
+    setLockScreenClosing(true);
+  }, []);
+  const requestCloseEqualizer = useCallback(() => {
+    setEqualizerVisible(false);
+    setEqualizerClosing(true);
+  }, []);
+  const requestCloseDefineAs = useCallback(() => {
+    setDefineAsVisible(false);
+    setDefineAsClosing(true);
+  }, []);
+  const requestCloseTrackMenu = useCallback(() => {
+    setTrackMenuVisible(false);
+    setTrackMenuClosing(true);
+  }, []);
+
+  // After the parent Modal slide-in finishes, allow child modals to be shown.
+  // Setting visible=true on a nested Modal while the parent is still animating
+  // makes the child "float" over the half-rendered parent.
+  // Two requestAnimationFrame calls lets the slide-in paint at least one
+  // frame before we unmask the children.
+  const [parentAnimationDone, setParentAnimationDone] = useState(false);
   useEffect(() => {
-    let isMounted = true;
-
-    Font.loadAsync({
-      [LOCK_DATE_FONT]: require("../../assets/fonts/SFNSText-Regular.otf"),
-    })
-      .then(() => {
-        if (isMounted) setLockFontsLoaded(true);
-      })
-      .catch((error) => {
-        console.warn("No se pudieron cargar las fuentes del lock screen:", error);
-        if (isMounted) setLockFontsLoaded(false);
+    let cancelled = false;
+    const first = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!cancelled) setParentAnimationDone(true);
       });
-
+    });
     return () => {
-      isMounted = false;
+      cancelled = true;
+      cancelAnimationFrame(first);
     };
   }, []);
 
+  const isScreenMountedRef = useRef(true);
+  const equalizerRequestIdRef = useRef(0);
+  const equalizerSessionIdRef = useRef<number | null>(null);
+  const equalizerEnabledRef = useRef(true);
+  const equalizerBandsRef = useRef<EqualizerBand[]>([]);
+  const equalizerWriteRef = useRef(Promise.resolve());
+  const lastEqualizerSongIdRef = useRef<string | null>(null);
+
+  // If the song changes mid-drag of the equalizer, the native audio session
+  // is replaced by expo-audio. Reset the cached session id so the next
+  // applyEqualizerBands() re-reads the active session from the player.
   useEffect(() => {
-    getAudioFilesWithPermission()
-      .then(setAllSongs)
-      .catch((error) =>
-        console.warn("No se pudo cargar la biblioteca:", error),
-      );
+    const songId = currentSong?.id ?? null;
+    if (songId !== lastEqualizerSongIdRef.current) {
+      lastEqualizerSongIdRef.current = songId;
+      equalizerSessionIdRef.current = null;
+      setEqualizerSessionId(null);
+    }
+  }, [currentSong?.id]);
+
+  // Stable fallback for dominant color (theme.surface from a static list, but we still keep it stable per theme id).
+  const themeSurface = useMemo(() => theme.surface || '#252525', [theme.surface, theme.id]);
+  const dominantColor = useDominantColor(currentSong?.artwork ?? null, themeSurface);
+  const gradientColors = useMemo(() => getGradientColors(dominantColor), [dominantColor]);
+
+  useEffect(() => {
+    isScreenMountedRef.current = true;
+
+    lockFontPromise ??= Font.loadAsync({
+      [LOCK_DATE_FONT]: require("../../assets/fonts/SFNSText-Regular.otf"),
+    });
+
+    lockFontPromise.catch((error) => {
+      console.warn("No se pudieron cargar las fuentes del lock screen:", error);
+    });
+
+    return () => {
+      isScreenMountedRef.current = false;
+    };
   }, []);
 
   const currentQueue = useMemo(
@@ -274,9 +686,10 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
     [queue, currentSong],
   );
 
-  const isCurrentSongFavorite = currentSong
-    ? favoriteSongIds.includes(currentSong.id)
-    : false;
+  const isCurrentSongFavorite = useMemo(
+    () => (currentSong ? favoriteSongIds.includes(currentSong.id) : false),
+    [currentSong, favoriteSongIds],
+  );
 
   const RepeatModeIcon = useMemo(() => {
     if (playbackMode === "repeat-all") return RepeatAllIcon;
@@ -284,8 +697,20 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
     return RepeatOffbackIcon;
   }, [playbackMode]);
 
+  const adaptiveControlColors = useMemo(() => {
+    const iconColor = getContrastColorForBackground(dominantColor, '#ffffff');
+    const isDarkBackground = iconColor === '#ffffff';
+
+    return {
+      iconColor,
+      inactiveColor: isDarkBackground ? withAlpha('#ffffff', 0.58) : withAlpha('#111111', 0.5),
+      buttonBackground: isDarkBackground ? withAlpha('#ffffff', 0.12) : withAlpha('#111111', 0.08),
+      buttonBorder: isDarkBackground ? withAlpha('#ffffff', 0.18) : withAlpha('#111111', 0.12),
+    };
+  }, [dominantColor]);
+
   const repeatActive = playbackMode !== "linear";
-  const closeTrackMenu = () => setTrackMenuVisible(false);
+  const closeTrackMenu = useCallback(() => setTrackMenuVisible(false), []);
 
   useEffect(() => {
     return () => {
@@ -295,17 +720,36 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
     };
   }, [equalizerSessionId]);
 
-  const applyEqualizerBands = async (nextBands: EqualizerBand[], nextEnabled: boolean) => {
-    if (equalizerSessionId == null || equalizerSessionId <= 0) {
+  const applyEqualizerBands = useCallback((nextBands: EqualizerBand[], nextEnabled: boolean) => {
+    const sessionId = equalizerSessionIdRef.current;
+    if (sessionId == null || sessionId <= 0) {
+      // Persist at module scope so loadAndPlay() can re-apply automatically
+      // when expo-audio swaps the underlying audio session.
+      setEqualizerLevels(nextBands.map(band => Number(band.level)));
       return;
     }
 
     const levels = nextBands.map(band => Number(band.level));
-    await setEqualizerState(equalizerSessionId, nextEnabled, levels);
-  };
+    equalizerWriteRef.current = equalizerWriteRef.current
+      .catch(() => undefined)
+      .then(() => {
+        setEqualizerLevels(levels);
+        void setEqualizerState(sessionId, nextEnabled, levels);
+      })
+      .then(() => undefined);
+  }, []);
 
-  const openEqualizer = async () => {
+  const handleEqualizerBandChange = useCallback((bandIndex: number, nextLevel: number) => {
+    const nextBands = equalizerBandsRef.current.map(item =>
+      item.index === bandIndex ? { ...item, level: nextLevel } : item,
+    );
+    equalizerBandsRef.current = nextBands;
+    applyEqualizerBands(nextBands, equalizerEnabledRef.current);
+  }, [applyEqualizerBands]);
+
+  const openEqualizer = useCallback(async () => {
     closeTrackMenu();
+    setEqualizerMounted(true);
 
     if (Platform.OS !== 'android') {
       Alert.alert('Ecualizador', 'El ecualizador solo está disponible en Android.');
@@ -313,15 +757,19 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
     }
 
     const sessionId = getAudioSessionId() ?? 0;
+    const requestId = equalizerRequestIdRef.current + 1;
+    equalizerRequestIdRef.current = requestId;
+    equalizerSessionIdRef.current = sessionId;
     setEqualizerSessionId(sessionId);
     setEqualizerVisible(true);
     setEqualizerLoading(true);
 
     try {
       const state = await getEqualizerState(sessionId);
+      if (!isScreenMountedRef.current || requestId !== equalizerRequestIdRef.current) return;
+
       if (!state || !state.bands.length) {
-        setEqualizerEnabled(true);
-        setEqualizerBands([
+        const fallback: EqualizerBand[] = [
           { index: 0, frequency: 250, level: 0, minLevel: -1500, maxLevel: 1500 },
           { index: 1, frequency: 500, level: 0, minLevel: -1500, maxLevel: 1500 },
           { index: 2, frequency: 1000, level: 0, minLevel: -1500, maxLevel: 1500 },
@@ -329,50 +777,50 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
           { index: 4, frequency: 4000, level: 0, minLevel: -1500, maxLevel: 1500 },
           { index: 5, frequency: 8000, level: 0, minLevel: -1500, maxLevel: 1500 },
           { index: 6, frequency: 16000, level: 0, minLevel: -1500, maxLevel: 1500 },
-        ]);
-        setEqualizerVisible(true);
-        return;
-      }
-      if (!state || !state.bands.length) {
-        Alert.alert("Ecualizador", "No se pudo inicializar el ecualizador para esta pista.");
-        setEqualizerVisible(false);
+        ];
+        equalizerEnabledRef.current = true;
+        equalizerBandsRef.current = fallback;
+        setEqualizerEnabled(true);
+        setEqualizerBands(fallback);
         return;
       }
 
-      setEqualizerEnabled(state.enabled);
-      setEqualizerBands(state.bands.map(band => ({
+      const mapped: EqualizerBand[] = state.bands.map(band => ({
         index: band.index,
         frequency: Number(band.frequency),
         level: Number(band.level),
         minLevel: Number(band.minLevel),
         maxLevel: Number(band.maxLevel),
-      })));
+      }));
+      equalizerEnabledRef.current = state.enabled;
+      equalizerBandsRef.current = mapped;
+      setEqualizerEnabled(state.enabled);
+      setEqualizerBands(mapped);
     } catch (error) {
+      if (!isScreenMountedRef.current || requestId !== equalizerRequestIdRef.current) return;
+
       console.warn("No se pudo cargar el ecualizador:", error);
       Alert.alert("Ecualizador", "No se pudo cargar el ecualizador del reproductor.");
       setEqualizerVisible(false);
     } finally {
-      setEqualizerLoading(false);
+      if (isScreenMountedRef.current && requestId === equalizerRequestIdRef.current) {
+        setEqualizerLoading(false);
+      }
     }
-  };
+  }, [closeTrackMenu]);
 
-  const toggleEqualizer = async () => {
-    const activeSessionId = equalizerSessionId ?? getAudioSessionId() ?? 0;
-    const nextEnabled = !equalizerEnabled;
+  const toggleEqualizer = useCallback(async () => {
+    const nextEnabled = !equalizerEnabledRef.current;
+    equalizerEnabledRef.current = nextEnabled;
     setEqualizerEnabled(nextEnabled);
+    setEqualizerEnabledState(nextEnabled);
+  }, []);
 
-    if (equalizerBands.length) {
-      await setEqualizerState(activeSessionId, nextEnabled, equalizerBands.map(band => Number(band.level)));
-    }
-  };
-
-  const applyPreset = async (presetName: string) => {
-    if (!equalizerBands.length) {
-      return;
-    }
+  const applyPreset = useCallback(async (presetName: string) => {
+    if (!equalizerBandsRef.current.length) return;
 
     const presetLevels = EQUALIZER_PRESETS[presetName] ?? EQUALIZER_PRESETS.Flat;
-    const nextBands = equalizerBands.map((band, index) => {
+    const nextBands = equalizerBandsRef.current.map((band, index) => {
       const min = band.minLevel;
       const max = band.maxLevel;
       const target = presetLevels[index] ?? presetLevels[presetLevels.length - 1] ?? 0;
@@ -384,13 +832,28 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
       };
     });
 
+    equalizerBandsRef.current = nextBands;
     setEqualizerBands(nextBands);
-    await applyEqualizerBands(nextBands, equalizerEnabled);
-  };
+    applyEqualizerBands(nextBands, equalizerEnabledRef.current);
+  }, [applyEqualizerBands]);
 
-  const openRelatedSongs = (type: "album" | "artist") => {
+  const openRelatedSongs = useCallback(async (type: "album" | "artist") => {
     if (!currentSong) return;
     closeTrackMenu();
+
+    let songs = allSongs;
+    if (!songs.length) {
+      try {
+        songs = await getAudioFilesWithPermission();
+        if (isScreenMountedRef.current) setAllSongs(songs);
+      } catch (error) {
+        console.warn("No se pudo cargar la biblioteca relacionada:", error);
+        return;
+      }
+    }
+
+    if (!isScreenMountedRef.current) return;
+
     const target =
       type === "album"
         ? normalizeValue(currentSong.album, UNKNOWN_ALBUM)
@@ -398,41 +861,104 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
     setRelatedSongs({
       title: target,
       type,
-      songs: allSongs.filter(
-        (song) =>
-          normalizeValue(
-            type === "album" ? song.album : song.artist,
-            type === "album" ? UNKNOWN_ALBUM : UNKNOWN_ARTIST,
-          ) === target,
+      songs: songs.filter(song =>
+        normalizeValue(
+          type === "album" ? song.album : song.artist,
+          type === "album" ? UNKNOWN_ALBUM : UNKNOWN_ARTIST,
+        ) === target,
       ),
     });
-  };
+  }, [allSongs, closeTrackMenu, currentSong]);
 
-  const defineSongAs = async (type: ToneType) => {
+  const defineSongAs = useCallback(async (type: ToneType) => {
     if (!currentSong) return;
     setDefineAsVisible(false);
 
     const setAsTone = await setAudioAsTone(currentSong.id, type);
-    if (!setAsTone) {
-      return;
-    }
+    if (!setAsTone) return;
 
     const toneLabel = type === 'ringtone' ? 'tono del dispositivo' : 'tono de alarma';
     Alert.alert('Listo', `“${currentSong.title}” se definió como ${toneLabel}.`);
-  };
+  }, [currentSong]);
 
-  const deleteCurrentSong = async () => {
+  const deleteCurrentSong = useCallback(async () => {
     if (!currentSong) return;
     const deleted = await deleteAudioFile(currentSong.id);
     if (!deleted) return;
     closeTrackMenu();
-    const nextQueue = currentQueue.filter((song) => song.id !== currentSong.id);
+    const nextQueue = currentQueue.filter(song => song.id !== currentSong.id);
     if (nextQueue.length) {
       void playSong(nextQueue, Math.min(currentIndex, nextQueue.length - 1));
       return;
     }
     onBack();
-  };
+  }, [closeTrackMenu, currentIndex, currentQueue, currentSong, onBack, playSong]);
+
+  const lockScreenLocale = useMemo(() => {
+    const locales: Record<string, string> = {
+      es: 'es-ES',
+      en: 'en-US',
+      pt: 'pt-BR',
+      fr: 'fr-FR',
+      it: 'it-IT',
+    };
+
+    return locales[language.id] ?? 'en-US';
+  }, [language.id]);
+
+  const lockScreenDate = useMemo(
+    () =>
+      new Date().toLocaleDateString(lockScreenLocale, {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+      }),
+    [lockScreenLocale],
+  );
+  const lockScreenTime = useMemo(
+    () =>
+      new Date().toLocaleTimeString(lockScreenLocale, {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    [lockScreenLocale],
+  );
+
+  // Stable handlers passed down to memoized children.
+  const handleOpenMiniPlayer = useCallback(() => {
+    setMiniPlayerClosing(false);
+    setMiniPlayerMounted(true);
+    setMiniPlayerVisible(true);
+  }, []);
+  const handleOpenLockScreen = useCallback(() => {
+    setLockScreenClosing(false);
+    setLockScreenMounted(true);
+    setLockScreenVisible(true);
+  }, []);
+  const handleOpenTrackMenu = useCallback(() => {
+    setTrackMenuClosing(false);
+    setTrackMenuMounted(true);
+    setTrackMenuVisible(true);
+  }, []);
+  const handleOpenDefineAs = useCallback(() => {
+    setDefineAsClosing(false);
+    setDefineAsMounted(true);
+    setTrackMenuVisible(false);
+    setDefineAsVisible(true);
+  }, []);
+  const handleOpenQueue = useCallback(() => setQueueVisible(true), []);
+  const handleOpenLyrics = useCallback(() => setLyricsVisible(true), []);
+  const handleToggleShuffle = useCallback(
+    () => setShuffleEnabled(!shuffleEnabled),
+    [shuffleEnabled, setShuffleEnabled],
+  );
+  const handlePrevious = useCallback(() => { void playPrevious(); }, [playPrevious]);
+  const handlePlayPause = useCallback(() => { void togglePlayPause(); }, [togglePlayPause]);
+  const handleNext = useCallback(() => { void playNext(); }, [playNext]);
+  const handleCycleRepeat = useCallback(() => { cyclePlaybackMode(); }, [cyclePlaybackMode]);
+  const handleToggleFavorite = useCallback(() => {
+    if (currentSong) void toggleFavoriteSong(currentSong.id);
+  }, [currentSong, toggleFavoriteSong]);
 
   if (!currentSong) {
     return (
@@ -467,120 +993,6 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
     );
   }
 
-  const playbackDuration = durationSeconds || currentSong.duration / 1000;
-  const displayTime = scrubTime ?? currentTime;
-  const progress = playbackDuration > 0
-    ? Math.min(Math.max(displayTime / playbackDuration, 0), 1)
-    : 0;
-  const elapsed = formatDuration(Math.round(displayTime * 1000));
-  const remaining = formatDuration(
-    Math.round(Math.max(playbackDuration - displayTime, 0) * 1000),
-  );
-
-  const createProgressBarLayoutHandler = (
-    ref: React.RefObject<View | null>,
-    setter: React.Dispatch<React.SetStateAction<{ x: number; width: number }>>,
-  ) => (event: LayoutChangeEvent) => {
-    const { width } = event.nativeEvent.layout;
-    requestAnimationFrame(() => {
-      ref.current?.measureInWindow((x, _y, measuredWidth) => {
-        setter({ x, width: measuredWidth || width });
-      });
-    });
-  };
-
-  const handleMainProgressLayout = createProgressBarLayoutHandler(
-    mainProgressBarRef,
-    setMainProgressBar,
-  );
-  const handleMiniProgressLayout = createProgressBarLayoutHandler(
-    miniProgressBarRef,
-    setMiniProgressBar,
-  );
-  const handleLockProgressLayout = createProgressBarLayoutHandler(
-    lockProgressBarRef,
-    setLockProgressBar,
-  );
-  const handleVolumeLayout = createProgressBarLayoutHandler(
-    volumeBarRef,
-    setVolumeBar,
-  );
-
-  const getProgressTimeFromGesture = (
-    event: GestureResponderEvent,
-    bar: { x: number; width: number },
-  ) => {
-    if (!bar.width || !playbackDuration) return null;
-    const touchX = bar.x
-      ? event.nativeEvent.pageX - bar.x
-      : event.nativeEvent.locationX;
-    const nextProgress = Math.min(Math.max(touchX / bar.width, 0), 1);
-    return nextProgress * playbackDuration;
-  };
-
-  const createProgressScrubHandler = (
-    bar: { x: number; width: number },
-  ) => (event: GestureResponderEvent) => {
-    const nextTime = getProgressTimeFromGesture(event, bar);
-    if (nextTime === null) return;
-    setScrubTime(nextTime);
-  };
-
-  const handleProgressRelease = (event: GestureResponderEvent) => {
-    // Use the last bar that was interacted with, just in case.
-    const bar =
-      miniProgressBar.width ? miniProgressBar
-      : lockProgressBar.width ? lockProgressBar
-      : mainProgressBar;
-
-    const nextTime = getProgressTimeFromGesture(event, bar) ?? scrubTime;
-    setScrubTime(null);
-    if (nextTime === null) return;
-    seekTo(nextTime);
-  };
-
-  const handleVolumeGesture = (event: GestureResponderEvent) => {
-    if (!volumeBar.width) return;
-    const touchX = volumeBar.x
-      ? event.nativeEvent.pageX - volumeBar.x
-      : event.nativeEvent.locationX;
-    const nextVolume = Math.min(Math.max(touchX / volumeBar.width, 0), 1);
-    setVolume(nextVolume);
-  };
-
-  const formatFrequencyLabel = (frequency: number) =>
-    frequency >= 1000 ? `${Math.round(frequency / 1000)}k` : `${Math.round(frequency)}`;
-
-  const lockScreenLocale = useMemo(() => {
-    const locales: Record<string, string> = {
-      es: 'es-ES',
-      en: 'en-US',
-      pt: 'pt-BR',
-      fr: 'fr-FR',
-      it: 'it-IT',
-    };
-
-    return locales[language.id] ?? 'en-US';
-  }, [language.id]);
-
-  const lockScreenDate = useMemo(
-    () =>
-      new Date().toLocaleDateString(lockScreenLocale, {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-      }),
-    [lockScreenLocale],
-  );
-  const lockScreenTime = useMemo(
-    () =>
-      new Date().toLocaleTimeString(lockScreenLocale, {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    [lockScreenLocale],
-  );
-
   return (
     <Modal
       visible
@@ -593,213 +1005,64 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
       <View
         className="flex-1 px-6"
         style={{
-          backgroundColor: "#0a0a0a",
+          backgroundColor: theme.background,
           paddingTop: Math.max(insets.top, 12),
           paddingBottom: Math.max(insets.bottom, 16),
         }}
       >
-        {currentSong.artwork ? (
-          <View
-            pointerEvents="none"
-            style={{
-              position: "absolute",
-              top: 0,
-              right: 0,
-              bottom: 0,
-              left: 0,
-            }}
-          >
-            <Image
-              source={{ uri: currentSong.artwork }}
-              blurRadius={32}
-              resizeMode="cover"
-              style={{
-                position: "absolute",
-                top: -48,
-                right: -48,
-                bottom: -48,
-                left: -48,
-                opacity: 0.3,
-              }}
-            />
-          </View>
-        ) : null}
         <LinearGradient
           pointerEvents="none"
-          colors={[withAlpha(dominantColor, 0.7), withAlpha(dominantColor, 0.28), "#0a0a0a"]}
+          colors={[withAlpha(gradientColors[0], 0.78), withAlpha(gradientColors[1], 0.5), gradientColors[2]]}
           locations={[0, 0.65, 1]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
         />
-        {/* Header */}
-        <View className="flex-row items-center justify-between">
-          <Pressable
-            className="-ml-2 h-10 w-10 items-center justify-center"
-            onPress={onBack}
-          >
-            <BackIcon size={26} color="#f5f5f5" />
-          </Pressable>
-          <View className="-mr-2 flex-row items-center">
-            <Pressable
-              className="h-10 w-10 items-center justify-center"
-              onPress={() => setMiniPlayerVisible(true)}
-            >
-              <ImageIcon size={22} color="#f5f5f5" />
-            </Pressable>
-            <Pressable
-              className="h-10 w-10 items-center justify-center"
-              onPress={() => setLockScreenVisible(true)}
-            >
-              <LockScreenIcon size={22} color="#f5f5f5" />
-            </Pressable>
-            <Pressable
-              className="h-10 w-10 items-center justify-center"
-              onPress={() => setTrackMenuVisible(true)}
-            >
-              <DotsIcon size={24} color="#f5f5f5" />
-            </Pressable>
-          </View>
-        </View>
+        <PlayerHeader
+          onBack={onBack}
+          onOpenMiniPlayer={handleOpenMiniPlayer}
+          onOpenLockScreen={handleOpenLockScreen}
+          onOpenTrackMenu={handleOpenTrackMenu}
+        />
 
         <View className="flex-1 justify-between pt-16 pb-32">
-          {/* Portada */}
-          <View className="aspect-square w-full max-w-[400px] items-center justify-center self-center overflow-hidden rounded-3xl bg-[#2a2a2a]">
-            {currentSong.artwork ? (
-              <Image
-                source={{ uri: currentSong.artwork }}
-                className="h-full w-full"
-                resizeMode="cover"
-              />
-            ) : (
-              <Image
-                source={DEFAULT_MUSIC_ARTWORK}
-                className="h-full w-full"
-                resizeMode="cover"
-              />
-            )}
-          </View>
+          <CoverArt artwork={currentSong.artwork} />
 
-          {/* Info + Barra de progreso */}
           <View>
-            <View className="flex-row items-center">
-              <View className="flex-1 pr-4">
-                <AutoScrollingText className="text-2xl font-bold text-white">
-                  {currentSong.title}
-                </AutoScrollingText>
-                <AutoScrollingText className="mt-1 text-base text-white/60">
-                  {normalizeValue(currentSong.artist, UNKNOWN_ARTIST)}
-                </AutoScrollingText>
-              </View>
-              <View className="flex-row items-center gap-5">
-                <Pressable onPress={() => setQueueVisible(true)}>
-                  <PlaylistIcon size={26} color="#f5f5f5" />
-                </Pressable>
-                <Pressable onPress={() => void toggleFavoriteSong(currentSong.id)}>
-                  {isCurrentSongFavorite ? (
-                    <FavoritedIcon size={26} color="#f5f5f5" />
-                  ) : (
-                    <UnfavoritedIcon size={26} color="#f5f5f5" />
-                  )}
-                </Pressable>
-              </View>
-            </View>
+            <SongInfo
+              title={currentSong.title}
+              artist={normalizeValue(currentSong.artist, UNKNOWN_ARTIST)}
+              isFavorite={isCurrentSongFavorite}
+              onOpenQueue={handleOpenQueue}
+              onToggleFavorite={handleToggleFavorite}
+            />
 
-            {/* Barra de progreso */}
-            <View
-              className="mt-7"
-              onStartShouldSetResponder={() => true}
-              onMoveShouldSetResponder={() => true}
-              onResponderGrant={createProgressScrubHandler(mainProgressBar)}
-              onResponderMove={createProgressScrubHandler(mainProgressBar)}
-              onResponderRelease={handleProgressRelease}
-              onResponderTerminate={handleProgressRelease}
-            >
-              <View className="h-9 justify-center">
-                <View
-                  ref={mainProgressBarRef}
-                  className="relative h-2 justify-center rounded-full"
-                  style={{ backgroundColor: withAlpha(dominantColor, 0.45) }}
-                  onLayout={handleMainProgressLayout}
-                >
-                  <View
-                    pointerEvents="none"
-                    className="h-2 rounded-full bg-white"
-                    style={{ width: `${progress * 100}%` }}
-                  />
-                  <View
-                    pointerEvents="none"
-                    className="absolute h-4 w-4 rounded-full bg-white"
-                    style={{ left: `${progress * 100}%`, transform: [{ translateX: -8 }] }}
-                  />
-                </View>
-              </View>
-              <View className="-mt-1 flex-row items-center justify-between">
-                <Text className="text-xs font-medium text-white/60">{elapsed}</Text>
-                <Text className="text-xs font-medium text-white/60">-{remaining}</Text>
-              </View>
-            </View>
+            <PlaybackProgressBar
+              seekTo={seekTo}
+              barClassName="relative h-2 justify-center rounded-full"
+              thumbClassName="absolute h-4 w-4 rounded-full bg-white"
+            />
           </View>
 
-          {/* Controles */}
-          <View className="flex-row items-center justify-between px-1">
-            <Pressable
-              className="h-12 w-12 items-center justify-center"
-              onPress={() => setShuffleEnabled(!shuffleEnabled)}
-            >
-              <ShuffleIcon
-                size={24}
-                color={shuffleEnabled ? "#ffffff" : "#888888"}
-              />
-            </Pressable>
-            <Pressable
-              className="h-12 w-12 items-center justify-center"
-              onPress={() => void playPrevious()}
-            >
-              <BackwardIcon size={36} color="#f5f5f5" />
-            </Pressable>
-            <Pressable
-              className="h-20 w-20 items-center justify-center"
-              onPress={() => void togglePlayPause()}
-            >
-              <FontAwesome5
-                name={playing ? "pause" : "play"}
-                size={44}
-                color="#f5f5f5"
-                style={{ marginLeft: playing ? 0 : 4 }}
-              />
-            </Pressable>
-            <Pressable
-              className="h-12 w-12 items-center justify-center"
-              onPress={() => void playNext()}
-            >
-              <ForwardIcon size={36} color="#f5f5f5" />
-            </Pressable>
-            <Pressable
-              className="h-12 w-12 items-center justify-center"
-              onPress={cyclePlaybackMode}
-            >
-              <RepeatModeIcon
-                size={24}
-                color={repeatActive ? "#ffffff" : "#888888"}
-              />
-            </Pressable>
-          </View>
-
-          {/* Botón de Letras - centro inferior */}
-          <View className="absolute bottom-0 items-center w-full justify-center">
-            <Pressable
-              className="h-10 w-10 items-center justify-center rounded-full"
-              onPress={() => setLyricsVisible(true)}
-            >
-              <MaterialCommunityIcons name="format-letter-case" size={22} color="#f5f5f5" />
-            </Pressable>
-          </View>
+          <PlaybackControls
+            playing={playing}
+            shuffleEnabled={shuffleEnabled}
+            repeatActive={repeatActive}
+            shuffleColor={adaptiveControlColors.iconColor}
+            inactiveColor={adaptiveControlColors.inactiveColor}
+            repeatIcon={RepeatModeIcon}
+            onToggleShuffle={handleToggleShuffle}
+            onPrevious={handlePrevious}
+            onPlayPause={handlePlayPause}
+            onNext={handleNext}
+            onCycleRepeat={handleCycleRepeat}
+            onOpenLyrics={handleOpenLyrics}
+          />
         </View>
 
         {queueVisible ? (
           <QueuePlaylistModal
-            visible={queueVisible}
+            visible={queueVisible && parentAnimationDone}
             queue={currentQueue}
             currentIndex={currentIndex}
             onClose={() => setQueueVisible(false)}
@@ -810,31 +1073,40 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
           />
         ) : null}
 
-        {trackMenuVisible ? (
-          <Modal transparent visible={trackMenuVisible} animationType="fade" onRequestClose={closeTrackMenu}>
-          <View className="flex-1 justify-end">
-            <Pressable className="absolute inset-0 bg-black/70" onPress={closeTrackMenu} />
-            <View
-              className="rounded-t-[32px] px-6 pb-8 pt-6"
-              style={{ backgroundColor: theme.surface }}
-            >
-              {[
-                [t('track_action_delete', 'Delete'), () => { closeTrackMenu(); setDeleteConfirmVisible(true); }],
-                [t('track_action_share', 'Share'), () => { closeTrackMenu(); void shareAudioFile(currentSong.id); }],
-                [t('track_action_details', 'Track details'), () => { closeTrackMenu(); setDetailsVisible(true); }],
-                [t('player_equalizer', 'Equalizer'), () => { void openEqualizer(); }],
-                [t('track_action_album', 'Album'), () => openRelatedSongs("album")],
-                [t('track_action_artist', 'Artist'), () => openRelatedSongs("artist")],
-                [t('track_action_define_as', 'Set as'), () => { closeTrackMenu(); setDefineAsVisible(true); }],
-                [t('settings', 'Settings'), () => { closeTrackMenu(); setSettingsVisible(true); }],
-              ].map(([label, onPress]) => (
-                <Pressable key={label as string} className="border-b border-white/5 px-2 py-4" onPress={onPress as () => void}>
-                  <Text className="text-base font-bold" style={{ color: theme.text }}>{label as string}</Text>
-                </Pressable>
-              ))}
+        {trackMenuMounted ? (
+          <AppModal
+            transparent
+            visible={(trackMenuVisible || trackMenuClosing) && parentAnimationDone}
+            animationType="fade"
+            onRequestClose={requestCloseTrackMenu}
+            onModalHide={() => {
+              setTrackMenuMounted(false);
+              setTrackMenuClosing(false);
+            }}
+          >
+            <View className="flex-1 justify-end">
+              <Pressable className="absolute inset-0 bg-black/70" onPress={requestCloseTrackMenu} />
+              <View
+                className="rounded-t-[32px] px-6 pb-8 pt-6"
+                style={{ backgroundColor: theme.surface }}
+              >
+                {[
+                  [t('track_action_delete', 'Delete'), () => { requestCloseTrackMenu(); setDeleteConfirmVisible(true); }],
+                  [t('track_action_share', 'Share'), () => { requestCloseTrackMenu(); void shareAudioFile(currentSong.id); }],
+                  [t('track_action_details', 'Track details'), () => { requestCloseTrackMenu(); setDetailsVisible(true); }],
+                  [t('player_equalizer', 'Equalizer'), () => { void openEqualizer(); }],
+                  [t('track_action_album', 'Album'), () => openRelatedSongs("album")],
+                  [t('track_action_artist', 'Artist'), () => openRelatedSongs("artist")],
+                  [t('track_action_define_as', 'Set as'), handleOpenDefineAs],
+                  [t('settings', 'Settings'), () => { requestCloseTrackMenu(); setSettingsVisible(true); }],
+                ].map(([label, onPress]) => (
+                  <Pressable key={label as string} className="border-b border-white/5 px-2 py-4" onPress={onPress as () => void}>
+                    <Text className="text-base font-bold" style={{ color: theme.text }}>{label as string}</Text>
+                  </Pressable>
+                ))}
+              </View>
             </View>
-          </View>
-          </Modal>
+          </AppModal>
         ) : null}
 
         {detailsVisible ? (
@@ -868,481 +1140,418 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
           />
         ) : null}
 
-        {defineAsVisible ? (
-          <Modal transparent visible={defineAsVisible} animationType="fade" onRequestClose={() => setDefineAsVisible(false)}>
-          <View className="flex-1 justify-end">
-            <Pressable className="absolute inset-0 bg-black/70" onPress={() => setDefineAsVisible(false)} />
-            <View
-              className="rounded-t-[32px] px-4 pt-3"
-              style={{
-                backgroundColor: theme.background,
-                borderTopColor: theme.border,
-                borderTopWidth: 1,
-                paddingBottom: Math.max(insets.bottom, 24),
-                shadowColor: '#000',
-                shadowOpacity: 0.22,
-                shadowRadius: 18,
-                shadowOffset: { width: 0, height: -8 },
-                elevation: 12,
-              }}
-            >
-              <View className="mb-4 items-center">
-                <View className="h-1.5 w-12 rounded-full" style={{ backgroundColor: theme.mutedText + '99' }} />
-              </View>
-
-              <View className="mb-4 flex-row items-center justify-between px-1">
-                <View className="flex-1 pr-3">
-                  <Text className="text-2xl font-bold" style={{ color: theme.text }}>
-                    {t('player_define_as_title', 'Set as')}
-                  </Text>
-                  <Text className="mt-1 text-sm" style={{ color: theme.mutedText }} numberOfLines={1}>
-                    {currentSong.title}
-                  </Text>
-                </View>
-                <Pressable
-                  className="rounded-full px-3 py-2"
-                  onPress={() => setDefineAsVisible(false)}
-                >
-                  <Text className="text-sm font-semibold" style={{ color: theme.text }}>
-                    {t('close', 'Close')}
-                  </Text>
-                </Pressable>
-              </View>
-
+        {defineAsMounted ? (
+          <AppModal
+            transparent
+            visible={(defineAsVisible || defineAsClosing) && parentAnimationDone}
+            animationType="fade"
+            onRequestClose={requestCloseDefineAs}
+            onModalHide={() => {
+              setDefineAsMounted(false);
+              setDefineAsClosing(false);
+            }}
+          >
+            <View className="flex-1 justify-end">
+              <Pressable className="absolute inset-0 bg-black/70" onPress={requestCloseDefineAs} />
               <View
-                className="mb-4 flex-row items-center rounded-[24px] px-3 py-3"
+                className="rounded-t-[32px] px-4 pt-3"
+                style={{
+                  backgroundColor: theme.background,
+                  borderTopColor: theme.border,
+                  borderTopWidth: 1,
+                  paddingBottom: Math.max(insets.bottom, 24),
+                  shadowColor: '#000',
+                  shadowOpacity: 0.22,
+                  shadowRadius: 18,
+                  shadowOffset: { width: 0, height: -8 },
+                  elevation: 12,
+                }}
               >
-                {currentSong.artwork ? (
-                  <Image
-                    source={{ uri: currentSong.artwork }}
-                    className="mr-3 h-12 w-12 rounded-xl"
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <View className="mr-3 h-12 w-12 items-center justify-center rounded-xl bg-white/10">
-                    <MaterialCommunityIcons name="music-note" size={22} color={theme.text} />
-                  </View>
-                )}
-                <View className="flex-1">
-                  <Text className="text-sm font-bold" style={{ color: theme.text }} numberOfLines={1}>
-                    {currentSong.title}
-                  </Text>
-                  <Text className="mt-1 text-xs" style={{ color: theme.mutedText }} numberOfLines={1}>
-                    {normalizeValue(currentSong.artist, UNKNOWN_ARTIST)}
-                  </Text>
+                <View className="mb-4 items-center">
+                  <View className="h-1.5 w-12 rounded-full" style={{ backgroundColor: theme.mutedText + '99' }} />
                 </View>
-              </View>
 
-              <View className="gap-2">
-                {[
-                  { label: t('tone_option_ringtone', 'Device tone'), value: 'ringtone' as ToneType, description: t('tone_option_ringtone_desc', 'Use as ringtone') },
-                  { label: t('tone_option_alarm', 'Alarm tone'), value: 'alarm' as ToneType, description: t('tone_option_alarm_desc', 'Use as alarm') },
-                ].map(option => (
-                  <Pressable
-                    key={option.value}
-                    className="rounded-[22px] border px-4 py-4"
-                    style={{ backgroundColor: theme.surface + 'CC', borderColor: theme.border }}
-                    onPress={() => void defineSongAs(option.value)}
-                  >
-                    <Text className="text-base font-bold" style={{ color: theme.text }}>
-                      {option.label}
+                <View className="mb-4 flex-row items-center justify-between px-1">
+                  <View className="flex-1 pr-3">
+                    <Text className="text-2xl font-bold" style={{ color: theme.text }}>
+                      {t('player_define_as_title', 'Set as')}
                     </Text>
-                    <Text className="mt-1 text-sm" style={{ color: theme.mutedText }}>
-                      {option.description}
+                    <Text className="mt-1 text-sm" style={{ color: theme.mutedText }} numberOfLines={1}>
+                      {currentSong.title}
+                    </Text>
+                  </View>
+                  <Pressable
+                    className="rounded-full px-3 py-2"
+                    onPress={requestCloseDefineAs}
+                  >
+                    <Text className="text-sm font-semibold" style={{ color: theme.text }}>
+                      {t('close', 'Close')}
                     </Text>
                   </Pressable>
-                ))}
+                </View>
+
+                <View className="mb-4 flex-row items-center rounded-[24px] px-3 py-3">
+                  {currentSong.artwork ? (
+                    <Image
+                      source={{ uri: currentSong.artwork }}
+                      className="mr-3 h-12 w-12 rounded-xl"
+                      resizeMode="cover"
+                      fadeDuration={0}
+                    />
+                  ) : (
+                    <View className="mr-3 h-12 w-12 items-center justify-center rounded-xl bg-white/10">
+                      <MaterialCommunityIcons name="music-note" size={22} color={theme.text} />
+                    </View>
+                  )}
+                  <View className="flex-1">
+                    <Text className="text-sm font-bold" style={{ color: theme.text }} numberOfLines={1}>
+                      {currentSong.title}
+                    </Text>
+                    <Text className="mt-1 text-xs" style={{ color: theme.mutedText }} numberOfLines={1}>
+                      {normalizeValue(currentSong.artist, UNKNOWN_ARTIST)}
+                    </Text>
+                  </View>
+                </View>
+
+                <View className="gap-2">
+                  {[
+                    { label: t('tone_option_ringtone', 'Device tone'), value: 'ringtone' as ToneType, description: t('tone_option_ringtone_desc', 'Use as ringtone') },
+                    { label: t('tone_option_alarm', 'Alarm tone'), value: 'alarm' as ToneType, description: t('tone_option_alarm_desc', 'Use as alarm') },
+                  ].map(option => (
+                    <Pressable
+                      key={option.value}
+                      className="rounded-[22px] border px-4 py-4"
+                      style={{ backgroundColor: theme.surface + 'CC', borderColor: theme.border }}
+                      onPress={() => void defineSongAs(option.value)}
+                    >
+                      <Text className="text-base font-bold" style={{ color: theme.text }}>
+                        {option.label}
+                      </Text>
+                      <Text className="mt-1 text-sm" style={{ color: theme.mutedText }}>
+                        {option.description}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
             </View>
-          </View>
-          </Modal>
+          </AppModal>
         ) : null}
 
-        {miniPlayerVisible ? (
-          <Modal
+        {miniPlayerMounted ? (
+          <AppModal
             transparent
-            visible={miniPlayerVisible}
+            visible={(miniPlayerVisible || miniPlayerClosing) && parentAnimationDone}
             animationType="fade"
             statusBarTranslucent
             navigationBarTranslucent
-            onRequestClose={() => setMiniPlayerVisible(false)}
+            onRequestClose={requestCloseMiniPlayer}
+            onModalHide={() => {
+              setMiniPlayerMounted(false);
+              setMiniPlayerClosing(false);
+            }}
           >
-          <View className="flex-1 items-center justify-center px-6">
-            <Pressable
-              className="absolute inset-0 bg-black/60"
-              onPress={() => setMiniPlayerVisible(false)}
-            />
-            <View
-              className="w-full max-w-[380px] overflow-hidden rounded-[34px] p-6"
-              style={{
-                backgroundColor: 'rgba(10,10,10,0.82)',
-                borderColor: 'rgba(255,255,255,0.08)',
-                borderWidth: 1,
-                shadowColor: '#000',
-                shadowOpacity: 0.28,
-                shadowOffset: { width: 0, height: 8 },
-                shadowRadius: 18,
-              }}
-            >
+            <View className="flex-1 items-center justify-center px-6">
+              <BlurView
+                pointerEvents="none"
+                intensity={90}
+                tint="dark"
+                style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
+              />
               <LinearGradient
                 pointerEvents="none"
-                colors={[withAlpha(dominantColor, 0.22), 'rgba(0,0,0,0.2)']}
-                style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+                colors={[
+                  withAlpha(gradientColors[0], 0.86),
+                  withAlpha(gradientColors[1], 0.90),
+                  withAlpha(gradientColors[2], 0.94),
+                ]}
+                locations={[0, 0.5, 1]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
               />
-              <View className="aspect-square w-full items-center justify-center overflow-hidden rounded-[24px] bg-[#2a2a2a]">
-                {currentSong.artwork ? (
-                  <Image
-                    source={{ uri: currentSong.artwork }}
-                    className="h-full w-full"
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <Image
-                    source={DEFAULT_MUSIC_ARTWORK}
-                    className="h-full w-full"
-                    resizeMode="cover"
-                  />
-                )}
-              </View>
-
-              <View className="mt-4 flex-row items-center justify-between">
-                <View className="flex-1 pr-3">
-                  <AutoScrollingText className="text-base font-bold text-white">
-                    {currentSong.title}
-                  </AutoScrollingText>
-                  <AutoScrollingText className="mt-1 text-xs text-white/55">
-                    {normalizeValue(currentSong.artist, UNKNOWN_ARTIST)}
-                  </AutoScrollingText>
-                </View>
-                <Pressable onPress={() => void toggleFavoriteSong(currentSong.id)}>
-                  {isCurrentSongFavorite ? (
-                    <FavoritedIcon size={22} color="#f5f5f5" />
-                  ) : (
-                    <UnfavoritedIcon size={22} color="#f5f5f5" />
-                  )}
-                </Pressable>
-              </View>
-
+              <Pressable
+                className="absolute inset-0 bg-black/60"
+                onPress={requestCloseMiniPlayer}
+              />
               <View
-                className="mt-4"
-                onStartShouldSetResponder={() => true}
-                onMoveShouldSetResponder={() => true}
-                onResponderGrant={createProgressScrubHandler(miniProgressBar)}
-                onResponderMove={createProgressScrubHandler(miniProgressBar)}
-                onResponderRelease={handleProgressRelease}
-                onResponderTerminate={handleProgressRelease}
+                className="w-full max-w-[380px] overflow-hidden rounded-[34px] p-6"
+                style={{
+                  backgroundColor: 'rgba(10,10,10,0.58)',
+                  borderColor: 'rgba(255,255,255,0.08)',
+                  borderWidth: 1,
+                  shadowColor: '#000',
+                  shadowOpacity: 0.28,
+                  shadowOffset: { width: 0, height: 8 },
+                  shadowRadius: 18,
+                }}
               >
-                <View className="h-8 justify-center">
-                  <View
-                    ref={miniProgressBarRef}
-                    className="relative h-2 justify-center rounded-full bg-white/20"
-                    onLayout={handleMiniProgressLayout}
-                  >
-                    <View
-                      pointerEvents="none"
-                      className="h-2 rounded-full bg-white"
-                      style={{ width: `${progress * 100}%` }}
-                    />
-                    <View
-                      pointerEvents="none"
-                      className="absolute h-3.5 w-3.5 rounded-full bg-white"
-                      style={{ left: `${progress * 100}%`, transform: [{ translateX: -7 }] }}
-                    />
-                  </View>
-                </View>
-                <View className="-mt-1 flex-row items-center justify-between">
-                  <Text className="text-xs text-white/50">{elapsed}</Text>
-                  <Text className="text-xs text-white/50">-{remaining}</Text>
-                </View>
-              </View>
-
-              <View className="mt-5 flex-row items-center justify-center gap-8">
-                <Pressable onPress={() => void playPrevious()}>
-                  <BackwardIcon size={30} color="#f5f5f5" />
-                </Pressable>
-                <Pressable onPress={() => void togglePlayPause()}>
-                  <Ionicons name={playing ? "pause" : "play"} size={44} color="#f5f5f5" />
-                </Pressable>
-                <Pressable onPress={() => void playNext()}>
-                  <ForwardIcon size={30} color="#f5f5f5" />
-                </Pressable>
-              </View>
-
-              <View className="mt-6 flex-row items-center gap-3">
-                <VolumeLowIcon size={22} color="#f5f5f5" />
-                <View
-                  className="h-8 flex-1 justify-center"
-                  onStartShouldSetResponder={() => true}
-                  onMoveShouldSetResponder={() => true}
-                  onResponderGrant={handleVolumeGesture}
-                  onResponderMove={handleVolumeGesture}
-                >
-                  <View
-                    ref={volumeBarRef}
-                    className="relative h-2 justify-center rounded-full bg-white/20"
-                    onLayout={handleVolumeLayout}
-                  >
-                    <View
-                      pointerEvents="none"
-                      className="h-2 rounded-full bg-white"
-                      style={{ width: `${volume * 100}%` }}
-                    />
-                    <View
-                      pointerEvents="none"
-                      className="absolute h-3.5 w-3.5 rounded-full bg-white"
-                      style={{ left: `${volume * 100}%`, transform: [{ translateX: -7 }] }}
-                    />
-                  </View>
-                </View>
-                <VolumeHighIcon size={22} color="#f5f5f5" />
-              </View>
-            </View>
-          </View>
-          </Modal>
-        ) : null}
-        
-        {lockScreenVisible ? (
-          <Modal
-            transparent
-            visible={lockScreenVisible}
-            animationType="fade"
-            statusBarTranslucent
-            navigationBarTranslucent
-            onRequestClose={() => setLockScreenVisible(false)}
-          >
-          <View
-            className="flex-1 px-6 pt-20"
-          >
-            <LinearGradient
-              pointerEvents="none"
-              colors={[dominantColor, withAlpha(dominantColor, 1), "#000000"]}
-              locations={[0, 0.5, 1]}
-              style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
-            />
-
-            <View className="items-center">
-              <Text
-                className="text-3xl capitalize text-white/70"
-                style={{ fontFamily: LOCK_DATE_FONT }}
-              >
-                {lockScreenDate}
-              </Text>
-              <Text
-                className="mt-1 text-6xl font-black tracking-[-2px] text-white"
-              >
-                {lockScreenTime}
-              </Text>
-            </View>
-
-            <View className="mt-10 aspect-square w-full items-center justify-center overflow-hidden rounded-[14px] bg-[#2a2a2a]">
-              {currentSong.artwork ? (
-                <Image
-                  source={{ uri: currentSong.artwork }}
-                  className="h-full w-full"
-                  resizeMode="cover"
+                <BlurView
+                  pointerEvents="none"
+                  intensity={65}
+                  tint="dark"
+                  style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
                 />
-              ) : (
-                <Image
-                  source={DEFAULT_MUSIC_ARTWORK}
-                  className="h-full w-full"
-                  resizeMode="cover"
+                <LinearGradient
+                  pointerEvents="none"
+                  colors={[withAlpha(dominantColor, 0.22), 'rgba(0,0,0,0.2)']}
+                  style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
                 />
-              )}
-            </View>
-
-            <View className="mt-14 rounded-[32px] border border-white/10 bg-white/10 px-5 py-5">
-              <View className="flex-row items-center justify-between">
-                <View className="flex-1 pr-4">
-                  <AutoScrollingText className="text-lg font-bold text-white">
-                    {currentSong.title}
-                  </AutoScrollingText>
-                  <AutoScrollingText className="mt-1 text-sm text-white/60">
-                    {normalizeValue(currentSong.artist, UNKNOWN_ARTIST)}
-                  </AutoScrollingText>
+                <View className="aspect-square w-full items-center justify-center overflow-hidden rounded-[24px] bg-[#2a2a2a]">
+                  {currentSong.artwork ? (
+                    <Image
+                      source={{ uri: currentSong.artwork }}
+                      className="h-full w-full"
+                      resizeMode="cover"
+                      fadeDuration={0}
+                      progressiveRenderingEnabled
+                    />
+                  ) : (
+                    <Image source={DEFAULT_MUSIC_ARTWORK} className="h-full w-full" resizeMode="cover" fadeDuration={0} />
+                  )}
                 </View>
-                <View className="flex-row items-center gap-5">
-                  <AudioWaveBars playing={playing} color="#f5f5f5" size="md" />
-                  <Pressable onPress={() => void toggleFavoriteSong(currentSong.id)}>
+
+                <View className="mt-4 flex-row items-center justify-between">
+                  <View className="flex-1 pr-3">
+                    <AutoScrollingText className="text-base font-bold text-white">
+                      {currentSong.title}
+                    </AutoScrollingText>
+                    <AutoScrollingText className="mt-1 text-xs text-white/55">
+                      {normalizeValue(currentSong.artist, UNKNOWN_ARTIST)}
+                    </AutoScrollingText>
+                  </View>
+                  <Pressable onPress={handleToggleFavorite}>
                     {isCurrentSongFavorite ? (
-                      <FavoritedIcon size={24} color="#f5f5f5" />
+                      <FavoritedIcon size={22} color="#f5f5f5" />
                     ) : (
-                      <UnfavoritedIcon size={24} color="#f5f5f5" />
+                      <UnfavoritedIcon size={22} color="#f5f5f5" />
                     )}
                   </Pressable>
                 </View>
-              </View>
 
-              <View
-                className="mt-5"
-                onStartShouldSetResponder={() => true}
-                onMoveShouldSetResponder={() => true}
-                onResponderGrant={createProgressScrubHandler(lockProgressBar)}
-                onResponderMove={createProgressScrubHandler(lockProgressBar)}
-                onResponderRelease={handleProgressRelease}
-                onResponderTerminate={handleProgressRelease}
-              >
-                <View className="h-8 justify-center">
-                  <View
-                    ref={lockProgressBarRef}
-                    className="relative h-2 justify-center rounded-full bg-white/25"
-                    onLayout={handleLockProgressLayout}
-                  >
-                    <View
-                      pointerEvents="none"
-                      className="h-2 rounded-full bg-white"
-                      style={{ width: `${progress * 100}%` }}
-                    />
-                    <View
-                      pointerEvents="none"
-                      className="absolute h-4 w-4 rounded-full bg-white"
-                      style={{ left: `${progress * 100}%`, transform: [{ translateX: -8 }] }}
-                    />
-                  </View>
-                </View>
-                <View className="-mt-1 flex-row items-center justify-between">
-                  <Text className="text-xs text-white/60">{elapsed}</Text>
-                  <Text className="text-xs text-white/60">-{remaining}</Text>
-                </View>
-              </View>
+                <PlaybackProgressBar
+                  seekTo={seekTo}
+                  containerClassName="mt-4"
+                  trackBackgroundColor="rgba(255,255,255,0.2)"
+                  barClassName="relative h-2 justify-center rounded-full bg-white/20"
+                  thumbClassName="absolute h-3.5 w-3.5 rounded-full bg-white"
+                  thumbOffset={-7}
+                />
 
-              <View className="mt-5 flex-row items-center justify-center gap-9">
-                <Pressable onPress={() => void playPrevious()}>
-                  <Ionicons name="play-skip-back" size={32} color="#f5f5f5" />
-                </Pressable>
-                <Pressable onPress={() => void togglePlayPause()}>
-                  <Ionicons name={playing ? "pause" : "play"} size={42} color="#f5f5f5" />
-                </Pressable>
-                <Pressable onPress={() => void playNext()}>
-                  <Ionicons name="play-skip-forward" size={32} color="#f5f5f5" />
-                </Pressable>
+                <View className="mt-5 flex-row items-center justify-center gap-8">
+                  <Pressable onPress={handlePrevious}>
+                    <BackwardIcon size={30} color="#f5f5f5" />
+                  </Pressable>
+                  <Pressable onPress={handlePlayPause}>
+                    <Ionicons name={playing ? "pause" : "play"} size={44} color="#f5f5f5" />
+                  </Pressable>
+                  <Pressable onPress={handleNext}>
+                    <ForwardIcon size={30} color="#f5f5f5" />
+                  </Pressable>
+                </View>
+
+                <VolumeSlider setVolume={setVolume} />
               </View>
             </View>
-          </View>
-          </Modal>
+          </AppModal>
         ) : null}
 
-        {equalizerVisible ? (
-          <Modal transparent visible={equalizerVisible} animationType="fade" onRequestClose={() => setEqualizerVisible(false)}>
-          <View className="flex-1 justify-end">
-            <Pressable className="absolute inset-0 bg-black/70" onPress={() => setEqualizerVisible(false)} />
-            <View
-              className="rounded-t-[32px] px-4 pb-8 pt-4"
-              style={{
-                backgroundColor: theme.background,
-                borderTopColor: theme.border,
-                borderTopWidth: 1,
-                paddingBottom: Math.max(insets.bottom, 24),
-              }}
-            >
-              <View className="mb-4 items-center">
-                <View className="h-1.5 w-12 rounded-full" style={{ backgroundColor: theme.mutedText + "99" }} />
+        {lockScreenMounted ? (
+          <AppModal
+            transparent
+            visible={(lockScreenVisible || lockScreenClosing) && parentAnimationDone}
+            animationType="fade"
+            statusBarTranslucent
+            navigationBarTranslucent
+            onRequestClose={requestCloseLockScreen}
+            onModalHide={() => {
+              setLockScreenMounted(false);
+              setLockScreenClosing(false);
+            }}
+          >
+            <View className="flex-1 px-6 pt-20">
+              <LinearGradient
+                pointerEvents="none"
+                colors={[gradientColors[0], gradientColors[1], gradientColors[2]]}
+                locations={[0, 0.5, 1]}
+                style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+              />
+
+              <View className="items-center">
+                <Text
+                  className="text-3xl capitalize text-white/70"
+                  style={{ fontFamily: LOCK_DATE_FONT }}
+                >
+                  {lockScreenDate}
+                </Text>
+                <Text className="mt-1 text-6xl font-black tracking-[-2px] text-white">
+                  {lockScreenTime}
+                </Text>
               </View>
 
-              <View className="mb-4 flex-row items-center justify-between">
-                <Text className="text-2xl font-bold" style={{ color: theme.text }}>
-                  {t('player_equalizer', 'Equalizer')}
-                </Text>
-                <Pressable
-                  className="rounded-full px-3 py-2"
-                  onPress={() => setEqualizerVisible(false)}
-                >
-                  <Text className="text-sm font-semibold" style={{ color: theme.text }}>
-                    {t('close', 'Close')}
-                  </Text>
-                </Pressable>
-              </View>
-
-              <View className="mb-4 flex-row items-center justify-between rounded-full border px-3 py-2" style={{ backgroundColor: theme.surface, borderColor: theme.border }}>
-                <Text className="text-sm font-semibold" style={{ color: theme.text }}>
-                  {t('player_equalizer_enabled', 'Enabled')}
-                </Text>
-                <Pressable
-                  onPress={() => { void toggleEqualizer(); }}
-                  className="h-8 w-14 items-center justify-center rounded-full px-1"
-                  style={{ backgroundColor: equalizerEnabled ? theme.background : theme.mutedText }}
-                >
-                  <View
-                    className="h-6 w-6 rounded-full"
-                    style={{
-                      backgroundColor: equalizerEnabled ? theme.accent : theme.mutedText,
-                      alignSelf: equalizerEnabled ? 'flex-end' : 'flex-start',
-                      marginHorizontal: 2,
-                    }}
+              <View className="mt-10 aspect-square w-full items-center justify-center overflow-hidden rounded-[14px] bg-[#2a2a2a]">
+                {currentSong.artwork ? (
+                  <Image
+                    source={{ uri: currentSong.artwork }}
+                    className="h-full w-full"
+                    resizeMode="cover"
+                    fadeDuration={0}
+                    progressiveRenderingEnabled
                   />
-                </Pressable>
+                ) : (
+                  <Image source={DEFAULT_MUSIC_ARTWORK} className="h-full w-full" resizeMode="cover" fadeDuration={0} />
+                )}
               </View>
 
-              <View className="mb-5 flex-row flex-wrap justify-center gap-2">
-                {Object.keys(EQUALIZER_PRESETS).map((presetName) => (
+              <View className="mt-14 rounded-[32px] border border-white/10 bg-white/10 px-5 py-5">
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-1 pr-4">
+                    <AutoScrollingText className="text-lg font-bold text-white">
+                      {currentSong.title}
+                    </AutoScrollingText>
+                    <AutoScrollingText className="mt-1 text-sm text-white/60">
+                      {normalizeValue(currentSong.artist, UNKNOWN_ARTIST)}
+                    </AutoScrollingText>
+                  </View>
+                  <View className="flex-row items-center gap-5">
+                    <AudioWaveBars playing={playing} color="#f5f5f5" size="md" />
+                    <Pressable onPress={handleToggleFavorite}>
+                      {isCurrentSongFavorite ? (
+                        <FavoritedIcon size={24} color="#f5f5f5" />
+                      ) : (
+                        <UnfavoritedIcon size={24} color="#f5f5f5" />
+                      )}
+                    </Pressable>
+                  </View>
+                </View>
+
+                <PlaybackProgressBar
+                  seekTo={seekTo}
+                  containerClassName="mt-5"
+                  trackBackgroundColor="rgba(255,255,255,0.25)"
+                  barClassName="relative h-2 justify-center rounded-full bg-white/25"
+                  thumbClassName="absolute h-4 w-4 rounded-full bg-white"
+                />
+
+                <View className="mt-5 flex-row items-center justify-center gap-9">
+                  <Pressable onPress={handlePrevious}>
+                    <Ionicons name="play-skip-back" size={32} color="#f5f5f5" />
+                  </Pressable>
+                  <Pressable onPress={handlePlayPause}>
+                    <Ionicons name={playing ? "pause" : "play"} size={42} color="#f5f5f5" />
+                  </Pressable>
+                  <Pressable onPress={handleNext}>
+                    <Ionicons name="play-skip-forward" size={32} color="#f5f5f5" />
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          </AppModal>
+        ) : null}
+
+        {equalizerMounted ? (
+          <AppModal
+            transparent
+            visible={(equalizerVisible || equalizerClosing) && parentAnimationDone}
+            animationType="fade"
+            onRequestClose={requestCloseEqualizer}
+            onModalHide={() => {
+              setEqualizerMounted(false);
+              setEqualizerClosing(false);
+            }}
+          >
+            <View className="flex-1 justify-end">
+              <Pressable className="absolute inset-0 bg-black/70" onPress={() => setEqualizerVisible(false)} />
+              <View
+                className="rounded-t-[32px] px-4 pb-8 pt-4"
+                style={{
+                  backgroundColor: theme.background,
+                  borderTopColor: theme.border,
+                  borderTopWidth: 1,
+                  paddingBottom: Math.max(insets.bottom, 24),
+                }}
+              >
+                <View className="mb-4 items-center">
+                  <View className="h-1.5 w-12 rounded-full" style={{ backgroundColor: theme.mutedText + "99" }} />
+                </View>
+
+                <View className="mb-4 flex-row items-center justify-between">
+                  <Text className="text-2xl font-bold" style={{ color: theme.text }}>
+                    {t('player_equalizer', 'Equalizer')}
+                  </Text>
                   <Pressable
-                    key={presetName}
-                    onPress={() => { void applyPreset(presetName); }}
                     className="rounded-full px-3 py-2"
-                    style={{
-                      backgroundColor: theme.surface,
-                      borderWidth: 1,
-                      borderColor: theme.border,
-                      minWidth: 74,
-                    }}
+                    onPress={() => setEqualizerVisible(false)}
                   >
-                    <Text className="text-xs font-bold text-center uppercase tracking-[0.12em]" style={{ color: theme.text }}>
-                      {equalizerPresetLabels[presetName] ?? presetName}
+                    <Text className="text-sm font-semibold" style={{ color: theme.text }}>
+                      {t('close', 'Close')}
                     </Text>
                   </Pressable>
-                ))}
-              </View>
-
-              {equalizerLoading ? (
-                <Text className="py-6 text-center text-sm" style={{ color: theme.mutedText }}>
-                  {t('player_equalizer_loading', 'Loading equalizer…')}
-                </Text>
-              ) : equalizerBands.length ? (
-                <View className="flex-row items-end justify-between gap-1.5">
-                  {equalizerBands.map((band, index) => {
-                    const handleSliderChange = async (nextLevel: number) => {
-                      const clampedLevel = Math.max(band.minLevel, Math.min(band.maxLevel, nextLevel));
-
-                      setEqualizerBands((currentBands) => {
-                        const nextBands = currentBands.map((item) =>
-                          item.index === band.index
-                            ? { ...item, level: clampedLevel }
-                            : item
-                        );
-
-                        void applyEqualizerBands(nextBands, equalizerEnabled);
-                        return nextBands;
-                      });
-                    };
-
-                    return (
-                      <View key={band.index} className="items-center" style={{ width: `${100 / Math.min(equalizerBands.length || 1, 7)}%` }}>
-                        <Text className="mb-2 text-[10px] font-bold" style={{ color: theme.mutedText }}>
-                          {formatFrequencyLabel(band.frequency)}
-                        </Text>
-
-                        <VerticalEqualizerSlider
-                          band={band}
-                          activeColor={theme.accent}
-                          onChange={(nextLevel) => {
-                            void handleSliderChange(nextLevel);
-                          }}
-                        />
-
-                        <Text className="mt-2 text-[10px] font-bold" style={{ color: theme.text }}>
-                          {band.level} dB
-                        </Text>
-                      </View>
-                    );
-                  })}
                 </View>
-              ) : (
-                <Text className="py-6 text-center text-sm" style={{ color: theme.mutedText }}>
-                  {t('player_equalizer_no_bands', 'No bands available for this audio.')}
-                </Text>
-              )}
+
+                <View className="mb-4 flex-row items-center justify-between rounded-full border px-3 py-2" style={{ backgroundColor: theme.surface, borderColor: theme.border }}>
+                  <Text className="text-sm font-semibold" style={{ color: theme.text }}>
+                    {t('player_equalizer_enabled', 'Enabled')}
+                  </Text>
+                  <Pressable
+                    onPress={() => { void toggleEqualizer(); }}
+                    className="h-8 w-14 items-center justify-center rounded-full px-1"
+                    style={{ backgroundColor: theme.surface }}
+                  >
+                    <View
+                      className="h-6 w-6 rounded-full"
+                      style={{
+                        backgroundColor: equalizerEnabled ? theme.accent : theme.mutedText,
+                        alignSelf: equalizerEnabled ? 'flex-end' : 'flex-start',
+                        marginHorizontal: 2,
+                      }}
+                    />
+                  </Pressable>
+                </View>
+
+                <View className="mb-5 flex-row flex-wrap justify-center gap-2">
+                  {Object.keys(EQUALIZER_PRESETS).map(presetName => (
+                    <Pressable
+                      key={presetName}
+                      onPress={() => { void applyPreset(presetName); }}
+                      className="rounded-full px-3 py-2"
+                      style={{
+                        backgroundColor: theme.surface,
+                        borderWidth: 1,
+                        borderColor: theme.border,
+                        minWidth: 74,
+                      }}
+                    >
+                      <Text className="text-xs font-bold text-center uppercase tracking-[0.12em]" style={{ color: theme.text }}>
+                        {equalizerPresetLabels[presetName] ?? presetName}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+
+                {equalizerLoading ? (
+                  <Text className="py-6 text-center text-sm" style={{ color: theme.mutedText }}>
+                    {t('player_equalizer_loading', 'Loading equalizer…')}
+                  </Text>
+                ) : equalizerBands.length ? (
+                  <View className="flex-row items-end justify-between gap-1.5">
+                    {equalizerBands.map(band => (
+                      <EqualizerBandControl
+                        key={band.index}
+                        band={band}
+                        activeColor={theme.accent}
+                        onChange={handleEqualizerBandChange}
+                      />
+                    ))}
+                  </View>
+                ) : (
+                  <Text className="py-6 text-center text-sm" style={{ color: theme.mutedText }}>
+                    {t('player_equalizer_no_bands', 'No bands available for this audio.')}
+                  </Text>
+                )}
+              </View>
             </View>
-          </View>
-          </Modal>
+          </AppModal>
         ) : null}
 
         {relatedSongs ? (
@@ -1372,7 +1581,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
           />
         ) : null}
       </View>
-    </Modal>
+      </Modal>
   );
 };
 

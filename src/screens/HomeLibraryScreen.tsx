@@ -17,7 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { deleteAudioFile, getAudioFiles, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
 import { musicPlayer, useMusicPlayer } from '../audio/musicPlayer';
-import { useAppSettings } from '../settings/appSettings';
+import { useAppSettingsHiddenSongIds, useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import { getTranslation, useTranslation } from '../i18n/translations';
 import AddSongToPlaylistModal from '../components/AddSongToPlaylistModal';
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
@@ -131,7 +131,8 @@ const buildGroups = (songs: Song[], mode: LibraryGroupMode, t: (key: string, fal
 };
 
 const HomeSectionHeader = ({ title, onPress, onPressLabel }: { title: string; onPress?: () => void; onPressLabel?: string; }) => {
-  const { theme, language } = useAppSettings();
+  const theme = useAppSettingsTheme();
+  const language = useAppSettingsLanguage();
   const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
 
   return (
@@ -143,7 +144,9 @@ const HomeSectionHeader = ({ title, onPress, onPressLabel }: { title: string; on
           onPress={onPress}
           accessibilityLabel={`${onPressLabel ?? t('view_all', 'View All')}: ${title}`}
         >
-          <Text style={{ color: theme.accent, fontSize: 16 }}>{onPressLabel ?? t('view_all', 'View All')}</Text>
+          <Text className="text-sm font-semibold uppercase tracking-[0.12em]" style={{ color: theme.mutedText }}>
+            {onPressLabel ?? t('view_all', 'View All')}
+          </Text>
         </Pressable>
       ) : null}
     </View>
@@ -172,9 +175,13 @@ const HomeLibraryScreen = () => {
   const [defineAsSong, setDefineAsSong] = useState<Song | null>(null);
   const [detailsSong, setDetailsSong] = useState<Song | null>(null);
   const [bulkDeleteVisible, setBulkDeleteVisible] = useState(false);
+  const [singleDeleteVisible, setSingleDeleteVisible] = useState(false);
+  const [pendingDeleteSong, setPendingDeleteSong] = useState<Song | null>(null);
   const [selectedSongIds, setSelectedSongIds] = useState<string[]>([]);
   const groupModalTranslateY = useRef(new Animated.Value(1)).current;
-  const { theme, language } = useAppSettings();
+  const theme = useAppSettingsTheme();
+  const language = useAppSettingsLanguage();
+  const hiddenSongIds = useAppSettingsHiddenSongIds();
   const translationHelper = useTranslation(language.id);
   const t = useCallback(
     (key: string, fallback?: string) => translationHelper.t(key, fallback),
@@ -207,7 +214,7 @@ const HomeLibraryScreen = () => {
   // Load music on mount
   useEffect(() => {
     void requestPermissionsAndLoadMusic();
-  }, []);
+  }, [requestPermissionsAndLoadMusic, hiddenSongIds]);
 
   useFocusEffect(
     useCallback(() => {
@@ -696,6 +703,10 @@ const HomeLibraryScreen = () => {
           closeTrackMenu();
           setDefineAsSong(song);
         }}
+        onRequestDelete={song => {
+          setPendingDeleteSong(song);
+          setSingleDeleteVisible(true);
+        }}
       />
 
       <AddSongToPlaylistModal
@@ -747,6 +758,27 @@ const HomeLibraryScreen = () => {
           .replace('%label%', selectedSongIds.length === 1 ? t('delete_song_single', 'song') : t('delete_song_plural', 'songs'))}
         onClose={() => setBulkDeleteVisible(false)}
         onConfirm={performBulkDelete}
+      />
+
+      <ConfirmDeleteModal
+        visible={singleDeleteVisible && Boolean(pendingDeleteSong)}
+        title={t('delete_song_title', 'Delete song')}
+        message={t('delete_song_message', 'Do you want to delete %count% %label%? This action cannot be undone.').replace('%count%', '1').replace('%label%', t('delete_song_single', 'song'))}
+        itemName={pendingDeleteSong?.title}
+        artwork={pendingDeleteSong?.artwork ?? null}
+        accent="white"
+        onClose={() => {
+          setSingleDeleteVisible(false);
+          setPendingDeleteSong(null);
+        }}
+        onConfirm={() => {
+          const songToDelete = pendingDeleteSong;
+          setSingleDeleteVisible(false);
+          setPendingDeleteSong(null);
+          if (songToDelete) {
+            deleteTrack(songToDelete);
+          }
+        }}
       />
     </View>
   );

@@ -16,7 +16,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { deleteAudioFile, getAudioFiles, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
 import { useMusicPlayer } from '../audio/musicPlayer';
-import { useAppSettings } from '../settings/appSettings';
+import { useAppSettingsHiddenSongIds, useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import { getTranslation } from '../i18n/translations';
 import AddSongToPlaylistModal from '../components/AddSongToPlaylistModal';
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
@@ -169,11 +169,15 @@ const GroupedLibraryScreen = ({ mode, title }: GroupedLibraryScreenProps) => {
   const [defineAsSong, setDefineAsSong] = useState<Song | null>(null);
   const [detailsSong, setDetailsSong] = useState<Song | null>(null);
   const [bulkDeleteVisible, setBulkDeleteVisible] = useState(false);
+  const [singleDeleteVisible, setSingleDeleteVisible] = useState(false);
+  const [pendingDeleteSong, setPendingDeleteSong] = useState<Song | null>(null);
   const [selectedSongIds, setSelectedSongIds] = useState<string[]>([]);
   const [trackSort, setTrackSort] = useState<TrackSortOption>('name');
   const [trackSortDirection, setTrackSortDirection] = useState<TrackSortDirection>('asc');
   const groupModalTranslateY = useRef(new Animated.Value(1)).current;
-  const { theme, language } = useAppSettings();
+  const theme = useAppSettingsTheme();
+  const language = useAppSettingsLanguage();
+  const hiddenSongIds = useAppSettingsHiddenSongIds();
   const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const { currentSong, playing, playSong, togglePlayPause, setSelectionModeActive } = useMusicPlayer();
 
@@ -194,7 +198,7 @@ const GroupedLibraryScreen = ({ mode, title }: GroupedLibraryScreenProps) => {
 
   useEffect(() => {
     void requestPermissionsAndLoadMusic();
-  }, [requestPermissionsAndLoadMusic]);
+  }, [requestPermissionsAndLoadMusic, hiddenSongIds]);
 
   useEffect(() => {
     let mounted = true;
@@ -468,6 +472,28 @@ const GroupedLibraryScreen = ({ mode, title }: GroupedLibraryScreenProps) => {
     return <TopNavCarpetas {...props} />;
   };
 
+  const renderGroupItem = useCallback(({ item, index }: { item: Song; index: number }) => {
+    const isSelected = selectedSongIds.includes(item.id);
+
+    const onPress = () => (isSelectionMode ? toggleSelectedSong(item) : playFromList(selectedGroup!.songs, index));
+    const onLongPress = () => startSongSelection(item);
+
+    return (
+      <SongListItem
+        item={item}
+        isActive={currentSong?.id === item.id}
+        isPlaying={currentSong?.id === item.id && playing}
+        isSelected={isSelected}
+        onPress={onPress}
+        onLongPress={onLongPress}
+        onTogglePlayPause={togglePlayPause}
+        showDuration={false}
+        showSelectionIndicator={isSelectionMode}
+        onOpenTrackMenu={isSelectionMode ? undefined : openTrackMenu}
+      />
+    );
+  }, [currentSong, isSelectionMode, openTrackMenu, playing, playFromList, selectedGroup, selectedSongIds, startSongSelection, togglePlayPause, toggleSelectedSong]);
+
   const selectedGroupModal = (
     <LibraryGroupDetailModal
       visible={groupModalVisible}
@@ -477,24 +503,7 @@ const GroupedLibraryScreen = ({ mode, title }: GroupedLibraryScreenProps) => {
       contentBottomPadding={isSelectionMode ? SELECTION_BAR_BOTTOM_INSET : MINI_PLAYER_BOTTOM_INSET}
       onClose={closeSelectedGroup}
       onPlayAll={selectedGroup ? () => playFromList(selectedGroup.songs, 0) : undefined}
-      renderItem={({ item, index }) => {
-        const isSelected = selectedSongIds.includes(item.id);
-
-        return (
-          <SongListItem
-            item={item}
-            isActive={currentSong?.id === item.id}
-            isPlaying={currentSong?.id === item.id && playing}
-            isSelected={isSelected}
-            onPress={() => isSelectionMode ? toggleSelectedSong(item) : playFromList(selectedGroup!.songs, index)}
-            onLongPress={() => startSongSelection(item)}
-            onTogglePlayPause={togglePlayPause}
-            showDuration={false}
-            showSelectionIndicator={isSelectionMode}
-            onOpenTrackMenu={isSelectionMode ? undefined : openTrackMenu}
-          />
-        );
-      }}
+      renderItem={renderGroupItem}
     >
       <SelectedSongsActionBar
         visible={isSelectionMode}
@@ -520,8 +529,8 @@ const GroupedLibraryScreen = ({ mode, title }: GroupedLibraryScreenProps) => {
         <Text className="text-center text-base" style={{ color: theme.mutedText }}>
           {t('permission_required_music', 'Music permissions are required to read your library.')}
         </Text>
-        <Pressable 
-          className="mt-4 rounded-full px-6 py-2" 
+        <Pressable
+          className="mt-4 rounded-full px-6 py-2"
           style={{ backgroundColor: theme.surface }}
           onPress={() => void requestPermissionsAndLoadMusic()}
         >
@@ -582,6 +591,10 @@ const GroupedLibraryScreen = ({ mode, title }: GroupedLibraryScreenProps) => {
           closeTrackMenu();
           setDefineAsSong(song);
         }}
+        onRequestDelete={song => {
+          setPendingDeleteSong(song);
+          setSingleDeleteVisible(true);
+        }}
       />
 
       <AddSongToPlaylistModal
@@ -635,6 +648,27 @@ const GroupedLibraryScreen = ({ mode, title }: GroupedLibraryScreenProps) => {
           .replace('%label%', selectedSongIds.length === 1 ? t('delete_song_single', 'song') : t('delete_song_plural', 'songs'))}
         onClose={() => setBulkDeleteVisible(false)}
         onConfirm={performBulkDelete}
+      />
+
+      <ConfirmDeleteModal
+        visible={singleDeleteVisible && Boolean(pendingDeleteSong)}
+        title={t('delete_song_title', 'Delete song')}
+        message={t('delete_song_message', 'Do you want to delete %count% %label%? This action cannot be undone.').replace('%count%', '1').replace('%label%', t('delete_song_single', 'song'))}
+        itemName={pendingDeleteSong?.title}
+        artwork={pendingDeleteSong?.artwork ?? null}
+        accent="white"
+        onClose={() => {
+          setSingleDeleteVisible(false);
+          setPendingDeleteSong(null);
+        }}
+        onConfirm={() => {
+          const songToDelete = pendingDeleteSong;
+          setSingleDeleteVisible(false);
+          setPendingDeleteSong(null);
+          if (songToDelete) {
+            deleteTrack(songToDelete);
+          }
+        }}
       />
 
       {selectedGroupModal}

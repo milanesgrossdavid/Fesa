@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
@@ -19,7 +19,6 @@ import {
   APP_LANGUAGES,
   APP_THEMES,
   DEFAULT_TABS,
-  getHiddenSongIds,
   reorderTabs,
   setLanguageId,
   setLockScreenControlsEnabled,
@@ -30,13 +29,21 @@ import {
   TabId,
   TabPreference,
   toggleHiddenSongId,
-  useAppSettings,
+  useAppSettingsHiddenSongIds,
+  useAppSettingsLanguage,
+  useAppSettingsLockScreenControls,
+  useAppSettingsPlaybackRate,
+  useAppSettingsSleepTimerEndsAt,
+  useAppSettingsTabs,
+  useAppSettingsTermsAccepted,
+  useAppSettingsTheme,
 } from '../settings/appSettings';
 import { CheckIcon } from '../Icons';
 import { getTranslation } from '../i18n/translations';
 import HideMusicModal from './HideMusicModal';
 import PrivacyPolicyModal from './PrivacyPolicyModal';
 import OpenSourceLicensesModal from './OpenSourceLicensesModal';
+import AppModal from './AppModal';
 
 interface AppSettingsModalProps {
   visible: boolean;
@@ -426,6 +433,7 @@ const OptionSheet = ({
   textColor,
   mutedColor,
   onClose,
+  onHidden,
   children,
 }: {
   visible: boolean;
@@ -436,9 +444,16 @@ const OptionSheet = ({
   textColor: string;
   mutedColor: string;
   onClose: () => void;
+  onHidden?: () => void;
   children: React.ReactNode;
 }) => (
-  <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
+  <AppModal
+    transparent
+    visible={visible}
+    animationType="slide"
+    onRequestClose={onClose}
+    onModalHide={onHidden}
+  >
     <View className="flex-1 justify-end">
       <Pressable className="absolute inset-0 bg-black/70" onPress={onClose} />
       <View className="rounded-t-[32px] px-5 pb-8 pt-3" style={{ backgroundColor: background }}>
@@ -456,7 +471,7 @@ const OptionSheet = ({
         </View>
       </View>
     </View>
-  </Modal>
+  </AppModal>
 );
 
 const DraggableTabsList = ({
@@ -518,13 +533,15 @@ const DraggableTabsList = ({
     return next;
   };
 
-  const handleResponders = useMemo(() => {
-    const responders = new Map<TabId, ReturnType<typeof PanResponder.create>>();
-
+  // Build the PanResponder for each tab ONCE (they read live state from refs).
+  // Holding the responders in a ref instead of a `useMemo` means dragging
+  // never causes a re-render of every tab row.
+  const handleRespondersRef = useRef<Map<TabId, ReturnType<typeof PanResponder.create>>>(new Map());
+  if (handleRespondersRef.current.size === 0) {
     for (const defaultTab of DEFAULT_TABS) {
       const tabId = defaultTab.id;
 
-      responders.set(
+      handleRespondersRef.current.set(
         tabId,
         PanResponder.create({
           onStartShouldSetPanResponder: () => true,
@@ -569,9 +586,9 @@ const DraggableTabsList = ({
         })
       );
     }
+  }
 
-    return responders;
-  }, [dragOffset]);
+  const handleResponders = handleRespondersRef.current;
 
   return (
     <View style={{ height: orderedTabs.length * TAB_ROW_STRIDE - TAB_ROW_GAP }}>
@@ -627,8 +644,14 @@ const DraggableTabsList = ({
 
 const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
   const insets = useSafeAreaInsets();
-  const settings = useAppSettings();
-  const { language } = settings;
+  const theme = useAppSettingsTheme();
+  const language = useAppSettingsLanguage();
+  const tabs = useAppSettingsTabs();
+  const hiddenSongIdsFromStore = useAppSettingsHiddenSongIds();
+  const playbackRate = useAppSettingsPlaybackRate();
+  const sleepTimerEndsAt = useAppSettingsSleepTimerEndsAt();
+  const lockScreenControlsEnabled = useAppSettingsLockScreenControls();
+  const termsAcceptedAt = useAppSettingsTermsAccepted();
   const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const sleepTimerOptions = useMemo(() => getSleepTimerOptions(t), [t]);
   const getThemeDisplayName = (themeId: string) => {
@@ -658,8 +681,34 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
   const [librarySongs, setLibrarySongs] = useState<Song[]>([]);
   const [now, setNow] = useState(Date.now());
 
+  // Lazy-mount flags: each sub-sheet is only inserted into the tree when first
+  // opened, and is unmounted after the close animation finishes to release
+  // the native view hierarchy.
+  const [sleepTimerMounted, setSleepTimerMounted] = useState(false);
+  const [playbackSpeedMounted, setPlaybackSpeedMounted] = useState(false);
+  const [tabsMounted, setTabsMounted] = useState(false);
+  const [themesMounted, setThemesMounted] = useState(false);
+  const [languageMounted, setLanguageMounted] = useState(false);
+  const [hideMusicMounted, setHideMusicMounted] = useState(false);
+  const [privacyMounted, setPrivacyMounted] = useState(false);
+  const [licensesMounted, setLicensesMounted] = useState(false);
+  const [termsMounted, setTermsMounted] = useState(false);
+  const [contactMounted, setContactMounted] = useState(false);
+  const [customSleepMounted, setCustomSleepMounted] = useState(false);
+
+  const requestCloseSleepTimer = useCallback(() => setSleepTimerVisible(false), []);
+  const requestClosePlaybackSpeed = useCallback(() => setPlaybackSpeedVisible(false), []);
+  const requestCloseTabs = useCallback(() => setTabsVisible(false), []);
+  const requestCloseThemes = useCallback(() => setThemesVisible(false), []);
+  const requestCloseLanguage = useCallback(() => setLanguageVisible(false), []);
+  const requestCloseHideMusic = useCallback(() => setHideMusicVisible(false), []);
+  const requestClosePrivacy = useCallback(() => setPrivacyVisible(false), []);
+  const requestCloseLicenses = useCallback(() => setLicensesVisible(false), []);
+  const requestCloseTerms = useCallback(() => setTermsVisible(false), []);
+  const requestCloseContact = useCallback(() => setContactVisible(false), []);
+
   useEffect(() => {
-    if (!visible || !settings.sleepTimerEndsAt) {
+    if (!visible || !sleepTimerEndsAt) {
       return;
     }
 
@@ -668,7 +717,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [settings.sleepTimerEndsAt, visible]);
+  }, [sleepTimerEndsAt, visible]);
 
   useEffect(() => {
     if (!visible || !hideMusicVisible) {
@@ -677,7 +726,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
 
     let active = true;
 
-    getAudioFilesWithPermission()
+    getAudioFilesWithPermission(true)
       .then(music => {
         if (active) {
           setLibrarySongs(music);
@@ -693,8 +742,8 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
   }, [hideMusicVisible, visible]);
 
   const visibleTabs = useMemo(
-    () => settings.tabs.filter(tab => tab.enabled).map(tab => tab.id),
-    [settings.tabs]
+    () => tabs.filter(tab => tab.enabled).map(tab => tab.id),
+    [tabs]
   );
 
   const openPermissions = async () => {
@@ -709,6 +758,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
   };
 
   const openContact = () => {
+    setContactMounted(true);
     setContactVisible(true);
   };
 
@@ -763,8 +813,8 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
   };
 
   const openCustomSleepTimer = () => {
-    const remainingMinutes = settings.sleepTimerEndsAt
-      ? Math.max(1, Math.ceil((settings.sleepTimerEndsAt - Date.now()) / 60000))
+    const remainingMinutes = sleepTimerEndsAt
+      ? Math.max(1, Math.ceil((sleepTimerEndsAt - Date.now()) / 60000))
       : 20;
     const isPreset = PRESET_SLEEP_TIMER_VALUES.some(
       value => Math.abs(remainingMinutes - value) <= 1
@@ -772,10 +822,11 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
 
     const seedMinutes = Math.min(
       CUSTOM_SLEEP_MAX,
-      settings.sleepTimerEndsAt && !isPreset ? remainingMinutes : 20
+      sleepTimerEndsAt && !isPreset ? remainingMinutes : 20
     );
     setCustomHours(Math.floor(seedMinutes / 60));
     setCustomMinutes(seedMinutes % 60);
+    setCustomSleepMounted(true);
     setCustomSleepVisible(true);
   };
 
@@ -796,9 +847,8 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
     setSleepTimerVisible(false);
   };
 
-  const theme = settings.theme;
-  const termsAccepted = Boolean(settings.termsAcceptedAt);
-  const hiddenSongIds = getHiddenSongIds();
+  const termsAccepted = Boolean(termsAcceptedAt);
+  const hiddenSongIds = hiddenSongIdsFromStore;
   const termsText = useMemo(() => getTermsText(t), [t]);
   const rowProps = {
     borderColor: theme.border,
@@ -878,8 +928,8 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
             >
               <SettingsRow
                 label={t('sleep_timer', 'Sleep Timer')}
-                subtitle={formatRemainingTime(settings.sleepTimerEndsAt, now, t)}
-                onPress={() => setSleepTimerVisible(true)}
+                subtitle={formatRemainingTime(sleepTimerEndsAt, now, t)}
+                onPress={() => { setSleepTimerMounted(true); setSleepTimerVisible(true); }}
                 icon="moon"
                 iconColor={IOS_ICON_COLORS.moon}
                 showChevron
@@ -888,8 +938,8 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
               <SettingsRow
                 label={t('playback_speed', 'Playback Speed')}
                 subtitle={t('playback_speed_description', 'The change applies immediately to the current song and the next ones')}
-                value={formatSpeedLabel(settings.playbackRate)}
-                onPress={() => setPlaybackSpeedVisible(true)}
+                value={formatSpeedLabel(playbackRate)}
+                onPress={() => { setPlaybackSpeedMounted(true); setPlaybackSpeedVisible(true); }}
                 icon="speedometer"
                 iconColor={IOS_ICON_COLORS.speed}
                 showChevron
@@ -923,8 +973,8 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
               <SettingsRow
                 label={t('external_controls', 'External Controls')}
                 subtitle={t('lock_screen_controls', 'From the lock screen and notifications')}
-                onPress={() => setLockScreenControlsEnabled(!settings.lockScreenControlsEnabled)}
-                toggleValue={settings.lockScreenControlsEnabled}
+                onPress={() => setLockScreenControlsEnabled(!lockScreenControlsEnabled)}
+                toggleValue={lockScreenControlsEnabled}
                 icon="lock-closed"
                 iconColor={IOS_ICON_COLORS.lock}
                 {...rowProps}
@@ -932,7 +982,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
               <SettingsRow
                 label={t('manage_tabs', 'Manage Tabs')}
                 subtitle={`${visibleTabs.length}/${DEFAULT_TABS.length} ${t('visible_short', 'visible')}`}
-                onPress={() => setTabsVisible(true)}
+                onPress={() => { setTabsMounted(true); setTabsVisible(true); }}
                 icon="grid"
                 iconColor={IOS_ICON_COLORS.tabs}
                 showChevron
@@ -965,9 +1015,9 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
             >
               <SettingsRow
                 label={t('language', 'Language')}
-                subtitle={settings.language.nativeName}
-                value={settings.language.label}
-                onPress={() => setLanguageVisible(true)}
+                subtitle={language.nativeName}
+                value={language.label}
+                onPress={() => { setLanguageMounted(true); setLanguageVisible(true); }}
                 icon="globe"
                 iconColor={IOS_ICON_COLORS.language}
                 showChevron
@@ -977,7 +1027,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 label={t('theme', 'Theme')}
                 subtitle={t('theme_description', 'Customize colors and visual style')}
                 value={getThemeDisplayName(theme.id)}
-                onPress={() => setThemesVisible(true)}
+                onPress={() => { setThemesMounted(true); setThemesVisible(true); }}
                 icon="color-palette"
                 iconColor={IOS_ICON_COLORS.palette}
                 showChevron
@@ -1011,7 +1061,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
               <SettingsRow
                 label={t('hide_music', 'Hide Music')}
                 subtitle={`${hiddenSongIds.length} ${hiddenSongIds.length === 1 ? t('hidden_file_single', 'hidden file') : t('hidden_file_plural', 'hidden files')}`}
-                onPress={() => setHideMusicVisible(true)}
+                onPress={() => { setHideMusicMounted(true); setHideMusicVisible(true); }}
                 icon="eye-off"
                 iconColor={IOS_ICON_COLORS.shield}
                 showChevron
@@ -1029,7 +1079,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
               <SettingsRow
                 label={t('privacy_policy', 'Privacy Policy')}
                 subtitle={t('privacy_policy_subtitle', 'How we use your music and settings')}
-                onPress={() => setPrivacyVisible(true)}
+                onPress={() => { setPrivacyMounted(true); setPrivacyVisible(true); }}
                 icon="shield-checkmark"
                 iconColor={IOS_ICON_COLORS.shield}
                 showChevron
@@ -1038,7 +1088,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
               <SettingsRow
                 label={t('open_source_licenses', 'Open Source Licenses')}
                 subtitle={t('licenses_subtitle', 'App dependencies')}
-                onPress={() => setLicensesVisible(true)}
+                onPress={() => { setLicensesMounted(true); setLicensesVisible(true); }}
                 icon="library"
                 iconColor={IOS_ICON_COLORS.doc}
                 showChevron
@@ -1047,7 +1097,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
               <SettingsRow
                 label={t('terms_and_conditions', 'Terms and Conditions')}
                 subtitle={termsAccepted ? t('terms_subtitle_accepted', 'Accepted') : t('terms_subtitle_pending', 'Pending review')}
-                onPress={() => setTermsVisible(true)}
+                onPress={() => { setTermsMounted(true); setTermsVisible(true); }}
                 icon="document-text"
                 iconColor={IOS_ICON_COLORS.doc}
                 showChevron
@@ -1067,22 +1117,24 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
           </View>
         </ScrollView>
 
-        <OptionSheet
-          visible={sleepTimerVisible}
-          title={t('sleep_timer', 'Sleep Timer')}
-          subtitle={t('sleep_timer_description', 'Playback will pause automatically when the time is reached')}
-          background={theme.background}
-          surface={theme.surface}
-          textColor={theme.text}
-          mutedColor={theme.mutedText}
-          onClose={() => setSleepTimerVisible(false)}
-        >
+        {sleepTimerMounted ? (
+          <OptionSheet
+            visible={sleepTimerVisible}
+            title={t('sleep_timer', 'Sleep Timer')}
+            subtitle={t('sleep_timer_description', 'Playback will pause automatically when the time is reached')}
+            background={theme.background}
+            surface={theme.surface}
+            textColor={theme.text}
+            mutedColor={theme.mutedText}
+            onClose={requestCloseSleepTimer}
+            onHidden={() => setSleepTimerMounted(false)}
+          >
           {sleepTimerOptions.map(option => {
-            const remainingMinutes = settings.sleepTimerEndsAt
-              ? Math.ceil((settings.sleepTimerEndsAt - now) / 60000)
+            const remainingMinutes = sleepTimerEndsAt
+              ? Math.ceil((sleepTimerEndsAt - now) / 60000)
               : null;
             const isSelected = option.value === null
-              ? !settings.sleepTimerEndsAt
+              ? !sleepTimerEndsAt
               : remainingMinutes !== null &&
                 option.value !== null &&
                 Math.abs(remainingMinutes - option.value) <= 1;
@@ -1111,8 +1163,8 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
           })}
 
           {(() => {
-            const remainingMinutes = settings.sleepTimerEndsAt
-              ? Math.ceil((settings.sleepTimerEndsAt - now) / 60000)
+            const remainingMinutes = sleepTimerEndsAt
+              ? Math.ceil((sleepTimerEndsAt - now) / 60000)
               : null;
             const isCustomSelected = remainingMinutes !== null &&
               !PRESET_SLEEP_TIMER_VALUES.some(value => Math.abs(remainingMinutes - value) <= 1);
@@ -1139,9 +1191,17 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
               </Pressable>
             );
           })()}
-        </OptionSheet>
+          </OptionSheet>
+        ) : null}
 
-        <Modal transparent visible={customSleepVisible} animationType="fade" onRequestClose={() => setCustomSleepVisible(false)}>
+        {customSleepMounted ? (
+          <AppModal
+            transparent
+            visible={customSleepVisible}
+            animationType="fade"
+            onRequestClose={() => setCustomSleepVisible(false)}
+            onModalHide={() => setCustomSleepMounted(false)}
+          >
           <View className="flex-1 justify-center px-6">
             <Pressable className="absolute inset-0 bg-black/70" onPress={() => setCustomSleepVisible(false)} />
             <View className="rounded-3xl p-5" style={{ backgroundColor: theme.surface }}>
@@ -1194,20 +1254,23 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
               </View>
             </View>
           </View>
-        </Modal>
+          </AppModal>
+        ) : null}
 
-        <OptionSheet
-          visible={playbackSpeedVisible}
-          title={t('playback_speed', 'Playback Speed')}
-          subtitle={t('playback_speed_description', 'The change applies immediately to the current song and the next ones')}
-          background={theme.background}
-          surface={theme.surface}
-          textColor={theme.text}
-          mutedColor={theme.mutedText}
-          onClose={() => setPlaybackSpeedVisible(false)}
-        >
+        {playbackSpeedMounted ? (
+          <OptionSheet
+            visible={playbackSpeedVisible}
+            title={t('playback_speed', 'Playback Speed')}
+            subtitle={t('playback_speed_description', 'The change applies immediately to the current song and the next ones')}
+            background={theme.background}
+            surface={theme.surface}
+            textColor={theme.text}
+            mutedColor={theme.mutedText}
+            onClose={requestClosePlaybackSpeed}
+            onHidden={() => setPlaybackSpeedMounted(false)}
+          >
           {PLAYBACK_SPEED_OPTIONS.map((speed, index) => {
-            const isSelected = speed === settings.playbackRate;
+            const isSelected = speed === playbackRate;
 
             return (
               <Pressable
@@ -1230,9 +1293,17 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
               </Pressable>
             );
           })}
-        </OptionSheet>
+          </OptionSheet>
+        ) : null}
 
-        <Modal transparent visible={tabsVisible} animationType="slide" onRequestClose={() => setTabsVisible(false)}>
+        {tabsMounted ? (
+          <AppModal
+            transparent
+            visible={tabsVisible}
+            animationType="slide"
+            onRequestClose={requestCloseTabs}
+            onModalHide={() => setTabsMounted(false)}
+          >
           <View className="flex-1 justify-end">
             <Pressable className="absolute inset-0 bg-black/70" onPress={() => setTabsVisible(false)} />
             <View
@@ -1251,7 +1322,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
 
               <ScrollView scrollEnabled={false}>
                 <DraggableTabsList
-                  tabs={settings.tabs}
+                  tabs={tabs}
                   surface={theme.surface}
                   background={theme.background}
                   textColor={theme.text}
@@ -1264,20 +1335,23 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
               </ScrollView>
             </View>
           </View>
-        </Modal>
+          </AppModal>
+        ) : null}
 
-        <OptionSheet
-          visible={languageVisible}
-          title={t('language', 'Language')}
-          subtitle={t('language_choose', 'Choose the app’s main language')}
-          background={theme.background}
-          surface={theme.surface}
-          textColor={theme.text}
-          mutedColor={theme.mutedText}
-          onClose={() => setLanguageVisible(false)}
-        >
+        {languageMounted ? (
+          <OptionSheet
+            visible={languageVisible}
+            title={t('language', 'Language')}
+            subtitle={t('language_choose', 'Choose the app’s main language')}
+            background={theme.background}
+            surface={theme.surface}
+            textColor={theme.text}
+            mutedColor={theme.mutedText}
+            onClose={requestCloseLanguage}
+            onHidden={() => setLanguageMounted(false)}
+          >
           {APP_LANGUAGES.map((languageOption, index) => {
-            const isSelected = languageOption.id === settings.language.id;
+            const isSelected = languageOption.id === language.id;
 
             return (
               <Pressable
@@ -1304,18 +1378,21 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
               </Pressable>
             );
           })}
-        </OptionSheet>
+          </OptionSheet>
+        ) : null}
 
-        <OptionSheet
-          visible={themesVisible}
-          title={t('theme', 'Theme')}
-          subtitle={t('theme_choose', 'Change accent color and app style')}
-          background={theme.background}
-          surface={theme.surface}
-          textColor={theme.text}
-          mutedColor={theme.mutedText}
-          onClose={() => setThemesVisible(false)}
-        >
+        {themesMounted ? (
+          <OptionSheet
+            visible={themesVisible}
+            title={t('theme', 'Theme')}
+            subtitle={t('theme_choose', 'Change accent color and app style')}
+            background={theme.background}
+            surface={theme.surface}
+            textColor={theme.text}
+            mutedColor={theme.mutedText}
+            onClose={requestCloseThemes}
+            onHidden={() => setThemesMounted(false)}
+          >
           {APP_THEMES.map((themeOption, index) => {
             const isSelected = themeOption.id === theme.id;
 
@@ -1348,33 +1425,54 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
               </Pressable>
             );
           })}
-        </OptionSheet>
+          </OptionSheet>
+        ) : null}
 
-        <HideMusicModal
-          visible={hideMusicVisible}
-          songs={librarySongs}
-          hiddenSongIds={hiddenSongIds}
-          onClose={() => setHideMusicVisible(false)}
-          onToggleHidden={songId => {
-            toggleHiddenSongId(songId);
-            setLibrarySongs(currentSongs => currentSongs.map(song => ({
-              ...song,
-              hidden: hiddenSongIds.includes(song.id) ? false : song.id === songId ? true : false,
-            })));
-          }}
-        />
+        {hideMusicMounted ? (
+          <HideMusicModal
+            visible={hideMusicVisible}
+            songs={librarySongs}
+            hiddenSongIds={hiddenSongIds}
+            onClose={requestCloseHideMusic}
+            onToggleHidden={songId => {
+              const nextHiddenSongIds = toggleHiddenSongId(songId);
 
-        <PrivacyPolicyModal
-          visible={privacyVisible}
-          onClose={() => setPrivacyVisible(false)}
-        />
+              setLibrarySongs(currentSongs => [...currentSongs].sort((a, b) => {
+                const aHidden = nextHiddenSongIds.includes(a.id);
+                const bHidden = nextHiddenSongIds.includes(b.id);
 
-        <OpenSourceLicensesModal
-          visible={licensesVisible}
-          onClose={() => setLicensesVisible(false)}
-        />
+                if (aHidden !== bHidden) {
+                  return aHidden ? -1 : 1;
+                }
 
-        <Modal transparent visible={termsVisible} animationType="slide" onRequestClose={() => setTermsVisible(false)}>
+                return a.title.localeCompare(b.title);
+              }));
+            }}
+          />
+        ) : null}
+
+        {privacyMounted ? (
+          <PrivacyPolicyModal
+            visible={privacyVisible}
+            onClose={requestClosePrivacy}
+          />
+        ) : null}
+
+        {licensesMounted ? (
+          <OpenSourceLicensesModal
+            visible={licensesVisible}
+            onClose={requestCloseLicenses}
+          />
+        ) : null}
+
+        {termsMounted ? (
+          <AppModal
+            transparent
+            visible={termsVisible}
+            animationType="slide"
+            onRequestClose={requestCloseTerms}
+            onModalHide={() => setTermsMounted(false)}
+          >
           <View className="flex-1 justify-end">
             <Pressable className="absolute inset-0 bg-black/70" onPress={() => setTermsVisible(false)} />
             <View
@@ -1430,9 +1528,17 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
               </ScrollView>
             </View>
           </View>
-        </Modal>
+          </AppModal>
+        ) : null}
 
-        <Modal transparent visible={contactVisible} animationType="slide" onRequestClose={() => setContactVisible(false)}>
+        {contactMounted ? (
+          <AppModal
+            transparent
+            visible={contactVisible}
+            animationType="slide"
+            onRequestClose={requestCloseContact}
+            onModalHide={() => setContactMounted(false)}
+          >
           <View className="flex-1 justify-end">
             <Pressable className="absolute inset-0 bg-black/70" onPress={() => setContactVisible(false)} />
             <View
@@ -1525,7 +1631,8 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
               </ScrollView>
             </View>
           </View>
-        </Modal>
+          </AppModal>
+        ) : null}
       </View>
     </Modal>
   );

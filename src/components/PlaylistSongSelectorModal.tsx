@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Song } from '../../modules/local-music';
 import { getTranslation } from '../i18n/translations';
 import { CheckIcon } from '../Icons';
-import { useAppSettings } from '../settings/appSettings';
+import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import LibraryArtwork from './LibraryArtwork';
 
 export type PlaylistSelectionTab = 'tracks' | 'artists' | 'albums' | 'folders';
@@ -57,7 +57,8 @@ const PlaylistSongSelectorModal = ({
   onSave,
 }: PlaylistSongSelectorModalProps) => {
   const insets = useSafeAreaInsets();
-  const { theme, language } = useAppSettings();
+  const theme = useAppSettingsTheme();
+  const language = useAppSettingsLanguage();
   const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const sortedSongs = useMemo(
     () => [...songs].sort((a, b) => a.title.localeCompare(b.title)),
@@ -117,10 +118,7 @@ const PlaylistSongSelectorModal = ({
                   style={{ backgroundColor: isSelected ? theme.text : 'transparent' }}
                   onPress={() => onTabChange(tab.value)}
                 >
-                  <Text
-                    className="text-center text-xs font-bold"
-                    style={{ color: isSelected ? theme.background : theme.mutedText }}
-                  >
+                  <Text className="text-center text-xs font-bold" style={{ color: isSelected ? theme.background : theme.mutedText }}>
                     {tab.label}
                   </Text>
                 </Pressable>

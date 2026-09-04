@@ -11,7 +11,7 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { getTranslation } from '../i18n/translations';
 import { PlaylistIcon, PlusIcon } from '../Icons';
-import { useAppSettings } from '../settings/appSettings';
+import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 
 interface CreatePlaylistModalProps {
   visible: boolean;
@@ -28,7 +28,8 @@ const CreatePlaylistModal = ({
   onClose,
   onNext,
 }: CreatePlaylistModalProps) => {
-  const { theme, language } = useAppSettings();
+  const theme = useAppSettingsTheme();
+  const language = useAppSettingsLanguage();
   const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const canContinue = Boolean(playlistName.trim());
 
@@ -124,7 +125,7 @@ const CreatePlaylistModal = ({
             <Pressable
               className="flex-[1.4] flex-row items-center justify-center gap-2 rounded-full py-4"
               style={{
-                backgroundColor: canContinue ? theme.text : theme.border,
+                backgroundColor: canContinue ? theme.accent : theme.border,
                 opacity: canContinue ? 1 : 0.55,
               }}
               disabled={!canContinue}

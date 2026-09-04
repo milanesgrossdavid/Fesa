@@ -4,7 +4,7 @@ import { Song } from "../../modules/local-music";
 import LibraryArtwork from "./LibraryArtwork";
 import AutoScrollingText from "./AutoScrollingText";
 import { PlayIcon } from "../Icons";
-import { useAppSettings } from "../settings/appSettings";
+import { useAppSettingsLanguage, useAppSettingsTheme } from "../settings/appSettings";
 import { useTranslation } from "../i18n/translations";
 
 type SongGroup = {
@@ -34,7 +34,8 @@ const HomeMostPlayedSection = ({
   onOpenGroup,
   onPlaySong,
 }: HomeMostPlayedSectionProps) => {
-  const { theme, language } = useAppSettings();
+  const theme = useAppSettingsTheme();
+  const language = useAppSettingsLanguage();
   const { t } = useTranslation(language.id);
   const featuredSongs = group.songs.slice(0, limit);
   const topSong = featuredSongs[0];
@@ -44,14 +45,14 @@ const HomeMostPlayedSection = ({
     <View className="px-4 py-4">
       {topSong ? (
         <>
-          <View className="mx-4 mb-4">
+          <View className="mb-4">
             <View className="aspect-[1.75] w-full overflow-hidden rounded-3xl" style={{ backgroundColor: theme.surface }}>
               <LibraryArtwork
                 artwork={topSong.artwork}
                 className="h-full w-full rounded-3xl"
               />
-              <View className="absolute bottom-0 left-0 right-0 py-2 px-4 bg-black/25 flex flex-row justify-between items-center">
-                <View className="mr-3 flex-1 flex-col">
+              <View className="absolute bottom-0 left-0 right-0 flex-row items-center justify-between bg-black/25 px-4 py-2">
+                <View className="mr-3 flex-1">
                   <AutoScrollingText className="text-xl font-bold text-white">
                     {topSong.title}
                   </AutoScrollingText>
@@ -83,8 +84,8 @@ const HomeMostPlayedSection = ({
                       artwork={song.artwork}
                       className="h-full w-full rounded-3xl"
                     />
-                    <View className="absolute bottom-0 left-0 right-0 flex flex-row items-center justify-between py-2 px-4 bg-black/25">
-                      <View className="mr-3 flex-1 flex-col">
+                    <View className="absolute bottom-0 left-0 right-0 flex-row items-center justify-between bg-black/25 px-4 py-2">
+                      <View className="mr-3 flex-1">
                         <AutoScrollingText className="text-base font-bold text-white">
                           {song.title}
                         </AutoScrollingText>

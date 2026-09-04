@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Song } from '../../modules/local-music';
 import { getTranslation } from '../i18n/translations';
 import { PlayIcon } from '../Icons';
-import { useAppSettings } from '../settings/appSettings';
+import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import LibraryArtwork from './LibraryArtwork';
 
 interface RelatedTracksModalProps {
@@ -31,7 +31,8 @@ const RelatedTracksModal = ({
   onSelectSong,
 }: RelatedTracksModalProps) => {
   const insets = useSafeAreaInsets();
-  const { theme, language } = useAppSettings();
+  const theme = useAppSettingsTheme();
+  const language = useAppSettingsLanguage();
   const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const isArtist = variant === 'artist';
   const songCountLabel = `${songs.length} ${songs.length === 1 ? t('song_count_one', 'song') : t('song_count_many', 'songs')}`;
@@ -64,10 +65,7 @@ const RelatedTracksModal = ({
                 {songCountLabel}
               </Text>
             </View>
-            <Pressable
-              className="rounded-full  px-3 py-2"
-              onPress={onClose}
-            >
+            <Pressable className="rounded-full px-3 py-2" style={{ backgroundColor: theme.surface }} onPress={onClose}>
               <Text className="text-sm font-semibold" style={{ color: theme.text }}>{t('close', 'Close')}</Text>
             </Pressable>
           </View>
@@ -99,8 +97,7 @@ const RelatedTracksModal = ({
             {onPlayAll && songs.length > 0 ? (
               <Pressable
                 className="mt-4 flex-row items-center gap-2 rounded-full px-5 py-3"
-                style={{ backgroundColor: theme.surface
-                 }}
+                style={{ backgroundColor: theme.surface }}
                 onPress={onPlayAll}
               >
                 <PlayIcon size={16} color={theme.text} />

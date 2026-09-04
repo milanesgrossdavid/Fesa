@@ -1,6 +1,6 @@
 import React from 'react';
 import { getTranslation } from '../i18n/translations';
-import { useAppSettings } from '../settings/appSettings';
+import { useAppSettingsLanguage } from '../settings/appSettings';
 import TopNavSortFilter, { TrackSortDirection, TrackSortOption } from './TopNavSortFilter';
 
 export type { TrackSortDirection, TrackSortOption };
@@ -12,7 +12,7 @@ interface TopNavCarpetasProps {
 }
 
 const TopNavCarpetas = (props: TopNavCarpetasProps) => {
-  const { language } = useAppSettings();
+  const language = useAppSettingsLanguage();
   const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const SORT_OPTIONS: { label: string; value: TrackSortOption }[] = [
     { label: t('sort_name', 'Name'), value: 'name' },

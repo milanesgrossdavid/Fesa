@@ -1,7 +1,7 @@
 import React from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAppSettings } from '../settings/appSettings';
+import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import { getTranslation } from '../i18n/translations';
 
 const LICENSES = [
@@ -34,7 +34,8 @@ interface OpenSourceLicensesModalProps {
 
 const OpenSourceLicensesModal = ({ visible, onClose }: OpenSourceLicensesModalProps) => {
   const insets = useSafeAreaInsets();
-  const { theme, language } = useAppSettings();
+  const theme = useAppSettingsTheme();
+  const language = useAppSettingsLanguage();
   const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const licenses = LICENSES.map((item, index) => ({
     ...item,
@@ -69,8 +70,12 @@ const OpenSourceLicensesModal = ({ visible, onClose }: OpenSourceLicensesModalPr
                     borderBottomColor: theme.border,
                   }}
                 >
-                  <Text className="mb-1 text-base font-bold" style={{ color: theme.text }}>{license.title}</Text>
-                  <Text className="text-sm leading-6" style={{ color: theme.mutedText }}>{license.text}</Text>
+                  <Text className="mb-1 text-base font-bold" style={{ color: theme.text }}>
+                    {license.title}
+                  </Text>
+                  <Text className="text-sm leading-6" style={{ color: theme.mutedText }}>
+                    {license.text}
+                  </Text>
                 </View>
               ))}
             </View>

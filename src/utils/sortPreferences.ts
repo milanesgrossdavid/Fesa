@@ -47,3 +47,17 @@ export const saveSortPreference = async (screenKey: string, preference: SortPref
     console.warn('No se pudo guardar la ordenacion:', error);
   }
 };
+
+export const normalizeSortPreference = (value: unknown, fallback: SortPreference): SortPreference => {
+  if (!value || typeof value !== 'object') {
+    return fallback;
+  }
+
+  const candidate = value as Partial<SortPreference>;
+  const sort = candidate.sort;
+  const direction = candidate.direction;
+
+  return isSortOption(sort) && isSortDirection(direction)
+    ? { sort, direction }
+    : fallback;
+};

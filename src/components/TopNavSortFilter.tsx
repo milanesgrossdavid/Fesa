@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import { FilterIcon, SortAscIcon, SortDescIcon } from '../Icons';
 import { getTranslation } from '../i18n/translations';
-import { useAppSettings } from '../settings/appSettings';
+import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 
 export type TrackSortOption = 'name' | 'date' | 'artist' | 'albums';
 export type TrackSortDirection = 'asc' | 'desc';
@@ -27,7 +27,8 @@ const TopNavSortFilter = ({
   onSortChange,
   rightContent,
 }: TopNavSortFilterProps) => {
-  const { theme, language } = useAppSettings();
+  const theme = useAppSettingsTheme();
+  const language = useAppSettingsLanguage();
   const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const [modalVisible, setModalVisible] = useState(false);
   const selectedLabel = sortOptions.find(option => option.value === selectedSort)?.label ?? t('sort_name', 'Name');

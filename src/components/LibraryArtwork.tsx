@@ -1,5 +1,6 @@
 import React from 'react';
 import { Image, StyleProp, Text, TextStyle, View, ViewStyle } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 
 const DEFAULT_MUSIC_ARTWORK = require('../../assets/musicNotFound.jpg');
 
@@ -19,14 +20,36 @@ const LibraryArtwork = ({
   fallbackTextClassName = 'text-4xl font-bold text-[#b64400]',
   fallbackTextStyle,
   style,
-}: LibraryArtworkProps) => (
-  <View style={style} className={`items-center justify-center overflow-hidden bg-[#333333] ${className}`}>
-    {artwork ? (
-      <Image source={{ uri: artwork }} className="h-full w-full" resizeMode="cover" />
-    ) : (
-      <Image source={DEFAULT_MUSIC_ARTWORK} className="h-full w-full" resizeMode="cover" />
-    )}
-  </View>
-);
+}: LibraryArtworkProps) => {
+  // expo-image delivers native-side caching, LRU eviction, priority, and
+  // progressive decoding. The shared `transition` keeps the swap smooth when
+  // a card with a placeholder suddenly gets a URI.
+  const hasArtwork = Boolean(artwork);
+
+  return (
+    <View
+      style={style}
+      className={`items-center justify-center overflow-hidden bg-[#333333] ${className}`}
+    >
+      {hasArtwork ? (
+        <ExpoImage
+          source={{ uri: artwork as string }}
+          style={{ width: '100%', height: '100%' }}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          priority="normal"
+          recyclingKey={artwork ?? undefined}
+          transition={120}
+        />
+      ) : (
+        <View className="h-full w-full items-center justify-center bg-[#282828]">
+          <Text style={fallbackTextStyle} className={fallbackTextClassName}>
+            {fallback}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+};
 
 export default LibraryArtwork;

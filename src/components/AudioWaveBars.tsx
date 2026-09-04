@@ -20,9 +20,13 @@ const AudioWaveBars = ({
   const firstBar = useRef(new Animated.Value(0.45)).current;
   const secondBar = useRef(new Animated.Value(0.85)).current;
   const thirdBar = useRef(new Animated.Value(0.55)).current;
+  const activeAnimationsRef = useRef<Animated.CompositeAnimation[]>([]);
   const { height, width, gap } = SIZE_CONFIG[size];
 
   useEffect(() => {
+    activeAnimationsRef.current.forEach(animation => animation.stop());
+    activeAnimationsRef.current = [];
+
     if (!playing) {
       Animated.parallel([
         Animated.timing(firstBar, { toValue: 0.35, duration: 180, useNativeDriver: true }),
@@ -41,24 +45,28 @@ const AudioWaveBars = ({
       minScale: number,
       maxScale: number,
       duration: number
-    ) => Animated.loop(
-      Animated.sequence([
-        Animated.timing(value, {
-          toValue: maxScale,
-          duration,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(value, {
-          toValue: minScale,
-          duration,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ])
-    );
+    ) => {
+      const animation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(value, {
+            toValue: maxScale,
+            duration,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+          Animated.timing(value, {
+            toValue: minScale,
+            duration,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+        ])
+      );
 
-    // Escala máxima 1: nunca supera el alto del contenedor.
+      activeAnimationsRef.current.push(animation);
+      return animation;
+    };
+
     const animations = [
       createBarAnimation(firstBar, 0.28, 1, 340),
       createBarAnimation(secondBar, 0.42, 1, 280),
@@ -69,6 +77,7 @@ const AudioWaveBars = ({
 
     return () => {
       animations.forEach(animation => animation.stop());
+      activeAnimationsRef.current = [];
     };
   }, [firstBar, playing, secondBar, thirdBar]);
 

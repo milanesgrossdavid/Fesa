@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Song } from '../../modules/local-music';
 import { getTranslation } from '../i18n/translations';
 import { PlusIcon } from '../Icons';
-import { useAppSettings } from '../settings/appSettings';
+import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 
 type PlaylistOption = {
   id: string;
@@ -34,7 +34,8 @@ const AddSongToPlaylistModal = ({
   onCreatePlaylist,
 }: AddSongToPlaylistModalProps) => {
   const insets = useSafeAreaInsets();
-  const { theme, language } = useAppSettings();
+  const theme = useAppSettingsTheme();
+  const language = useAppSettingsLanguage();
   const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const selectedSongIds = songIdsToAdd.length ? songIdsToAdd : songToAdd ? [songToAdd.id] : [];
 

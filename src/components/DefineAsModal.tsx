@@ -3,7 +3,7 @@ import { Modal, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Song, ToneType } from '../../modules/local-music';
 import { getTranslation } from '../i18n/translations';
-import { useAppSettings } from '../settings/appSettings';
+import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import LibraryArtwork from './LibraryArtwork';
 
 interface DefineAsModalProps {
@@ -14,7 +14,8 @@ interface DefineAsModalProps {
 
 const DefineAsModal = ({ song, onClose, onDefineAs }: DefineAsModalProps) => {
   const insets = useSafeAreaInsets();
-  const { theme, language } = useAppSettings();
+  const theme = useAppSettingsTheme();
+  const language = useAppSettingsLanguage();
   const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const TONE_OPTIONS: { label: string; value: ToneType; description: string }[] = [
     { label: t('tone_option_ringtone', 'Device tone'), value: 'ringtone', description: t('tone_option_ringtone_desc', 'Use as ringtone') },
@@ -52,7 +53,8 @@ const DefineAsModal = ({ song, onClose, onDefineAs }: DefineAsModalProps) => {
                 </Text>
               </View>
               <Pressable
-                className="rounded-full  px-3 py-2"
+                className="rounded-full px-3 py-2"
+                style={{ backgroundColor: theme.surface }}
                 onPress={onClose}
               >
                 <Text className="text-sm font-semibold" style={{ color: theme.text }}>{t('song_details_close', 'Close')}</Text>
@@ -61,6 +63,7 @@ const DefineAsModal = ({ song, onClose, onDefineAs }: DefineAsModalProps) => {
 
             <View
               className="mb-4 flex-row items-center rounded-[24px] px-3 py-3"
+              style={{ backgroundColor: theme.surface }}
             >
               <LibraryArtwork
                 artwork={song.artwork}
@@ -82,7 +85,7 @@ const DefineAsModal = ({ song, onClose, onDefineAs }: DefineAsModalProps) => {
                 <Pressable
                   key={option.value}
                   className="rounded-[22px] border px-4 py-4"
-                  style={{ backgroundColor: theme.surface + 'CC', borderColor: theme.border }}
+                  style={{ backgroundColor: theme.surface, borderColor: theme.border }}
                   onPress={() => onDefineAs(song, option.value)}
                 >
                   <Text className="text-base font-bold" style={{ color: theme.text }}>
