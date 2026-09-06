@@ -65,8 +65,8 @@ const RelatedTracksModal = ({
                 {songCountLabel}
               </Text>
             </View>
-            <Pressable className="rounded-full px-3 py-2" style={{ backgroundColor: theme.surface }} onPress={onClose}>
-              <Text className="text-sm font-semibold" style={{ color: theme.text }}>{t('close', 'Close')}</Text>
+            <Pressable className="rounded-full px-3 py-2" onPress={onClose}>
+              <Text className="text-base font-semibold" style={{ color: theme.text }}>{t('close', 'Close')}</Text>
             </Pressable>
           </View>
 

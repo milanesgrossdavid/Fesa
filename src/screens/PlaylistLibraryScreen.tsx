@@ -21,11 +21,13 @@ import AddSongToPlaylistModal from '../components/AddSongToPlaylistModal';
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
 import CreatePlaylistModal from '../components/CreatePlaylistModal';
 import DefineAsModal from '../components/DefineAsModal';
+import SetAsSuccessModal from '../components/SetAsSuccessModal';
 import LibraryGroupDetailModal from '../components/LibraryGroupDetailModal';
 import LibraryPlaylistCard from '../components/LibraryPlaylistCard';
 import LibraryPlaylistListItem from '../components/LibraryPlaylistListItem';
 import PlaylistActionModal from '../components/PlaylistActionModal';
 import PlaylistSongSelectorModal, { PlaylistSelectionTab } from '../components/PlaylistSongSelectorModal';
+import RemoveSongFromPlaylistSheet, { RemoveSongFromPlaylistTarget } from '../components/RemoveSongFromPlaylistSheet';
 import SelectedSongsActionBar from '../components/SelectedSongsActionBar';
 import SongDetailsModal from '../components/SongDetailsModal';
 import SongListItem from '../components/SongListItem';
@@ -35,6 +37,7 @@ import { loadSortPreference, saveSortPreference } from '../utils/sortPreferences
 import { MINI_PLAYER_BOTTOM_INSET, SELECTION_BAR_BOTTOM_INSET } from '../utils/layout';
 import PlayerScreen from './PlayerScreen';
 import { getTranslation } from '../i18n/translations';
+import { Ionicons } from '@expo/vector-icons';
 
 type SongGroup = {
   id: string;
@@ -145,9 +148,16 @@ const PlaylistLibraryScreen = () => {
   const [addToPlaylistSong, setAddToPlaylistSong] = useState<Song | null>(null);
   const [addToPlaylistVisible, setAddToPlaylistVisible] = useState(false);
   const [defineAsSong, setDefineAsSong] = useState<Song | null>(null);
+  const [setAsSuccessVisible, setSetAsSuccessVisible] = useState(false);
+  const [setAsSuccessPayload, setSetAsSuccessPayload] = useState<{
+    song: Song;
+    tone: ToneType;
+  } | null>(null);
   const [detailsSong, setDetailsSong] = useState<Song | null>(null);
   const [bulkDeleteVisible, setBulkDeleteVisible] = useState(false);
   const [playlistBulkDeleteVisible, setPlaylistBulkDeleteVisible] = useState(false);
+  const [removeSongTarget, setRemoveSongTarget] = useState<RemoveSongFromPlaylistTarget | null>(null);
+  const [removeSongSheetVisible, setRemoveSongSheetVisible] = useState(false);
   const [selectedSongIds, setSelectedSongIds] = useState<string[]>([]);
   const [mostPlayedSongs, setMostPlayedSongs] = useState<Song[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<SongGroup | null>(null);
@@ -244,11 +254,34 @@ const PlaylistLibraryScreen = () => {
     void refreshMostPlayed();
   }, [songs]);
 
+  // Track the currently rendered group id so the entry animation only fires on
+  // a real "open" transition (closed → open, or a different group while
+  // closed). It must NOT fire when `selectedGroup` is refreshed in place by
+  // the deletion sync, otherwise the modal would replay its entry animation
+  // on every removed song.
+  const lastRenderedGroupIdRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (!selectedGroup) {
+    const nextId = selectedGroup?.id ?? null;
+    const prevId = lastRenderedGroupIdRef.current;
+
+    // Update the ref for the next render unconditionally.
+    lastRenderedGroupIdRef.current = nextId;
+
+    if (!nextId) {
       return;
     }
 
+    // If the same group is still rendered, the modal is already open. Do
+    // nothing — this is the in-place update path (e.g. song removed from
+    // playlist). The modal stays stable and the entry animation does not
+    // replay.
+    if (nextId === prevId) {
+      return;
+    }
+
+    // Different group id: the user is opening a new group. Play the entry
+    // animation.
     setGroupModalVisible(true);
     groupModalTranslateY.setValue(1);
     Animated.timing(groupModalTranslateY, {
@@ -480,34 +513,41 @@ const PlaylistLibraryScreen = () => {
   };
 
   const removeSongFromPlaylist = async (playlistId: string, songId: string) => {
-    const nextPlaylists = storedPlaylists.flatMap(playlist => {
-      if (playlist.id !== playlistId) {
-        return [playlist];
-      }
+    const targetPlaylist = storedPlaylists.find(playlist => playlist.id === playlistId);
 
-      const nextSongIds = playlist.songIds.filter(id => id !== songId);
-      return nextSongIds.length
-        ? [{ ...playlist, songIds: nextSongIds, updatedAt: Date.now() }]
-        : [];
-    });
+    if (!targetPlaylist) {
+      return;
+    }
+
+    const nextSongIds = targetPlaylist.songIds.filter(id => id !== songId);
+    const now = Date.now();
+
+    const nextPlaylists = nextSongIds.length
+      ? storedPlaylists.map(playlist => playlist.id === playlistId
+        ? { ...playlist, songIds: nextSongIds, updatedAt: now }
+        : playlist)
+      : storedPlaylists.filter(playlist => playlist.id !== playlistId);
 
     await persistStoredPlaylists(nextPlaylists);
 
-    if (!nextPlaylists.some(playlist => playlist.id === playlistId)) {
-      closeSelectedGroup();
+    if (selectedGroup?.id === playlistId) {
+      syncSelectedGroupWithPlaylists(nextPlaylists);
     }
   };
 
   const confirmRemoveSongFromPlaylist = (playlistId: string, song: Song) => {
-    Alert.alert(
-      t('remove_from_playlist_title', 'Remove from playlist'),
-      t('remove_from_playlist_message', 'Do you want to remove “%name%” from this playlist?').replace('%name%', song.title),
-      [
-        { text: t('cancel_action', 'Cancel'), style: 'cancel' },
-        { text: t('remove_action', 'Remove'), style: 'destructive', onPress: () => { void removeSongFromPlaylist(playlistId, song.id); } },
-      ]
-    );
+    setRemoveSongTarget({ playlistId, song });
+    setRemoveSongSheetVisible(true);
   };
+
+  const closeRemoveSongSheet = useCallback(() => {
+    setRemoveSongSheetVisible(false);
+  }, []);
+
+  const performRemoveSongFromPlaylist = useCallback((target: RemoveSongFromPlaylistTarget) => {
+    setRemoveSongSheetVisible(false);
+    void removeSongFromPlaylist(target.playlistId, target.song.id);
+  }, [removeSongFromPlaylist]);
 
   const openGroup = (group: SongGroup) => {
     if (!group.songs.length) {
@@ -529,6 +569,40 @@ const PlaylistLibraryScreen = () => {
         setSelectedGroup(null);
         setPlaylistEditMode(false);
       }
+    });
+  };
+
+  // Re-derives `selectedGroup` from the freshly persisted `nextPlaylists`
+  // so the open Edit-Playlist modal updates in real time after any mutation
+  // (remove-from-playlist, delete-track, bulk delete) without the user having
+  // to close and reopen the modal.
+  const syncSelectedGroupWithPlaylists = (nextPlaylists: StoredPlaylist[]) => {
+    if (!selectedGroup) {
+      return;
+    }
+
+    const refreshed = nextPlaylists.find(playlist => playlist.id === selectedGroup.id);
+
+    if (!refreshed) {
+      closeSelectedGroup();
+      return;
+    }
+
+    const refreshedSongs = refreshed.songIds
+      .map(songId => songsById.get(songId))
+      .filter(Boolean) as Song[];
+
+    if (!refreshedSongs.length) {
+      closeSelectedGroup();
+      return;
+    }
+
+    setSelectedGroup({
+      id: refreshed.id,
+      name: refreshed.name,
+      subtitle: '',
+      songs: refreshedSongs,
+      artwork: refreshedSongs[0]?.artwork,
     });
   };
 
@@ -570,7 +644,11 @@ const PlaylistLibraryScreen = () => {
         if (deleted) setSongs(currentSongs => currentSongs.filter(currentSong => currentSong.id !== songId));
       });
     });
-    void persistStoredPlaylists(storedPlaylists.map(playlist => ({ ...playlist, songIds: playlist.songIds.filter(songId => !idsToDelete.includes(songId)), updatedAt: Date.now() })));
+    const nextPlaylists = storedPlaylists.map(playlist => ({ ...playlist, songIds: playlist.songIds.filter(songId => !idsToDelete.includes(songId)), updatedAt: Date.now() }));
+    void persistStoredPlaylists(nextPlaylists);
+    if (selectedGroup) {
+      syncSelectedGroupWithPlaylists(nextPlaylists);
+    }
     clearSelectedSongs();
     setBulkDeleteVisible(false);
   };
@@ -652,7 +730,11 @@ const PlaylistLibraryScreen = () => {
       if (!deleted) return;
       setSongs(currentSongs => currentSongs.filter(currentSong => currentSong.id !== song.id));
       setMostPlayedSongs(currentSongs => currentSongs.filter(currentSong => currentSong.id !== song.id));
-      void persistStoredPlaylists(storedPlaylists.map(playlist => ({ ...playlist, songIds: playlist.songIds.filter(songId => songId !== song.id), updatedAt: Date.now() })));
+      const nextPlaylists = storedPlaylists.map(playlist => ({ ...playlist, songIds: playlist.songIds.filter(songId => songId !== song.id), updatedAt: Date.now() }));
+      void persistStoredPlaylists(nextPlaylists);
+      if (selectedGroup) {
+        syncSelectedGroupWithPlaylists(nextPlaylists);
+      }
     });
   };
 
@@ -669,8 +751,13 @@ const PlaylistLibraryScreen = () => {
       return;
     }
 
-    const toneLabel = type === 'ringtone' ? t('device_tone', 'device tone') : t('alarm_tone', 'alarm tone');
-    Alert.alert(t('done', 'Done'), `“${song.title}” ${t('tone_set_success', 'was set as')} ${toneLabel}.`);
+    setSetAsSuccessVisible(true);
+    setSetAsSuccessPayload({ song, tone: type });
+  };
+
+  const closeSetAsSuccess = () => {
+    setSetAsSuccessVisible(false);
+    setSetAsSuccessPayload(null);
   };
 
   const playSelectedPlaylist = () => {
@@ -698,10 +785,10 @@ const PlaylistLibraryScreen = () => {
       showDuration={false}
       rightAction={
         <Pressable
-          className="h-9 w-9 items-center justify-center rounded-full bg-[#333333]"
+          className="h-9 w-9 items-center justify-center rounded-full "
           onPress={() => confirmRemoveSongFromPlaylist(playlistId, item)}
         >
-          <Text className="text-xl font-bold text-white">×</Text>
+          <Ionicons name="close" size={20} color={theme.text} />
         </Pressable>
       }
     />
@@ -931,6 +1018,18 @@ const PlaylistLibraryScreen = () => {
         accent="white"
         onClose={() => setPlaylistBulkDeleteVisible(false)}
         onConfirm={performBulkDeletePlaylist}
+      />
+      <RemoveSongFromPlaylistSheet
+        visible={removeSongSheetVisible}
+        target={removeSongTarget}
+        onClose={closeRemoveSongSheet}
+        onConfirm={performRemoveSongFromPlaylist}
+      />
+      <SetAsSuccessModal
+        visible={setAsSuccessVisible}
+        song={setAsSuccessPayload?.song ?? null}
+        tone={setAsSuccessPayload?.tone ?? 'ringtone'}
+        onClose={closeSetAsSuccess}
       />
     </View>
   );

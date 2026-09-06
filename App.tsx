@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { Text as RNText } from 'react-native';
 import * as Font from 'expo-font';
 import {
   Ionicons,
@@ -11,6 +12,9 @@ import Header from './src/components/Header';
 import TabNavigator from './src/navigation/TabNavigator';
 import { useAppSettingsTheme } from './src/settings/appSettings';
 import "./global.css"
+
+export const SF_PRO_FONT_FAMILY = 'SF Pro Text';
+export const FESA_LOCK_DATE_FONT_FAMILY = 'Fesa-LockDate';
 
 const ICON_FONT_FAMILIES = [
   Ionicons.font,
@@ -35,9 +39,19 @@ export default function App() {
     }
     Font.loadAsync({
       ...fontMap,
-      'Fesa-LockDate': require('./assets/fonts/SFNSText-Regular.otf'),
+      [SF_PRO_FONT_FAMILY]: require('./assets/fonts/SFNSText-Regular.otf'),
+      [FESA_LOCK_DATE_FONT_FAMILY]: require('./assets/fonts/SFNSText-Regular.otf'),
     }).then(() => {
-      if (!cancelled) setFontsReady(true);
+      if (cancelled) return;
+      const textComponent = RNText as unknown as {
+        defaultProps?: { style?: unknown };
+      };
+      textComponent.defaultProps = textComponent.defaultProps || {};
+      textComponent.defaultProps.style = [
+        textComponent.defaultProps.style,
+        { fontFamily: SF_PRO_FONT_FAMILY },
+      ];
+      setFontsReady(true);
     });
     return () => {
       cancelled = true;

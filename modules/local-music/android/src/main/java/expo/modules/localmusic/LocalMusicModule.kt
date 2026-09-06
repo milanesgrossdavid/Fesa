@@ -68,7 +68,7 @@ class LocalMusicModule : Module() {
         val sessionId = try {
           android.media.AudioPlaybackConfiguration::class.java
             .getMethod("getAudioSessionId")
-            .invoke(it) as? Int
+            .invoke(config) as? Int
         } catch (_: Exception) {
           null
         }

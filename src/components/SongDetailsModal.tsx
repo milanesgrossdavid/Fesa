@@ -99,8 +99,7 @@ const SongDetailsModal = ({ song, visible, onClose }: SongDetailsModalProps) => 
               <View className="flex-row items-center gap-2">
                 <Pressable
                   onPress={onClose}
-                  className="rounded-full border px-3 py-1.5"
-                  style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+                  className="rounded-full px-3 py-1.5"
                 >
                   <Text className="text-base font-semibold" style={{ color: theme.text }}>
                     {t('song_details_close', 'Close')}

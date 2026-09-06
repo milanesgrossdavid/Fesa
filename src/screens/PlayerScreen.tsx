@@ -6,6 +6,7 @@ import {
   PanResponder,
   Platform,
   Pressable,
+  StyleSheet,
   Text,
   View,
   type GestureResponderEvent,
@@ -40,6 +41,7 @@ import AudioWaveBars from "../components/AudioWaveBars";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import QueuePlaylistModal from "../components/QueuePlaylistModal";
 import RelatedTracksModal from "../components/RelatedTracksModal";
+import SetAsSuccessModal from "../components/SetAsSuccessModal";
 import SongDetailsModal from "../components/SongDetailsModal";
 import LyricsModal from "../components/LyricsModal";
 import AutoScrollingText from "../components/AutoScrollingText";
@@ -591,6 +593,8 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
   const [lockScreenMounted, setLockScreenMounted] = useState(false);
   const [equalizerMounted, setEqualizerMounted] = useState(false);
   const [defineAsMounted, setDefineAsMounted] = useState(false);
+  const [setAsSuccessVisible, setSetAsSuccessVisible] = useState(false);
+  const [setAsSuccessTone, setSetAsSuccessTone] = useState<ToneType>('ringtone');
   const [trackMenuMounted, setTrackMenuMounted] = useState(false);
 
   // Track "transitioning out" so we can keep the Modal in the tree (with
@@ -920,9 +924,13 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
     const setAsTone = await setAudioAsTone(currentSong.id, type);
     if (!setAsTone) return;
 
-    const toneLabel = type === 'ringtone' ? 'tono del dispositivo' : 'tono de alarma';
-    Alert.alert('Listo', `“${currentSong.title}” se definió como ${toneLabel}.`);
+    setSetAsSuccessTone(type);
+    setSetAsSuccessVisible(true);
   }, [currentSong]);
+
+  const closeSetAsSuccess = useCallback(() => {
+    setSetAsSuccessVisible(false);
+  }, []);
 
   const deleteCurrentSong = useCallback(async () => {
     if (!currentSong) return;
@@ -1183,6 +1191,13 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
           />
         ) : null}
 
+        <SetAsSuccessModal
+          visible={setAsSuccessVisible}
+          song={currentSong}
+          tone={setAsSuccessTone}
+          onClose={closeSetAsSuccess}
+        />
+
         {defineAsMounted ? (
           <AppModal
             transparent
@@ -1332,29 +1347,117 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                 style={{ width: '100%', maxWidth: 380 }}
               >
                 <View
-                  className="overflow-hidden rounded-[34px] p-6"
+                  className="rounded-[36px] p-6"
                   style={{
-                    backgroundColor: 'rgba(10,10,10,0.58)',
-                    borderColor: 'rgba(255,255,255,0.08)',
+                    // Liquid glass: deep base with a soft tint, double outer shadow
+                    // for a "floating" curved pane. The border is split into two
+                    // layers via shadows so the top edge catches light while the
+                    // bottom edge falls into shadow.
+                    backgroundColor: 'rgba(14,14,16,0.42)',
+                    borderColor: 'rgba(255,255,255,0.14)',
                     borderWidth: 1,
                     shadowColor: '#000',
-                    shadowOpacity: 0.28,
-                    shadowOffset: { width: 0, height: 8 },
-                    shadowRadius: 18,
+                    shadowOpacity: 0.55,
+                    shadowOffset: { width: 0, height: 18 },
+                    shadowRadius: 32,
+                    elevation: 18,
+                    overflow: 'visible',
                   }}
                 >
-                  <BlurView
+                  {/* Clipped glass body — keeps the gradient/blur inside the rounded shape */}
+                  <View
                     pointerEvents="none"
-                    intensity={35}
-                    tint="dark"
-                    style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
-                  />
-                  <LinearGradient
-                    pointerEvents="none"
-                    colors={[withAlpha(dominantColor, 0.22), 'rgba(0,0,0,0.2)']}
-                    style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-                  />
-                  <View className="aspect-square w-full items-center justify-center overflow-hidden rounded-[24px] bg-[#2a2a2a]">
+                    className="overflow-hidden rounded-[36px]"
+                    style={StyleSheet.absoluteFill}
+                  >
+                    {/* Base blur: provides the frosted backdrop */}
+                    <BlurView
+                      pointerEvents="none"
+                      intensity={110}
+                      tint="dark"
+                      style={StyleSheet.absoluteFill}
+                    />
+
+                    {/* Tinted refraction: dominant color seeping through the top,
+                        fading to deep black at the bottom to suggest depth. */}
+                    <LinearGradient
+                      pointerEvents="none"
+                      colors={[
+                        withAlpha(dominantColor, 0.42),
+                        withAlpha(dominantColor, 0.18),
+                        'rgba(0,0,0,0.55)',
+                      ]}
+                      locations={[0, 0.45, 1]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={StyleSheet.absoluteFill}
+                    />
+
+                    {/* Specular highlight: bright curved sheen across the top edge */}
+                    <LinearGradient
+                      pointerEvents="none"
+                      colors={[
+                        'rgba(255,255,255,0.28)',
+                        'rgba(255,255,255,0.06)',
+                        'rgba(255,255,255,0)',
+                      ]}
+                      locations={[0, 0.35, 1]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 0, y: 1 }}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: '55%',
+                      }}
+                    />
+
+                    {/* Inner highlight stroke: simulates a thin glass rim */}
+                    <View
+                      pointerEvents="none"
+                      style={{
+                        position: 'absolute',
+                        top: 1,
+                        left: 1,
+                        right: 1,
+                        bottom: 1,
+                        borderRadius: 35,
+                      }}
+                    />
+                  </View>
+
+                  {/* Content layer sits on top of the clipped glass body */}
+                  <View style={{ position: 'relative' }}>
+                  {/* Artwork: own inset glass tile with subtle highlight */}
+                  <View
+                    className="aspect-square w-full items-center justify-center overflow-hidden rounded-[26px]"
+                    style={{
+                      backgroundColor: 'rgba(255,255,255,0.08)',
+                      shadowColor: '#000',
+                      shadowOpacity: 0.45,
+                      shadowOffset: { width: 0, height: 6 },
+                      shadowRadius: 14,
+                    }}
+                  >
+                    <View
+                      pointerEvents="none"
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: '50%',
+                      }}
+                    >
+                      <LinearGradient
+                        pointerEvents="none"
+                        colors={['rgba(255,255,255,0.18)', 'rgba(255,255,255,0)']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 0, y: 1 }}
+                        style={StyleSheet.absoluteFill}
+                      />
+                    </View>
                     {currentSong.artwork ? (
                       <Image
                         source={{ uri: currentSong.artwork }}
@@ -1368,46 +1471,99 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                     )}
                   </View>
 
-                  <View className="mt-4 flex-row items-center justify-between">
+                  <View className="mt-5 flex-row items-center justify-between">
                     <View className="flex-1 pr-3">
-                      <AutoScrollingText className="text-base font-bold text-white">
+                      <AutoScrollingText
+                        className="text-base font-bold"
+                        style={{ color: 'rgba(255,255,255,0.98)' }}
+                      >
                         {currentSong.title}
                       </AutoScrollingText>
-                      <AutoScrollingText className="mt-1 text-xs text-white/55">
+                      <AutoScrollingText
+                        className="mt-1 text-xs"
+                        style={{ color: 'rgba(255,255,255,0.62)' }}
+                      >
                         {normalizeValue(currentSong.artist, UNKNOWN_ARTIST)}
                       </AutoScrollingText>
                     </View>
-                    <Pressable onPress={handleToggleFavorite}>
+                    <Pressable
+                      onPress={handleToggleFavorite}
+                      hitSlop={10}
+                      style={({ pressed }) => [
+                        {
+                          width: 36,
+                          height: 36,
+                          borderRadius: 18,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          backgroundColor: 'rgba(255,255,255,0.10)',
+                          borderWidth: 1,
+                          borderColor: 'rgba(255,255,255,0.18)',
+                          opacity: pressed ? 0.7 : 1,
+                        },
+                      ]}
+                    >
                       {isCurrentSongFavorite ? (
-                        <FavoritedIcon size={22} color="#f5f5f5" />
+                        <FavoritedIcon size={20} color="#f5f5f5" />
                       ) : (
-                        <UnfavoritedIcon size={22} color="#f5f5f5" />
+                        <UnfavoritedIcon size={20} color="#f5f5f5" />
                       )}
                     </Pressable>
                   </View>
 
                   <PlaybackProgressBar
                     seekTo={seekTo}
-                    containerClassName="mt-4"
-                    trackBackgroundColor="rgba(255,255,255,0.2)"
-                    barClassName="relative h-2 justify-center rounded-full bg-white/20"
+                    containerClassName="mt-5"
+                    trackBackgroundColor="rgba(255,255,255,0.18)"
+                    barClassName="relative h-2 justify-center rounded-full bg-white/15"
                     thumbClassName="absolute h-3.5 w-3.5 rounded-full bg-white"
                     thumbOffset={-7}
                   />
 
-                  <View className="mt-5 flex-row items-center justify-center gap-8">
-                    <Pressable onPress={handlePrevious}>
+                  <View className="mt-6 flex-row items-center justify-center gap-7">
+                    <Pressable
+                      onPress={handlePrevious}
+                      hitSlop={10}
+                      style={({ pressed }) => ({
+                        opacity: pressed ? 0.65 : 1,
+                      })}
+                    >
                       <BackwardIcon size={30} color="#f5f5f5" />
                     </Pressable>
-                    <Pressable onPress={handlePlayPause}>
-                      <Ionicons name={playing ? "pause" : "play"} size={44} color="#f5f5f5" />
+                    <Pressable
+                      onPress={handlePlayPause}
+                      hitSlop={10}
+                      style={({ pressed }) => ({
+                        width: 68,
+                        height: 68,
+                        borderRadius: 34,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: 'rgba(255,255,255,0.16)',
+                        borderWidth: 1,
+                        borderColor: 'rgba(255,255,255,0.32)',
+                        shadowColor: '#000',
+                        shadowOpacity: 0.45,
+                        shadowOffset: { width: 0, height: 6 },
+                        shadowRadius: 14,
+                        transform: [{ scale: pressed ? 0.95 : 1 }],
+                      })}
+                    >
+                      <Ionicons name={playing ? "pause" : "play"} size={36} color="#ffffff" />
                     </Pressable>
-                    <Pressable onPress={handleNext}>
+                    <Pressable
+                      onPress={handleNext}
+                      hitSlop={10}
+                      style={({ pressed }) => ({
+                        opacity: pressed ? 0.65 : 1,
+                      })}
+                    >
                       <ForwardIcon size={30} color="#f5f5f5" />
                     </Pressable>
                   </View>
 
                   <VolumeSlider setVolume={setVolume} />
+                  </View>
                 </View>
               </Pressable>
             </View>
@@ -1506,14 +1662,15 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                   />
 
                   <View className="mt-5 flex-row items-center justify-center gap-9">
+                    
                     <Pressable onPress={handlePrevious}>
-                      <Ionicons name="play-skip-back" size={32} color="#f5f5f5" />
+                      <BackwardIcon size={30} color="#f5f5f5" />
                     </Pressable>
                     <Pressable onPress={handlePlayPause}>
-                      <Ionicons name={playing ? "pause" : "play"} size={42} color="#f5f5f5" />
+                      <Ionicons name={playing ? "pause" : "play"} size={44} color="#f5f5f5" />
                     </Pressable>
                     <Pressable onPress={handleNext}>
-                      <Ionicons name="play-skip-forward" size={32} color="#f5f5f5" />
+                      <ForwardIcon size={30} color="#f5f5f5" />
                     </Pressable>
                   </View>
                 </View>
@@ -1556,7 +1713,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                     className="rounded-full px-3 py-2"
                     onPress={() => setEqualizerVisible(false)}
                   >
-                    <Text className="text-sm font-semibold" style={{ color: theme.text }}>
+                    <Text className="text-base font-semibold" style={{ color: theme.text }}>
                       {t('close', 'Close')}
                     </Text>
                   </Pressable>

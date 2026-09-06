@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  Animated,
   FlatList,
   Modal,
   View,
@@ -10,6 +11,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  PanResponder,
   Share,
 } from "react-native";
 
@@ -272,6 +274,156 @@ const saveLocalLyrics = async (
   } catch (e) {
     console.error("Error saving local lyrics:", e);
   }
+};
+
+/**
+ * SwipeableLyricRow
+ *
+ * A lyric line that the user can remove by swiping it horizontally
+ * (left or right) past a small threshold. A short tap still fires the
+ * `onPress` callback (so the row can be selected / deselected like before).
+ *
+ * Internally uses `PanResponder` + an `Animated.Value` for the swipe
+ * translation. The row is dismissed off-screen with a short spring
+ * animation, then the parent is notified via `onRemove`.
+ */
+const SWIPE_THRESHOLD = 80;
+const SWIPE_VELOCITY = 0.4;
+const SCREEN_WIDTH_FOR_SWIPE = 480;
+
+interface SwipeableLyricRowProps {
+  text: string;
+  isSelected: boolean;
+  textColor: string;
+  backgroundColor: string;
+  selectedBackgroundColor: string;
+  borderColor: string;
+  swipeHint: string;
+  onPress: () => void;
+  onRemove: () => void;
+}
+
+const SwipeableLyricRow = ({
+  text,
+  isSelected,
+  textColor,
+  backgroundColor,
+  selectedBackgroundColor,
+  borderColor,
+  swipeHint,
+  onPress,
+  onRemove,
+}: SwipeableLyricRowProps) => {
+  const translateX = useRef(new Animated.Value(0)).current;
+  const rowHeight = useRef(new Animated.Value(1)).current;
+  const rowOpacity = useRef(new Animated.Value(1)).current;
+  const removedRef = useRef(false);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_event, gestureState) => {
+        // Only claim the gesture when the user moves primarily horizontally.
+        // This keeps vertical scroll inside the ScrollView fluid.
+        return (
+          Math.abs(gestureState.dx) > 12 &&
+          Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.5
+        );
+      },
+      onPanResponderMove: (_event, gestureState) => {
+        translateX.setValue(gestureState.dx);
+      },
+      onPanResponderRelease: (_event, gestureState) => {
+        const passed =
+          Math.abs(gestureState.dx) > SWIPE_THRESHOLD ||
+          Math.abs(gestureState.vx) > SWIPE_VELOCITY;
+
+        if (passed && !removedRef.current) {
+          removedRef.current = true;
+          const direction = gestureState.dx >= 0 ? 1 : -1;
+          Animated.parallel([
+            Animated.timing(translateX, {
+              toValue: direction * SCREEN_WIDTH_FOR_SWIPE,
+              duration: 220,
+              useNativeDriver: true,
+            }),
+            Animated.timing(rowOpacity, {
+              toValue: 0,
+              duration: 220,
+              useNativeDriver: true,
+            }),
+            Animated.timing(rowHeight, {
+              toValue: 0,
+              duration: 220,
+              useNativeDriver: false,
+            }),
+          ]).start(() => {
+            onRemove();
+          });
+        } else {
+          Animated.spring(translateX, {
+            toValue: 0,
+            useNativeDriver: true,
+            friction: 7,
+            tension: 80,
+          }).start();
+        }
+      },
+      onPanResponderTerminate: () => {
+        Animated.spring(translateX, {
+          toValue: 0,
+          useNativeDriver: true,
+          friction: 7,
+          tension: 80,
+        }).start();
+      },
+    }),
+  ).current;
+
+  return (
+    <Animated.View
+      style={{
+        opacity: rowOpacity,
+        maxHeight: rowHeight.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, 120],
+        }),
+        transform: [{ translateX }],
+      }}
+    >
+      <View
+        style={{
+          borderRadius: 14,
+          backgroundColor: isSelected ? selectedBackgroundColor : backgroundColor,
+          borderWidth: 1,
+          borderColor: isSelected ? selectedBackgroundColor : borderColor,
+        }}
+      >
+        <Pressable
+          onPress={onPress}
+          accessibilityRole="button"
+          accessibilityLabel={text}
+          accessibilityHint={swipeHint}
+          {...panResponder.panHandlers}
+          style={{
+            paddingVertical: 10,
+            paddingHorizontal: 12,
+          }}
+        >
+          <Text
+            numberOfLines={2}
+            style={{
+              color: textColor,
+              fontSize: 15,
+              fontWeight: isSelected ? "700" : "500",
+              lineHeight: 22,
+            }}
+          >
+            {text || " "}
+          </Text>
+        </Pressable>
+      </View>
+    </Animated.View>
+  );
 };
 
 const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
@@ -687,7 +839,22 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
     });
   }, [shareSelectionVisible]);
 
-  const removeLastSelectedLine = () => {
+  const deselectAll = () => {
+    setShareStart(null);
+    setShareEnd(null);
+  };
+
+  // Remove a single lyric line by index. The selection range is shifted
+  // to stay valid after the removal, and a fully-cleared selection is
+  // collapsed back to `null`.
+  const removeLyricLineAt = (index: number) => {
+    if (index < 0 || index >= lines.length) {
+      return;
+    }
+
+    const nextLines = lines.filter((_, currentIndex) => currentIndex !== index);
+    setLines(nextLines);
+
     if (shareStart === null || shareEnd === null) {
       return;
     }
@@ -695,19 +862,17 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
     const minIndex = Math.min(shareStart, shareEnd);
     const maxIndex = Math.max(shareStart, shareEnd);
 
-    if (maxIndex === minIndex) {
+    if (index < minIndex) {
+      setShareStart(shareStart - 1);
+      setShareEnd(shareEnd - 1);
+    } else if (index > maxIndex) {
+      // Selection stays the same.
+    } else if (minIndex === maxIndex && index === minIndex) {
       setShareStart(null);
       setShareEnd(null);
-      return;
+    } else {
+      setShareEnd(maxIndex - 1);
     }
-
-    setShareStart(minIndex);
-    setShareEnd(maxIndex - 1);
-  };
-
-  const clearSelection = () => {
-    setShareStart(null);
-    setShareEnd(null);
   };
 
   const handleShareLinePress = (index: number) => {
@@ -1301,31 +1466,31 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
               </Pressable>
             </View>
 
-            <View className="mb-4 flex-row items-center justify-between gap-2">
+            <View className="mb-4 flex-row items-center justify-between">
               <Pressable
-                onPress={clearSelection}
+                onPress={deselectAll}
                 disabled={shareStart === null || shareEnd === null}
-                className="flex-1 items-center justify-center rounded-full py-3"
+                accessibilityRole="button"
+                accessibilityLabel={t(
+                  "lyrics_deselect_all",
+                  "Deselect all",
+                )}
+                className="w-full items-center justify-center rounded-full py-3"
                 style={{
-                  backgroundColor: shareStart !== null && shareEnd !== null ? theme.surface : `${theme.surface}88`,
+                  backgroundColor:
+                    shareStart !== null && shareEnd !== null
+                      ? theme.surface
+                      : `${theme.surface}88`,
                   borderWidth: 1,
                   borderColor: theme.border,
                 }}
               >
-                <Text className="text-base font-semibold" style={{ color: theme.text }}>Borrar todo</Text>
-              </Pressable>
-
-              <Pressable
-                onPress={removeLastSelectedLine}
-                disabled={shareStart === null || shareEnd === null}
-                className="flex-1 items-center justify-center rounded-full py-3"
-                style={{
-                  backgroundColor: shareStart !== null && shareEnd !== null ? theme.surface : `${theme.surface}88`,
-                  borderWidth: 1,
-                  borderColor: theme.border,
-                }}
-              >
-                <Text className="text-base font-semibold" style={{ color: theme.text }}>Quitar última</Text>
+                <Text
+                  className="text-base font-semibold"
+                  style={{ color: theme.text }}
+                >
+                  {t("lyrics_deselect_all", "Deselect all")}
+                </Text>
               </Pressable>
             </View>
 
@@ -1349,30 +1514,21 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
                       index <= Math.max(shareStart, shareEnd);
 
                     return (
-                      <Pressable
-                        key={`${index}-${line.time}`}
+                      <SwipeableLyricRow
+                        key={`${index}-${line.time}-${line.text}`}
+                        text={line.text || " "}
+                        isSelected={isSelected}
+                        textColor={isSelected ? theme.background : theme.text}
+                        backgroundColor={theme.surface}
+                        selectedBackgroundColor={theme.accent}
+                        borderColor={theme.border}
+                        swipeHint={t(
+                          "lyrics_swipe_remove_hint",
+                          "Swipe to remove",
+                        )}
                         onPress={() => handleShareLinePress(index)}
-                        style={{
-                          paddingVertical: 10,
-                          paddingHorizontal: 12,
-                          borderRadius: 14,
-                          backgroundColor: isSelected ? theme.accent : theme.surface,
-                          borderWidth: 1,
-                          borderColor: isSelected ? theme.accent : theme.border,
-                        }}
-                      >
-                        <Text
-                          numberOfLines={2}
-                          style={{
-                            color: isSelected ? theme.background : theme.text,
-                            fontSize: 15,
-                            fontWeight: isSelected ? "700" : "500",
-                            lineHeight: 22,
-                          }}
-                        >
-                          {line.text || " "}
-                        </Text>
-                      </Pressable>
+                        onRemove={() => removeLyricLineAt(index)}
+                      />
                     );
                   })}
                 </View>

@@ -168,22 +168,22 @@ const DEFAULT_SETTINGS: PersistedAppSettings = {
   hiddenSongIds: [],
 };
 
+const listeners = new Set<() => void>();
+const sleepTimerListeners = new Set<() => void>();
+
+const getThemeById = (themeId: AppThemeId) => APP_THEMES.find(theme => theme.id === themeId) ?? APP_THEMES[1];
+const getLanguageById = (languageId: AppLanguageId) => APP_LANGUAGES.find(language => language.id === languageId) ?? APP_LANGUAGES[0];
+
+const VALID_TAB_IDS = new Set<TabId>(DEFAULT_TABS.map(tab => tab.id));
+
 let hydrated = false;
 let sleepTimerId: ReturnType<typeof setTimeout> | null = null;
 let persistedState: PersistedAppSettings = DEFAULT_SETTINGS;
 let snapshot: AppSettingsSnapshot = {
   ...DEFAULT_SETTINGS,
-  theme: APP_THEMES[0],
-  language: APP_LANGUAGES[0],
+  theme: getThemeById(DEFAULT_SETTINGS.themeId),
+  language: getLanguageById(DEFAULT_SETTINGS.languageId),
 };
-
-const listeners = new Set<() => void>();
-const sleepTimerListeners = new Set<() => void>();
-
-const getThemeById = (themeId: AppThemeId) => APP_THEMES.find(theme => theme.id === themeId) ?? APP_THEMES[0];
-const getLanguageById = (languageId: AppLanguageId) => APP_LANGUAGES.find(language => language.id === languageId) ?? APP_LANGUAGES[0];
-
-const VALID_TAB_IDS = new Set<TabId>(DEFAULT_TABS.map(tab => tab.id));
 
 const resolveDeviceLanguageId = (): AppLanguageId => {
   const locales = 'getLocales' in Localization ? Localization.getLocales() : [];

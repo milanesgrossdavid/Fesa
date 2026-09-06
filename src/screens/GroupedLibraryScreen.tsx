@@ -22,6 +22,7 @@ import AddSongToPlaylistModal from '../components/AddSongToPlaylistModal';
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
 import CreatePlaylistModal from '../components/CreatePlaylistModal';
 import DefineAsModal from '../components/DefineAsModal';
+import SetAsSuccessModal from '../components/SetAsSuccessModal';
 import LibraryGroupDetailModal from '../components/LibraryGroupDetailModal';
 import LibraryGroupGridCard from '../components/LibraryGroupGridCard';
 import LibraryGroupListItem from '../components/LibraryGroupListItem';
@@ -167,6 +168,11 @@ const GroupedLibraryScreen = ({ mode, title }: GroupedLibraryScreenProps) => {
   const [createPlaylistVisible, setCreatePlaylistVisible] = useState(false);
   const [playlistName, setPlaylistName] = useState('');
   const [defineAsSong, setDefineAsSong] = useState<Song | null>(null);
+  const [setAsSuccessVisible, setSetAsSuccessVisible] = useState(false);
+  const [setAsSuccessPayload, setSetAsSuccessPayload] = useState<{
+    song: Song;
+    tone: ToneType;
+  } | null>(null);
   const [detailsSong, setDetailsSong] = useState<Song | null>(null);
   const [bulkDeleteVisible, setBulkDeleteVisible] = useState(false);
   const [singleDeleteVisible, setSingleDeleteVisible] = useState(false);
@@ -450,8 +456,13 @@ const GroupedLibraryScreen = ({ mode, title }: GroupedLibraryScreenProps) => {
       return;
     }
 
-    const toneLabel = type === 'ringtone' ? 'tono del dispositivo' : 'tono de alarma';
-    Alert.alert('Listo', `“${song.title}” se definió como ${toneLabel}.`);
+    setSetAsSuccessVisible(true);
+    setSetAsSuccessPayload({ song, tone: type });
+  };
+
+  const closeSetAsSuccess = () => {
+    setSetAsSuccessVisible(false);
+    setSetAsSuccessPayload(null);
   };
 
   const renderTopNav = () => {
@@ -674,6 +685,12 @@ const GroupedLibraryScreen = ({ mode, title }: GroupedLibraryScreenProps) => {
       />
 
       {selectedGroupModal}
+      <SetAsSuccessModal
+        visible={setAsSuccessVisible}
+        song={setAsSuccessPayload?.song ?? null}
+        tone={setAsSuccessPayload?.tone ?? 'ringtone'}
+        onClose={closeSetAsSuccess}
+      />
     </View>
   );
 };

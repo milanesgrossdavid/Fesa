@@ -9,6 +9,7 @@ import AddSongToPlaylistModal from '../components/AddSongToPlaylistModal';
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
 import CreatePlaylistModal from '../components/CreatePlaylistModal';
 import DefineAsModal from '../components/DefineAsModal';
+import SetAsSuccessModal from '../components/SetAsSuccessModal';
 import RelatedTracksModal from '../components/RelatedTracksModal';
 import SelectedSongsActionBar from '../components/SelectedSongsActionBar';
 import SongDetailsModal from '../components/SongDetailsModal';
@@ -82,6 +83,11 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
   const [createPlaylistVisible, setCreatePlaylistVisible] = useState(false);
   const [playlistName, setPlaylistName] = useState('');
   const [defineAsSong, setDefineAsSong] = useState<Song | null>(null);
+  const [setAsSuccessVisible, setSetAsSuccessVisible] = useState(false);
+  const [setAsSuccessPayload, setSetAsSuccessPayload] = useState<{
+    song: Song;
+    tone: ToneType;
+  } | null>(null);
   const [detailsSong, setDetailsSong] = useState<Song | null>(null);
   const [relatedTracks, setRelatedTracks] = useState<{
     title: string;
@@ -347,8 +353,13 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
       return;
     }
 
-    const toneLabel = type === 'ringtone' ? t('device_tone', 'device tone') : t('alarm_tone', 'alarm tone');
-    Alert.alert(t('done', 'Done'), `“${song.title}” ${t('tone_set_success', 'was set as')} ${toneLabel}.`);
+    setSetAsSuccessVisible(true);
+    setSetAsSuccessPayload({ song, tone: type });
+  };
+
+  const closeSetAsSuccess = () => {
+    setSetAsSuccessVisible(false);
+    setSetAsSuccessPayload(null);
   };
 
   const playAllTracks = () => {
@@ -595,6 +606,12 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
         confirmLabel={t('delete', 'Delete')}
         onClose={() => setBulkDeleteVisible(false)}
         onConfirm={performBulkDelete}
+      />
+      <SetAsSuccessModal
+        visible={setAsSuccessVisible}
+        song={setAsSuccessPayload?.song ?? null}
+        tone={setAsSuccessPayload?.tone ?? 'ringtone'}
+        onClose={closeSetAsSuccess}
       />
     </View>
   );

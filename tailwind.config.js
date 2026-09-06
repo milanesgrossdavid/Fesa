@@ -4,7 +4,12 @@ module.exports = {
   content: ["./App.tsx", "./src/**/*.{js,jsx,ts,tsx}"],
   presets: [require("nativewind/preset")],
   theme: {
-    extend: {},
+    extend: {
+      fontFamily: {
+        sans: ["SF Pro Text", "System Font", "SF Pro", "system-ui", "-apple-system", "Roboto", "sans-serif"],
+        sf: ["SF Pro Text", "System Font", "SF Pro", "system-ui", "sans-serif"],
+      },
+    },
   },
   plugins: [],
 }

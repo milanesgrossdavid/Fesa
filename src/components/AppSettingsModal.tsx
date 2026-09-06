@@ -43,6 +43,7 @@ import { getTranslation } from '../i18n/translations';
 import HideMusicModal from './HideMusicModal';
 import PrivacyPolicyModal from './PrivacyPolicyModal';
 import OpenSourceLicensesModal from './OpenSourceLicensesModal';
+import CustomSleepTimerModal from './CustomSleepTimerModal';
 import AppModal from './AppModal';
 
 interface AppSettingsModalProps {
@@ -84,9 +85,6 @@ const getSleepTimerOptions = (t: (key: string, fallback?: string) => string) => 
 ];
 const CUSTOM_SLEEP_MIN = 1;
 const CUSTOM_SLEEP_MAX = 23 * 60 + 59;
-const WHEEL_ITEM_HEIGHT = 44;
-const WHEEL_VISIBLE_ITEMS = 5;
-const WHEEL_HEIGHT = WHEEL_ITEM_HEIGHT * WHEEL_VISIBLE_ITEMS;
 const SUPPORT_EMAIL = 'davmilgross@gmail.com';
 const FACEBOOK_APP_URL = 'fb://facewebmodal/f?href=https%3A%2F%2Fwww.facebook.com%2Fdavid.milanes.10';
 const FACEBOOK_WEB_URL = 'https://www.facebook.com/david.milanes.10';
@@ -94,8 +92,6 @@ const INSTAGRAM_APP_URL = 'instagram://user?username=davmilanes';
 const INSTAGRAM_WEB_URL = 'https://www.instagram.com/davmilanes/';
 const WHATSAPP_APP_URL = 'whatsapp://send?phone=5354776027';
 const WHATSAPP_WEB_URL = 'https://wa.me/5354776027';
-const HOUR_OPTIONS = Array.from({ length: 24 }, (_, index) => index);
-const MINUTE_OPTIONS = Array.from({ length: 60 }, (_, index) => index);
 
 const getTermsText = (t: (key: string, fallback?: string) => string) => [
   t('terms_item_1', '1. FESA is a local audio playback and organization app. It does not upload your files to external servers.'),
@@ -314,115 +310,6 @@ const SettingsRow = ({
     )}
   </Pressable>
 );
-
-const VerticalWheelPicker = ({
-  values,
-  value,
-  visible,
-  onChange,
-  label,
-  textColor,
-  mutedColor,
-  background,
-}: {
-  values: number[];
-  value: number;
-  visible: boolean;
-  onChange: (next: number) => void;
-  label: string;
-  textColor: string;
-  mutedColor: string;
-  background: string;
-}) => {
-  const scrollRef = useRef<ScrollView>(null);
-
-  useEffect(() => {
-    if (!visible) {
-      return;
-    }
-
-    const index = Math.max(0, values.indexOf(value));
-    const timeout = setTimeout(() => {
-      scrollRef.current?.scrollTo({ y: index * WHEEL_ITEM_HEIGHT, animated: false });
-    }, 50);
-
-    return () => clearTimeout(timeout);
-    // Solo al abrir el modal, para no pelear con el gesto del usuario.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible]);
-
-  const selectFromOffset = (offsetY: number) => {
-    const index = Math.max(
-      0,
-      Math.min(values.length - 1, Math.round(offsetY / WHEEL_ITEM_HEIGHT))
-    );
-    onChange(values[index]);
-  };
-
-  return (
-    <View className="flex-1">
-      <Text className="mb-2 text-center text-xs font-bold uppercase tracking-[1px]" style={{ color: mutedColor }}>
-        {label}
-      </Text>
-      <View className="overflow-hidden rounded-2xl" style={{ height: WHEEL_HEIGHT, backgroundColor: background }}>
-        <View
-          pointerEvents="none"
-          className="absolute left-2 right-2 z-10 rounded-xl"
-          style={{
-            top: WHEEL_ITEM_HEIGHT * 2,
-            height: WHEEL_ITEM_HEIGHT,
-            backgroundColor: SETTINGS_ACCENT_SOFT,
-          }}
-        />
-        <ScrollView
-          ref={scrollRef}
-          showsVerticalScrollIndicator={false}
-          snapToInterval={WHEEL_ITEM_HEIGHT}
-          decelerationRate="fast"
-          nestedScrollEnabled
-          onMomentumScrollEnd={event => {
-            selectFromOffset(event.nativeEvent.contentOffset.y);
-          }}
-          onScrollEndDrag={event => {
-            const offsetY = event.nativeEvent.contentOffset.y;
-            const index = Math.max(
-              0,
-              Math.min(values.length - 1, Math.round(offsetY / WHEEL_ITEM_HEIGHT))
-            );
-            scrollRef.current?.scrollTo({ y: index * WHEEL_ITEM_HEIGHT, animated: true });
-            onChange(values[index]);
-          }}
-          contentContainerStyle={{
-            paddingVertical: WHEEL_ITEM_HEIGHT * 2,
-          }}
-        >
-          {values.map(option => {
-            const selected = option === value;
-
-            return (
-              <View
-                key={`${label}-${option}`}
-                className="items-center justify-center"
-                style={{ height: WHEEL_ITEM_HEIGHT }}
-              >
-                <Text
-                  className="text-center font-bold"
-                  style={{
-                    color: selected ? textColor : mutedColor,
-                    fontSize: selected ? 22 : 16,
-                    opacity: selected ? 1 : 0.45,
-                  }}
-                >
-                  {option.toString().padStart(2, '0')}
-                </Text>
-              </View>
-            );
-          })}
-        </ScrollView>
-      </View>
-    </View>
-  );
-};
 
 const OptionSheet = ({
   visible,
@@ -669,8 +556,6 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
   };
   const [sleepTimerVisible, setSleepTimerVisible] = useState(false);
   const [customSleepVisible, setCustomSleepVisible] = useState(false);
-  const [customHours, setCustomHours] = useState(0);
-  const [customMinutes, setCustomMinutes] = useState(20);
   const [playbackSpeedVisible, setPlaybackSpeedVisible] = useState(false);
   const [tabsVisible, setTabsVisible] = useState(false);
   const [themesVisible, setThemesVisible] = useState(false);
@@ -815,38 +700,8 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
   };
 
   const openCustomSleepTimer = () => {
-    const remainingMinutes = sleepTimerEndsAt
-      ? Math.max(1, Math.ceil((sleepTimerEndsAt - Date.now()) / 60000))
-      : 20;
-    const isPreset = PRESET_SLEEP_TIMER_VALUES.some(
-      value => Math.abs(remainingMinutes - value) <= 1
-    );
-
-    const seedMinutes = Math.min(
-      CUSTOM_SLEEP_MAX,
-      sleepTimerEndsAt && !isPreset ? remainingMinutes : 20
-    );
-    setCustomHours(Math.floor(seedMinutes / 60));
-    setCustomMinutes(seedMinutes % 60);
     setCustomSleepMounted(true);
     setCustomSleepVisible(true);
-  };
-
-  const applyCustomSleepTimer = () => {
-    const totalMinutes = customHours * 60 + customMinutes;
-
-    if (totalMinutes < CUSTOM_SLEEP_MIN || totalMinutes > CUSTOM_SLEEP_MAX) {
-      Alert.alert(
-        t('select_time_invalid', 'Invalid time'),
-        t('select_time_invalid_message', 'Choose at least 1 minute for the timer.')
-      );
-      return;
-    }
-
-    setSleepTimer(totalMinutes);
-    setNow(Date.now());
-    setCustomSleepVisible(false);
-    setSleepTimerVisible(false);
   };
 
   const termsAccepted = Boolean(termsAcceptedAt);
@@ -1197,66 +1052,19 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
         ) : null}
 
         {customSleepMounted ? (
-          <AppModal
-            transparent
+          <CustomSleepTimerModal
             visible={customSleepVisible}
-            animationType="fade"
-            onRequestClose={() => setCustomSleepVisible(false)}
-            onModalHide={() => setCustomSleepMounted(false)}
-          >
-          <View className="flex-1 justify-center px-6">
-            <Pressable className="absolute inset-0 bg-black/70" onPress={() => setCustomSleepVisible(false)} />
-            <View className="rounded-3xl p-5" style={{ backgroundColor: theme.surface }}>
-              <Text className="text-xl font-bold" style={{ color: theme.text }}>{t('custom_sleep_timer', 'Custom time')}</Text>
-              <Text className="mt-2 text-sm" style={{ color: theme.mutedText }}>
-                {t('custom_sleep_timer_description', 'Slide to choose hours and minutes.')}
-              </Text>
-
-              <View className="mt-5 flex-row items-center gap-3">
-                <VerticalWheelPicker
-                  values={HOUR_OPTIONS}
-                  value={customHours}
-                  visible={customSleepVisible}
-                  onChange={setCustomHours}
-                  label={t('hours', 'Hours')}
-                  textColor={theme.text}
-                  mutedColor={theme.mutedText}
-                  background={theme.background}
-                />
-                <Text className="pt-5 text-2xl font-bold" style={{ color: theme.text }}>:</Text>
-                <VerticalWheelPicker
-                  values={MINUTE_OPTIONS}
-                  value={customMinutes}
-                  visible={customSleepVisible}
-                  onChange={setCustomMinutes}
-                  label={t('minutes', 'Minutes')}
-                  textColor={theme.text}
-                  mutedColor={theme.mutedText}
-                  background={theme.background}
-                />
-              </View>
-
-              <Text className="mt-4 text-center text-sm font-bold" style={{ color: SETTINGS_ACCENT }}>
-                {customHours > 0
-                  ? `${customHours}h ${customMinutes.toString().padStart(2, '0')}min`
-                  : `${customMinutes} min`}
-              </Text>
-
-              <View className="mt-5 flex-row justify-end gap-3">
-                <Pressable className="rounded-full px-4 py-3" style={{backgroundColor: theme.background}} onPress={() => setCustomSleepVisible(false)}>
-                  <Text className="font-bold" style={{ color: theme.text }}>{t('cancel', 'Cancel')}</Text>
-                </Pressable>
-                <Pressable
-                  className="rounded-full px-5 py-3"
-                  style={{ backgroundColor: theme.background }}
-                  onPress={applyCustomSleepTimer}
-                >
-                  <Text className="font-bold" style={{ color: theme.text }}>{t('apply', 'Apply')}</Text>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-          </AppModal>
+            initialMinutes={
+              sleepTimerEndsAt
+                ? Math.max(1, Math.ceil((sleepTimerEndsAt - Date.now()) / 60000))
+                : undefined
+            }
+            onClose={() => setCustomSleepVisible(false)}
+            onApplied={() => {
+              setNow(Date.now());
+              setSleepTimerVisible(false);
+            }}
+          />
         ) : null}
 
         {playbackSpeedMounted ? (

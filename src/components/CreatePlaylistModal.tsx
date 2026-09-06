@@ -1,17 +1,18 @@
-import React from 'react';
+import React, { useEffect, useRef } from "react";
 import {
-  KeyboardAvoidingView,
+  Animated,
   Modal,
-  Platform,
   Pressable,
+  StyleSheet,
   Text,
   TextInput,
   View,
-} from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { getTranslation } from '../i18n/translations';
-import { PlaylistIcon, PlusIcon } from '../Icons';
-import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
+} from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { getTranslation } from "../i18n/translations";
+import { useAppSettingsLanguage, useAppSettingsTheme } from "../settings/appSettings";
+
+const PLAYLIST_NAME_MAX = 60;
 
 interface CreatePlaylistModalProps {
   visible: boolean;
@@ -30,117 +31,292 @@ const CreatePlaylistModal = ({
 }: CreatePlaylistModalProps) => {
   const theme = useAppSettingsTheme();
   const language = useAppSettingsLanguage();
-  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
-  const canContinue = Boolean(playlistName.trim());
+  const t = (key: string, fallback?: string) =>
+    getTranslation(language.id as any, key, fallback);
+
+  const trimmed = playlistName.trim();
+  const canContinue = trimmed.length > 0;
+  const counter = trimmed.length;
+
+  // Entrance animation (subtle fade + small upward drift)
+  const slideAnim = useRef(new Animated.Value(12)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      slideAnim.setValue(12);
+      fadeAnim.setValue(0);
+    }
+  }, [visible, slideAnim, fadeAnim]);
+
+  const handleSubmit = () => {
+    if (canContinue) {
+      onNext();
+    }
+  };
 
   return (
-    <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        className="flex-1 items-center justify-center px-5"
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <Pressable className="absolute inset-0 bg-black/55" onPress={onClose} />
-        <View
-          className="w-full max-w-[420px] rounded-[30px] border p-5"
-          style={{
-            backgroundColor: theme.background,
-            borderColor: theme.border,
-            shadowColor: '#000000',
-            shadowOpacity: 0.14,
-            shadowRadius: 22,
-            shadowOffset: { width: 0, height: 8 },
-            elevation: 8,
-          }}
-        >
-          <View className="mb-5 flex-row items-start justify-between">
-            <View className="flex-1 flex-row items-center pr-3">
-              <View
-                className="mr-3 h-14 w-14 items-center justify-center rounded-[18px]"
-                style={{ backgroundColor: `${theme.accent}18` }}
-              >
-                <PlaylistIcon size={28} color={theme.accent} />
-              </View>
-              <View className="flex-1">
-                <Text className="text-[28px] font-bold leading-8" style={{ color: theme.text }}>
-                  {t('create_playlist_title', 'New playlist')}
-                </Text>
-                <Text className="mt-1 text-sm" style={{ color: theme.mutedText }}>
-                  {t('create_playlist_subtitle', 'Organize your favorite music')}
-                </Text>
-              </View>
-            </View>
-            <Pressable
-              className="h-9 w-9 items-center justify-center rounded-full"
-              style={{ backgroundColor: theme.surface }}
-              onPress={onClose}
-              accessibilityRole="button"
-              accessibilityLabel="Cerrar"
-            >
-              <Ionicons name="close" size={20} color={theme.mutedText} />
-            </Pressable>
-          </View>
+    <Modal
+      transparent
+      visible={visible}
+      animationType="fade"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <View style={styles.root}>
+        <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel={t("cancel", "Cancel")}
+          />
+        </Animated.View>
 
-          <View className="rounded-[26px] border p-4" style={{ backgroundColor: theme.surface, borderColor: theme.border }}>
-            <View className="mb-3 flex-row items-center justify-between">
-              <Text className="ml-2 text-base font-bold" style={{ color: theme.text }}>
-                {t('playlist_name_label', 'Name')}
-              </Text>
-              <Text className="text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: theme.mutedText }}>
-                {playlistName.trim().length}/60
-              </Text>
-            </View>
-            <TextInput
-              autoFocus
-              className="rounded-[18px] border px-4 py-4 text-base font-bold"
-              style={{
+        <View style={styles.kavWrapper} pointerEvents="box-none">
+          <Animated.View
+            style={[
+              styles.sheet,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: Animated.multiply(slideAnim, 0.25) }],
                 backgroundColor: theme.background,
-                borderColor: canContinue ? theme.accent : theme.border,
-                color: theme.text,
-              }}
-              placeholder={t('playlist_name_placeholder', 'e.g. Summer trip')}
-              placeholderTextColor={theme.mutedText}
-              cursorColor={theme.text}
-              value={playlistName}
-              onChangeText={onChangePlaylistName}
-              maxLength={60}
-              returnKeyType="next"
-              onSubmitEditing={() => {
-                if (canContinue) {
-                  onNext();
-                }
-              }}
-            />
-          </View>
+              },
+            ]}
+          >
+            <View style={styles.headerRow}>
+              <Pressable
+                onPress={onClose}
+                accessibilityRole="button"
+                accessibilityLabel={t("cancel", "Cancel")}
+                hitSlop={12}
+                style={({ pressed }) => [
+                  styles.headerButton,
+                  { opacity: pressed ? 0.4 : 1 },
+                ]}
+              >
+                <Text style={[styles.headerButtonText, { color: theme.accent }]}>
+                  {t("cancel", "Cancel")}
+                </Text>
+              </Pressable>
+              <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
+                {t("create_playlist_title", "New Playlist")}
+              </Text>
+              <Pressable
+                onPress={handleSubmit}
+                disabled={!canContinue}
+                accessibilityRole="button"
+                accessibilityLabel={t("choose_songs", "Choose songs")}
+                hitSlop={12}
+                style={({ pressed }) => [
+                  styles.headerButton,
+                  styles.headerButtonRight,
+                  {
+                    opacity: !canContinue ? 0.35 : pressed ? 0.4 : 1,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.headerButtonText,
+                    styles.headerButtonRightText,
+                    { color: theme.accent },
+                  ]}
+                >
+                  {t("create_playlist_action", "Create")}
+                </Text>
+              </Pressable>
+            </View>
 
-          <View className="mt-5 flex-row gap-3">
-            <Pressable
-              className="flex-1 items-center justify-center rounded-full border py-4"
-              style={{ backgroundColor: theme.surface, borderColor: theme.border }}
-              onPress={onClose}
-            >
-              <Text className="font-bold" style={{ color: theme.text }}>
-                {t('cancel', 'Cancel')}
-              </Text>
-            </Pressable>
-            <Pressable
-              className="flex-[1.4] flex-row items-center justify-center gap-2 rounded-full py-4"
-              style={{
-                backgroundColor: canContinue ? theme.accent : theme.border,
-                opacity: canContinue ? 1 : 0.55,
-              }}
-              disabled={!canContinue}
-              onPress={onNext}
-            >
-              <PlusIcon size={18} color={canContinue ? theme.background : theme.mutedText} />
-              <Text className="font-bold" style={{ color: canContinue ? theme.background : theme.mutedText }}>
-                {t('choose_songs', 'Choose songs')}
-              </Text>
-            </Pressable>
-          </View>
+            <View style={styles.body}>
+              <View
+                style={[
+                  styles.subtitleRow,
+                  { paddingHorizontal: 16 },
+                ]}
+              >
+                <Ionicons
+                  name="musical-notes"
+                  size={32}
+                  color={theme.accent}
+                />
+                <Text style={[styles.subtitle, { color: theme.mutedText }]}>
+                  {t(
+                    "create_playlist_subtitle",
+                    "Give your playlist a name. You can add songs next.",
+                  )}
+                </Text>
+              </View>
+
+              <View
+                style={[
+                  styles.group,
+                  { backgroundColor: theme.surface, borderColor: theme.border },
+                ]}
+              >
+                <View style={styles.fieldRow}>
+                  <TextInput
+                    autoFocus
+                    value={playlistName}
+                    onChangeText={onChangePlaylistName}
+                    placeholder={t(
+                      "playlist_name_placeholder",
+                      "Playlist name",
+                    )}
+                    placeholderTextColor={theme.mutedText}
+                    maxLength={PLAYLIST_NAME_MAX}
+                    returnKeyType="done"
+                    onSubmitEditing={handleSubmit}
+                    selectionColor={theme.accent}
+                    style={[
+                      styles.input,
+                      { color: theme.text },
+                    ]}
+                    accessibilityLabel={t("playlist_name_label", "Name")}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.counterRow}>
+                <Text
+                  style={[styles.caption, { color: theme.mutedText }]}
+                >
+                  {`${counter}/${PLAYLIST_NAME_MAX}`}
+                </Text>
+              </View>
+            </View>
+          </Animated.View>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 };
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: "rgba(0,0,0,0.45)",
+  },
+  kavWrapper: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+  sheet: {
+    width: "100%",
+    maxWidth: 420,
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 20,
+    shadowColor: "#000",
+    shadowOpacity: 0.22,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 14,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 8,
+    paddingTop: 4,
+    paddingBottom: 8,
+  },
+  headerButton: {
+    minWidth: 70,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+  },
+  headerButtonRight: {
+    alignItems: "flex-end",
+  },
+  headerButtonText: {
+    fontSize: 17,
+    fontWeight: "400",
+  },
+  headerButtonRightText: {
+    fontWeight: "600",
+  },
+  title: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 17,
+    fontWeight: "600",
+    letterSpacing: -0.4,
+  },
+  body: {
+    paddingTop: 8,
+  },
+  subtitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+  },
+  subtitle: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    marginLeft: 12,
+    fontWeight: "400",
+  },
+  group: {
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginTop: 4,
+    overflow: "hidden",
+  },
+  fieldRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    minHeight: 48,
+    justifyContent: "center",
+  },
+  input: {
+    fontSize: 17,
+    fontWeight: "500",
+    padding: 0,
+  },
+  counterRow: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    alignItems: "flex-end",
+  },
+  caption: {
+    fontSize: 13,
+    fontWeight: "400",
+    letterSpacing: -0.08,
+  },
+  primaryButton: {
+    marginTop: 22,
+    marginHorizontal: 8,
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  primaryButtonText: {
+    fontSize: 17,
+    fontWeight: "600",
+    letterSpacing: -0.4,
+  },
+});
 
 export default CreatePlaylistModal;
