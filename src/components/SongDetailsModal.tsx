@@ -74,46 +74,50 @@ const SongDetailsModal = ({ song, visible, onClose }: SongDetailsModalProps) => 
         <Pressable className="absolute inset-0 bg-black/70" onPress={onClose} />
         {song && visibleSong ? (
           <View
-            className="max-h-[88%] rounded-t-[32px] px-4 pt-3"
+            className="max-h-[88%] rounded-t-[28px] px-5 pt-2"
             style={{
               backgroundColor: theme.background,
               paddingBottom: Math.max(insets.bottom, 24),
-              borderTopColor: theme.border,
-              borderTopWidth: 1,
               shadowColor: '#000',
-              shadowOpacity: 0.2,
-              shadowRadius: 20,
+              shadowOpacity: 0.25,
+              shadowRadius: 22,
               shadowOffset: { width: 0, height: -8 },
-              elevation: 16,
+              elevation: 18,
             }}
           >
             <View className="mb-4 items-center">
-              <View className="h-1.5 w-12 rounded-full" style={{ backgroundColor: theme.mutedText + '99' }} />
+              <View className="h-[5px] w-10 rounded-full" style={{ backgroundColor: `${theme.mutedText}55` }} />
             </View>
 
-            <View className="mb-4 flex-row items-center justify-between px-1">
-              <Text className="text-2xl font-bold" style={{ color: theme.text }}>
-                {t('song_details_title', 'Details')}
-              </Text>
+            <View className="mb-4 flex-row items-center justify-between">
+              <View className="flex-1 pr-3">
+                <Text className="text-xl font-bold" style={{ color: theme.text }}>
+                  {t('song_details_title', 'Details')}
+                </Text>
+                <Text className="mt-1 text-xs" style={{ color: theme.mutedText }} numberOfLines={1}>
+                  {visibleSong.title}
+                </Text>
+              </View>
 
               <View className="flex-row items-center gap-2">
                 <Pressable
                   onPress={onClose}
-                  className="rounded-full px-3 py-1.5"
+                  className="h-10 w-10 items-center justify-center rounded-full"
+                  style={{ backgroundColor: theme.surface }}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('song_details_close', 'Close')}
                 >
-                  <Text className="text-base font-semibold" style={{ color: theme.text }}>
-                    {t('song_details_close', 'Close')}
-                  </Text>
+                  <Text className="text-lg font-semibold" style={{ color: theme.accent }}>×</Text>
                 </Pressable>
               </View>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 12 }}>
               <View className="mb-5 items-center">
-                <View className="rounded-[30px] p-2">
+                <View className="rounded-[24px] border p-2" style={{ backgroundColor: theme.surface, borderColor: theme.border }}>
                   <LibraryArtwork
                     artwork={visibleSong.artwork}
-                    className="h-44 w-44 rounded-[24px]"
+                    className="h-40 w-40 rounded-[20px]"
                     fallbackTextClassName="text-6xl font-bold text-white"
                   />
                 </View>
@@ -131,8 +135,8 @@ const SongDetailsModal = ({ song, visible, onClose }: SongDetailsModalProps) => 
               </View>
 
               <View
-                className="overflow-hidden rounded-[26px]"
-                style={{ backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border }}
+                className="overflow-hidden rounded-[20px] border"
+                style={{ backgroundColor: theme.surface, borderColor: theme.border }}
               >
                 <DetailRow
                   label={t('song_detail_album', 'Album')}

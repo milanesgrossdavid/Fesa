@@ -52,10 +52,15 @@ const TopNavPistas = ({
       rightContent={
         <View className="flex-row items-center gap-3">
           <Pressable
-            className="h-10 w-10 items-center justify-center rounded-full border"
+            className="h-10 w-10 items-center justify-center rounded-[14px] border"
             style={{
               backgroundColor: theme.surface,
               borderColor: theme.border,
+              shadowColor: '#000',
+              shadowOpacity: 0.12,
+              shadowRadius: 8,
+              shadowOffset: { width: 0, height: 2 },
+              elevation: 2,
             }}
             disabled={disabled}
             onPress={onShufflePress}
@@ -66,10 +71,15 @@ const TopNavPistas = ({
           </Pressable>
 
           <Pressable
-            className="h-10 w-10 items-center justify-center rounded-full border"
+            className="h-10 w-10 items-center justify-center rounded-[14px] border"
             style={{
               backgroundColor: theme.surface,
               borderColor: theme.border,
+              shadowColor: '#000',
+              shadowOpacity: 0.12,
+              shadowRadius: 8,
+              shadowOffset: { width: 0, height: 2 },
+              elevation: 2,
             }}
             disabled={disabled}
             onPress={onPlayPress}

@@ -41,22 +41,37 @@ const PlaylistActionModal = ({
   return (
     <View className="absolute inset-0" pointerEvents="box-none">
       <View
-        className="absolute bottom-5 left-4 right-4 rounded-2xl border px-4 py-4"
-        style={{ backgroundColor: theme.surface, borderColor: theme.border, shadowColor: '#000', shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 5 }, elevation: 8 }}
+        className="absolute bottom-5 left-4 right-4 rounded-[24px] border px-3 py-3"
+        style={{
+          backgroundColor: theme.surface,
+          borderColor: theme.border,
+          shadowColor: '#000',
+          shadowOpacity: 0.2,
+          shadowRadius: 16,
+          shadowOffset: { width: 0, height: 6 },
+          elevation: 10,
+        }}
         pointerEvents="auto"
       >
-        <Text className="mb-3 text-center text-xs font-bold" style={{ color: theme.mutedText }}>
-          {selectedCount} {selectedCount === 1 ? t('playlist_selected_one', 'playlist selected') : t('playlist_selected_many', 'playlists selected')}
-        </Text>
-        <View className="flex-row items-center justify-between">
-          <Pressable className="items-center gap-1 rounded-xl px-3 py-2" disabled={!singleSelection} onPress={onPlay} accessibilityRole="button" accessibilityLabel={t('play', 'Play')} style={({ pressed }) => ({ opacity: !singleSelection ? 0.4 : pressed ? 0.65 : 1 })}>
-            <PlayIcon size={24} color={singleSelection ? theme.text : theme.mutedText} />
+        <View className="mb-3 items-center">
+          <View className="h-[5px] w-10 rounded-full" style={{ backgroundColor: `${theme.mutedText}55` }} />
+        </View>
+        <View className="mb-3 flex-row items-center justify-between px-1">
+          <Text className="text-sm font-bold" style={{ color: theme.text }}>
+            {selectedCount} {selectedCount === 1 ? t('playlist_selected_one', 'playlist selected') : t('playlist_selected_many', 'playlists selected')}
+          </Text>
+        </View>
+        <View className="flex-row items-center justify-around">
+          <Pressable className="min-w-[64px] items-center gap-1 rounded-[16px] px-2 py-1" disabled={!singleSelection} onPress={onPlay} accessibilityRole="button" accessibilityLabel={t('play', 'Play')} style={({ pressed }) => ({ opacity: !singleSelection ? 0.4 : pressed ? 0.65 : 1 })}>
+            <View className="h-9 w-9 items-center justify-center rounded-full" style={{ backgroundColor: theme.accent + 18}}>
+              <PlayIcon size={20} color={singleSelection ? theme.accent : theme.mutedText} />
+            </View>
             <Text className="text-xs font-bold" style={{ color: singleSelection ? theme.text : theme.mutedText }}>
               {t('play', 'Play')}
             </Text>
           </Pressable>
           <Pressable
-            className="items-center gap-1 rounded-xl px-3 py-2"
+            className="min-w-[64px] items-center gap-1 rounded-[16px] px-2 py-1"
             disabled={!singleSelection}
             onPress={() => {
               if (playlist) {
@@ -67,19 +82,25 @@ const PlaylistActionModal = ({
             accessibilityLabel={t('add', 'Add')}
             style={({ pressed }) => ({ opacity: !singleSelection ? 0.4 : pressed ? 0.65 : 1 })}
           >
-            <PlusIcon size={24} color={singleSelection ? theme.text : theme.mutedText} />
+            <View className="h-9 w-9 items-center justify-center rounded-full" style={{ backgroundColor: theme.accent + 18}}>
+              <PlusIcon size={21} color={singleSelection ? theme.text : theme.mutedText} />
+            </View>
             <Text className="text-xs font-bold" style={{ color: singleSelection ? theme.text : theme.mutedText }}>
               {t('add', 'Add')}
             </Text>
           </Pressable>
-          <Pressable className="items-center gap-1 rounded-xl px-3 py-2" disabled={!singleSelection} onPress={onEdit} accessibilityRole="button" accessibilityLabel={t('edit', 'Edit')} style={({ pressed }) => ({ opacity: !singleSelection ? 0.4 : pressed ? 0.65 : 1 })}>
-            <EditIcon size={24} color={singleSelection ? theme.text : theme.mutedText} />
+          <Pressable className="min-w-[64px] items-center gap-1 rounded-[16px] px-2 py-1" disabled={!singleSelection} onPress={onEdit} accessibilityRole="button" accessibilityLabel={t('edit', 'Edit')} style={({ pressed }) => ({ opacity: !singleSelection ? 0.4 : pressed ? 0.65 : 1 })}>
+            <View className="h-9 w-9 items-center justify-center rounded-full" style={{ backgroundColor: theme.accent + 18}}>
+              <EditIcon size={20} color={singleSelection ? theme.text : theme.mutedText} />
+            </View>
             <Text className="text-xs font-bold" style={{ color: singleSelection ? theme.text : theme.mutedText }}>
               {t('edit', 'Edit')}
             </Text>
           </Pressable>
-          <Pressable className="items-center gap-1 rounded-xl px-3 py-2" onPress={onDelete} accessibilityRole="button" accessibilityLabel={t('delete', 'Delete')} style={({ pressed }) => ({ opacity: pressed ? 0.65 : 1 })}>
-            <DeleteIcon size={24} color={theme.text} />
+          <Pressable className="min-w-[64px] items-center gap-1 rounded-[16px] px-2 py-1" onPress={onDelete} accessibilityRole="button" accessibilityLabel={t('delete', 'Delete')} style={({ pressed }) => ({ opacity: pressed ? 0.65 : 1 })}>
+            <View className="h-9 w-9 items-center justify-center rounded-full" style={{ backgroundColor: theme.accent + 18}}>
+              <DeleteIcon size={20} color={theme.accent} />
+            </View>
             <Text className="text-xs font-bold" style={{ color: theme.text }}>
               {t('delete', 'Delete')}
             </Text>

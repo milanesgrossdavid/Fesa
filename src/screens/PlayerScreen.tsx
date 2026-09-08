@@ -46,6 +46,7 @@ import SetAsSuccessModal from "../components/SetAsSuccessModal";
 import SongDetailsModal from "../components/SongDetailsModal";
 import LyricsModal from "../components/LyricsModal";
 import AutoScrollingText from "../components/AutoScrollingText";
+import TrackActionMenu from "../components/TrackActionMenu";
 import {
   BackIcon,
   BackwardIcon,
@@ -596,7 +597,6 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
   const [defineAsMounted, setDefineAsMounted] = useState(false);
   const [setAsSuccessVisible, setSetAsSuccessVisible] = useState(false);
   const [setAsSuccessTone, setSetAsSuccessTone] = useState<ToneType>('ringtone');
-  const [trackMenuMounted, setTrackMenuMounted] = useState(false);
 
   // Track "transitioning out" so we can keep the Modal in the tree (with
   // visible=false) while the close animation plays, then unmount it.
@@ -604,7 +604,6 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
   const [lockScreenClosing, setLockScreenClosing] = useState(false);
   const [equalizerClosing, setEqualizerClosing] = useState(false);
   const [defineAsClosing, setDefineAsClosing] = useState(false);
-  const [trackMenuClosing, setTrackMenuClosing] = useState(false);
 
   const requestCloseMiniPlayer = useCallback(() => {
     setMiniPlayerVisible(false);
@@ -988,8 +987,6 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
     setLockScreenVisible(true);
   }, []);
   const handleOpenTrackMenu = useCallback(() => {
-    setTrackMenuClosing(false);
-    setTrackMenuMounted(true);
     setTrackMenuVisible(true);
   }, []);
   const handleOpenDefineAs = useCallback(() => {
@@ -1125,97 +1122,38 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
           />
         ) : null}
 
-        {trackMenuMounted ? (
-          <AppModal
-            transparent
-            visible={(trackMenuVisible || trackMenuClosing) && parentAnimationDone}
-            animationType="slide"
-            onRequestClose={requestCloseTrackMenu}
-            onModalHide={() => {
-              setTrackMenuMounted(false);
-              setTrackMenuClosing(false);
+        {trackMenuVisible && parentAnimationDone ? (
+          <TrackActionMenu
+            trackMenu={{ song: currentSong, x: 0, y: 0 }}
+            onClose={requestCloseTrackMenu}
+            onDelete={() => {
+              requestCloseTrackMenu();
+              setDeleteConfirmVisible(true);
             }}
-          >
-            <View className="flex-1 justify-end">
-              <Pressable className="absolute inset-0 bg-black/70" onPress={requestCloseTrackMenu} />
-              <View
-                className="rounded-t-[32px] border-t px-5 pt-3"
-                style={{
-                  backgroundColor: theme.background,
-                  borderTopColor: theme.border,
-                  paddingBottom: Math.max(insets.bottom, 24),
-                  shadowColor: '#000',
-                  shadowOpacity: 0.2,
-                  shadowRadius: 20,
-                  shadowOffset: { width: 0, height: -8 },
-                  elevation: 16,
-                }}
-              >
-                <View key="track-menu-handle" className="mb-4 items-center">
-                  <View className="h-1.5 w-12 rounded-full" style={{ backgroundColor: theme.mutedText + '99' }} />
-                </View>
-
-                <View
-                  key="track-menu-song"
-                  className="mb-4 flex-row items-center rounded-3xl border px-3 py-3"
-                  style={{ backgroundColor: theme.surface, borderColor: theme.border }}
-                  accessibilityRole="summary"
-                  accessibilityLabel={`${currentSong.title}, ${normalizeValue(currentSong.artist, UNKNOWN_ARTIST)}`}
-                >
-                  <Image
-                    source={currentSong.artwork ? { uri: currentSong.artwork } : DEFAULT_MUSIC_ARTWORK}
-                    className="mr-3 h-14 w-14 rounded-2xl"
-                    resizeMode="cover"
-                  />
-                  <View className="flex-1 pr-2">
-                    <Text className="text-base font-bold" style={{ color: theme.text }} numberOfLines={1}>
-                      {currentSong.title}
-                    </Text>
-                    <Text className="mt-1 text-sm" style={{ color: theme.mutedText }} numberOfLines={1}>
-                      {normalizeValue(currentSong.artist, UNKNOWN_ARTIST)}
-                    </Text>
-                  </View>
-                </View>
-
-                <View
-                  key="track-menu-actions"
-                  className="overflow-hidden rounded-3xl border"
-                  style={{ backgroundColor: theme.surface, borderColor: theme.border }}
-                >
-                  {[
-                  [t('track_action_delete', 'Delete'), () => { requestCloseTrackMenu(); setDeleteConfirmVisible(true); }],
-                  [t('track_action_share', 'Share'), () => { requestCloseTrackMenu(); void shareAudioFile(currentSong.id); }],
-                  [t('track_action_details', 'Track details'), () => { requestCloseTrackMenu(); setDetailsVisible(true); }],
-                  [t('player_equalizer', 'Equalizer'), () => { void openEqualizer(); }],
-                  [t('track_action_album', 'Album'), () => openRelatedSongs("album")],
-                  [t('track_action_artist', 'Artist'), () => openRelatedSongs("artist")],
-                  [t('track_action_define_as', 'Set as'), handleOpenDefineAs],
-                  [t('settings', 'Settings'), () => { requestCloseTrackMenu(); setSettingsVisible(true); }],
-                ].map(([label, onPress]) => (
-                  <Pressable
-                    key={label as string}
-                    className="px-4 py-4"
-                    style={({ pressed }) => ({
-                      borderBottomWidth: label === t('settings', 'Settings') ? 0 : 1,
-                      borderBottomColor: theme.border,
-                      opacity: pressed ? 0.68 : 1,
-                    })}
-                    onPress={onPress as () => void}
-                    accessibilityRole="button"
-                    accessibilityLabel={label as string}
-                  >
-                    <Text
-                      className="text-base font-bold"
-                      style={{ color: label === t('track_action_delete', 'Delete') ? '#f87171' : theme.text }}
-                    >
-                      {label as string}
-                    </Text>
-                  </Pressable>
-                ))}
-                </View>
-              </View>
-            </View>
-          </AppModal>
+            onShare={() => {
+              requestCloseTrackMenu();
+              void shareAudioFile(currentSong.id);
+            }}
+            onDetails={() => {
+              requestCloseTrackMenu();
+              setDetailsVisible(true);
+            }}
+            onOpenGroup={(_, groupMode) => {
+              void openRelatedSongs(groupMode === 'albums' ? 'album' : 'artist');
+            }}
+            onDefineAs={() => handleOpenDefineAs()}
+            onEqualizer={() => {
+              void openEqualizer();
+            }}
+            onSettings={() => {
+              requestCloseTrackMenu();
+              setSettingsVisible(true);
+            }}
+            onRequestDelete={() => {
+              requestCloseTrackMenu();
+              setDeleteConfirmVisible(true);
+            }}
+          />
         ) : null}
 
         {detailsVisible ? (
@@ -1663,33 +1601,47 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
             <View className="flex-1 justify-end">
               <Pressable className="absolute inset-0 bg-black/70" onPress={() => setEqualizerVisible(false)} />
               <View
-                className="rounded-t-[32px] px-4 pb-8 pt-4"
+                className="max-h-[88%] rounded-t-[28px] px-5 pb-6 pt-2"
                 style={{
                   backgroundColor: theme.background,
-                  borderTopColor: theme.border,
-                  borderTopWidth: 1,
                   paddingBottom: Math.max(insets.bottom, 24),
+                  shadowColor: '#000',
+                  shadowOpacity: 0.25,
+                  shadowRadius: 22,
+                  shadowOffset: { width: 0, height: -8 },
+                  elevation: 18,
                 }}
               >
                 <View className="mb-4 items-center">
-                  <View className="h-1.5 w-12 rounded-full" style={{ backgroundColor: theme.mutedText + "99" }} />
+                  <View className="h-[5px] w-10 rounded-full" style={{ backgroundColor: `${theme.mutedText}55` }} />
                 </View>
 
                 <View className="mb-4 flex-row items-center justify-between">
-                  <Text className="text-2xl font-bold" style={{ color: theme.text }}>
-                    {t('player_equalizer', 'Equalizer')}
-                  </Text>
+                  <View className="flex-1 flex-row items-center pr-3">
+                    <View className="mr-3 h-9 w-9 items-center justify-center rounded-[12px]" style={{ backgroundColor: `${theme.accent}18` }}>
+                      <Ionicons name="options-outline" size={19} color={theme.accent} />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-xl font-bold" style={{ color: theme.text }}>
+                        {t('player_equalizer', 'Equalizer')}
+                      </Text>
+                      <Text className="mt-1 text-xs" style={{ color: theme.mutedText }}>
+                        {t('player_equalizer_hint', 'Tune the sound for your listening experience.')}
+                      </Text>
+                    </View>
+                  </View>
                   <Pressable
-                    className="rounded-full px-3 py-2"
+                    className="h-10 w-10 items-center justify-center rounded-full"
+                    style={{ backgroundColor: theme.surface }}
                     onPress={() => setEqualizerVisible(false)}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('close', 'Close')}
                   >
-                    <Text className="text-base font-semibold" style={{ color: theme.text }}>
-                      {t('close', 'Close')}
-                    </Text>
+                    <Text className="text-lg font-semibold" style={{ color: theme.accent }}>×</Text>
                   </Pressable>
                 </View>
 
-                <View className="mb-4 flex-row items-center justify-between rounded-full border px-3 py-2" style={{ backgroundColor: theme.surface, borderColor: theme.border }}>
+                <View className="mb-4 flex-row items-center justify-between rounded-[20px] border px-4 py-3" style={{ backgroundColor: theme.surface, borderColor: theme.border }}>
                   <Text className="text-sm font-semibold" style={{ color: theme.text }}>
                     {t('player_equalizer_enabled', 'Enabled')}
                   </Text>
@@ -1697,6 +1649,9 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                     onPress={() => { void toggleEqualizer(); }}
                     className="h-8 w-14 items-center justify-center rounded-full px-1"
                     style={{ backgroundColor: theme.background }}
+                    accessibilityRole="switch"
+                    accessibilityLabel={t('player_equalizer_enabled', 'Enabled')}
+                    accessibilityState={{ checked: equalizerEnabled }}
                   >
                     <View
                       className="h-6 w-6 rounded-full"
@@ -1709,18 +1664,22 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                   </Pressable>
                 </View>
 
-                <View className="mb-5 flex-row flex-wrap justify-center gap-2">
+                <Text className="mb-2 px-1 text-xs font-semibold uppercase tracking-[1px]" style={{ color: theme.mutedText }}>
+                  {t('player_equalizer_presets', 'Presets')}
+                </Text>
+                <View className="mb-5 flex-row flex-wrap gap-2">
                   {Object.keys(EQUALIZER_PRESETS).map(presetName => (
                     <Pressable
                       key={presetName}
                       onPress={() => { void applyPreset(presetName); }}
-                      className="rounded-full px-3 py-2"
+                      className="rounded-[14px] border px-3 py-2.5"
                       style={{
                         backgroundColor: theme.surface,
-                        borderWidth: 1,
                         borderColor: theme.border,
                         minWidth: 74,
                       }}
+                      accessibilityRole="button"
+                      accessibilityLabel={equalizerPresetLabels[presetName] ?? presetName}
                     >
                       <Text className="text-xs font-bold text-center uppercase tracking-[0.12em]" style={{ color: theme.text }}>
                         {equalizerPresetLabels[presetName] ?? presetName}
@@ -1734,7 +1693,8 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                     {t('player_equalizer_loading', 'Loading equalizer…')}
                   </Text>
                 ) : equalizerBands.length ? (
-                  <View className="flex-row items-end justify-between gap-1.5">
+                  <View className="rounded-[20px] border px-3 py-4" style={{ backgroundColor: theme.surface, borderColor: theme.border }}>
+                    <View className="flex-row items-end justify-between gap-1.5">
                     {equalizerBands.map(band => (
                       <EqualizerBandControl
                         key={band.index}
@@ -1743,6 +1703,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                         onChange={handleEqualizerBandChange}
                       />
                     ))}
+                    </View>
                   </View>
                 ) : (
                   <Text className="py-6 text-center text-sm" style={{ color: theme.mutedText }}>

@@ -44,14 +44,14 @@ const TopNavSortFilter = ({
 
   return (
     <View
-      className="px-4 pb-3 pt-4"
+      className="px-4 pb-3 pt-3"
       style={{
         backgroundColor: theme.background,
       }}
     >
       <View className="flex-row items-center justify-between gap-3">
         <Pressable
-          className="flex-row items-center gap-2 rounded-xl border px-4 py-3"
+          className="flex-row items-center gap-2 rounded-[16px] border px-4 py-3"
           onPress={() => setModalVisible(true)}
           accessibilityRole="button"
           accessibilityLabel={`${t('sort_by', 'Sort by')}: ${selectedLabel}`}
@@ -59,6 +59,7 @@ const TopNavSortFilter = ({
             backgroundColor: theme.surface,
             borderColor: theme.border,
             shadowColor: '#000000',
+            shadowOpacity: 0.12,
             shadowRadius: 8,
             shadowOffset: { width: 0, height: 2 },
             elevation: 2,
@@ -78,25 +79,44 @@ const TopNavSortFilter = ({
 
       <Modal transparent visible={modalVisible} animationType="slide" onRequestClose={() => setModalVisible(false)}>
         <View className="flex-1 justify-end">
-          <Pressable className="absolute inset-0 bg-black/50" onPress={() => setModalVisible(false)} accessibilityLabel={t('cancel', 'Cancel')} />
+          <Pressable
+            className="absolute inset-0 bg-black/70"
+            onPress={() => setModalVisible(false)}
+            accessibilityRole="button"
+            accessibilityLabel={t('cancel', 'Cancel')}
+          />
           <View
-            className="w-full overflow-hidden rounded-t-3xl border p-2"
+            className="max-h-[72%] w-full rounded-t-[28px] px-3 pb-2 pt-2"
             style={{
-              backgroundColor: theme.surface,
-              borderColor: theme.border,
+              backgroundColor: theme.background,
               shadowColor: '#000000',
-              shadowOpacity: 0.18,
-              shadowRadius: 24,
-              shadowOffset: { width: 0, height: 10 },
-              elevation: 8,
-              paddingBottom: Math.max(insets.bottom, 8),
+              shadowOpacity: 0.25,
+              shadowRadius: 22,
+              shadowOffset: { width: 0, height: -8 },
+              elevation: 18,
+              paddingBottom: Math.max(insets.bottom, 12),
             }}
           >
-            <View className="px-4 pb-2 pt-3">
-              <Text className="text-lg font-bold" style={{ color: theme.text }}>{t('sort_by', 'Sort by')}</Text>
-              <Text className="mt-1 text-sm" style={{ color: theme.mutedText }}>
+            <View className="mb-3 items-center">
+              <View className="h-[5px] w-10 rounded-full" style={{ backgroundColor: `${theme.mutedText}55` }} />
+            </View>
+
+            <View className="mb-4 flex-row items-center justify-between px-2">
+              <View className="flex-1 pr-3">
+                <Text className="text-xl font-bold" style={{ color: theme.text }}>{t('sort_by', 'Sort by')}</Text>
+                <Text className="mt-1 text-xs" style={{ color: theme.mutedText }}>
                 {t('sort_toggle_hint', 'Tap again to switch between ascending and descending.')}
-              </Text>
+                </Text>
+              </View>
+              <Pressable
+                className="h-10 w-10 items-center justify-center rounded-full"
+                style={{ backgroundColor: theme.surface }}
+                onPress={() => setModalVisible(false)}
+                accessibilityRole="button"
+                accessibilityLabel={t('close', 'Close')}
+              >
+                <Text className="text-lg font-semibold" style={{ color: theme.accent }}>×</Text>
+              </Pressable>
             </View>
 
             {sortOptions.map((option, index) => {
@@ -105,11 +125,11 @@ const TopNavSortFilter = ({
               return (
                 <Pressable
                   key={option.value}
-                  className="mx-2 flex-row items-center justify-between rounded-2xl border px-4 py-4"
+                  className="mx-1 flex-row items-center justify-between rounded-[20px] border px-4 py-3.5"
                   style={{
-                    backgroundColor: isSelected ? theme.background : 'transparent',
-                    borderColor: isSelected ? theme.accent : 'transparent',
-                    marginBottom: index === sortOptions.length - 1 ? 8 : 4,
+                    backgroundColor: isSelected ? theme.surface : 'transparent',
+                    borderColor: isSelected ? theme.accent : theme.border,
+                    marginBottom: index === sortOptions.length - 1 ? 8 : 6,
                   }}
                   onPress={() => handleSelectSort(option.value)}
                   accessibilityRole="button"

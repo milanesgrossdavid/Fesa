@@ -167,8 +167,8 @@ const LanguageFlagIcon = ({ languageId }: { languageId: string }) => {
 };
 
 const SheetHandle = () => (
-  <View className="mb-4 items-center">
-    <View className="h-1 w-10 rounded-full bg-white/20" />
+  <View className="mb-3 items-center">
+    <View className="h-[5px] w-10 rounded-full bg-white/20" />
   </View>
 );
 
@@ -343,19 +343,44 @@ const OptionSheet = ({
   >
     <View className="flex-1 justify-end">
       <Pressable className="absolute inset-0 bg-black/70" onPress={onClose} />
-      <View className="rounded-t-[32px] px-5 pb-8 pt-3" style={{ backgroundColor: background }}>
+      <View
+        className="rounded-t-[28px] border-t px-5 pb-6 pt-2"
+        style={{
+          backgroundColor: background,
+          borderTopColor: `${mutedColor}33`,
+          shadowColor: '#000',
+          shadowOpacity: 0.25,
+          shadowRadius: 22,
+          shadowOffset: { width: 0, height: -8 },
+          elevation: 18,
+        }}
+      >
         <SheetHandle />
-        <View className="mb-5 flex-row items-start justify-between">
-          <View className="flex-1 pr-4">
-            <Text className="text-xl font-bold text-center" style={{ color: textColor }}>{title}</Text>
-            {subtitle ? (
-              <Text className="mt-1 text-sm text-center" style={{ color: mutedColor }}>{subtitle}</Text>
-            ) : null}
+      <View className="mb-4 flex-row items-center justify-between">
+        <View className="flex-1 flex-row items-center pr-3">
+          <View className="mr-3 h-9 w-9 items-center justify-center rounded-[12px]" style={{ backgroundColor: `${textColor}18` }}>
+            <Ionicons name="options-outline" size={18} color={textColor} />
+          </View>
+          <View className="flex-1">
+          <Text className="text-xl font-bold" style={{ color: textColor }}>{title}</Text>
+          {subtitle ? (
+            <Text className="mt-1 text-xs" style={{ color: mutedColor }}>{subtitle}</Text>
+          ) : null}
           </View>
         </View>
-        <View style={{ backgroundColor: surface, borderRadius: 20, overflow: 'hidden' }}>
-          {children}
-        </View>
+        <Pressable
+          className="h-10 w-10 items-center justify-center rounded-full"
+          style={{ backgroundColor: surface }}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+        >
+          <Ionicons name="close" size={20} color={textColor} />
+        </Pressable>
+      </View>
+      <View style={{ backgroundColor: surface, borderRadius: 20, borderWidth: 1, borderColor: `${mutedColor}22`, overflow: 'hidden' }}>
+        {children}
+      </View>
       </View>
     </View>
   </AppModal>
@@ -1117,17 +1142,25 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
           <View className="flex-1 justify-end">
             <Pressable className="absolute inset-0 bg-black/70" onPress={() => setTabsVisible(false)} />
             <View
-              className="max-h-[82%] rounded-t-[32px] px-5 pb-6 pt-3"
-              style={{ backgroundColor: theme.background, paddingBottom: Math.max(insets.bottom, 24) }}
+              className="max-h-[82%] rounded-t-[28px] border-t px-5 pb-6 pt-2"
+              style={{ backgroundColor: theme.background, paddingBottom: Math.max(insets.bottom, 24), borderTopColor: `${theme.mutedText}33`, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 22, shadowOffset: { width: 0, height: -8 }, elevation: 18 }}
             >
               <SheetHandle />
               <View className="mb-4 flex-row items-center justify-between">
-                <View className="flex-1 pr-4">
-                  <Text className="text-xl font-bold text-center" style={{ color: theme.text }}>{t('manage_tabs', 'Manage Tabs')}</Text>
-                  <Text className="mt-1 text-sm text-center" style={{ color: theme.mutedText }}>
+                <View className="flex-1 flex-row items-center pr-3">
+                  <View className="mr-3 h-9 w-9 items-center justify-center rounded-[12px]" style={{ backgroundColor: `${theme.accent}18` }}>
+                    <Ionicons name="grid-outline" size={18} color={theme.accent} />
+                  </View>
+                  <View className="flex-1">
+                  <Text className="text-xl font-bold" style={{ color: theme.text }}>{t('manage_tabs', 'Manage Tabs')}</Text>
+                  <Text className="mt-1 text-xs" style={{ color: theme.mutedText }}>
                     {t('manage_tabs_description_detail', 'Drag the handle to reorder. One tab must always remain visible')}
                   </Text>
+                  </View>
                 </View>
+                <Pressable className="h-10 w-10 items-center justify-center rounded-full" style={{ backgroundColor: theme.surface }} onPress={requestCloseTabs} accessibilityRole="button" accessibilityLabel="Close">
+                  <Ionicons name="close" size={20} color={theme.text} />
+                </Pressable>
               </View>
 
               <ScrollView scrollEnabled={false}>
@@ -1286,12 +1319,20 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
           <View className="flex-1 justify-end">
             <Pressable className="absolute inset-0 bg-black/70" onPress={() => setTermsVisible(false)} />
             <View
-              className="max-h-[85%] rounded-t-[32px] px-5 pb-6 pt-3"
-              style={{ backgroundColor: theme.background, paddingBottom: Math.max(insets.bottom, 24) }}
+              className="max-h-[85%] rounded-t-[28px] border-t px-5 pb-6 pt-2"
+              style={{ backgroundColor: theme.background, paddingBottom: Math.max(insets.bottom, 24), borderTopColor: `${theme.mutedText}33`, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 22, shadowOffset: { width: 0, height: -8 }, elevation: 18 }}
             >
               <SheetHandle />
-              <View className="mb-4">
-                <Text className="text-xl font-bold text-center" style={{ color: theme.text }}>{t('terms_title', 'Terms and Conditions')}</Text>
+              <View className="mb-4 flex-row items-center justify-between">
+                <View className="flex-1 flex-row items-center pr-3">
+                  <View className="mr-3 h-9 w-9 items-center justify-center rounded-[12px]" style={{ backgroundColor: `${theme.accent}18` }}>
+                    <Ionicons name="document-text-outline" size={18} color={theme.accent} />
+                  </View>
+                  <Text className="text-xl font-bold" style={{ color: theme.text }}>{t('terms_title', 'Terms and Conditions')}</Text>
+                </View>
+                <Pressable className="h-10 w-10 items-center justify-center rounded-full" style={{ backgroundColor: theme.surface }} onPress={requestCloseTerms} accessibilityRole="button" accessibilityLabel="Close">
+                  <Ionicons name="close" size={20} color={theme.text} />
+                </Pressable>
               </View>
 
               <ScrollView>
@@ -1313,7 +1354,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                   ))}
                 </View>
                 <Pressable
-                  className="mt-4 flex-row items-center justify-center rounded-xl py-3.5"
+                  className="mt-4 flex-row items-center justify-center rounded-[16px] py-3.5"
                   disabled={termsAccepted}
                   style={{ backgroundColor: termsAccepted ? SETTINGS_ACCENT_SOFT : SETTINGS_ACCENT }}
                   onPress={() => {
@@ -1352,17 +1393,22 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
           <View className="flex-1 justify-end">
             <Pressable className="absolute inset-0 bg-black/70" onPress={() => setContactVisible(false)} />
             <View
-              className="max-h-[88%] rounded-t-[32px] px-5 pb-6 pt-3"
-              style={{ backgroundColor: theme.background, paddingBottom: Math.max(insets.bottom, 24) }}
+              className="max-h-[88%] rounded-t-[28px] border-t px-5 pb-6 pt-2"
+              style={{ backgroundColor: theme.background, paddingBottom: Math.max(insets.bottom, 24), borderTopColor: `${theme.mutedText}33`, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 22, shadowOffset: { width: 0, height: -8 }, elevation: 18 }}
             >
               <SheetHandle />
               <View className="mb-4 flex-row items-center justify-between">
-                <View>
-                  <Text className="text-xl font-bold ml-2" style={{ color: theme.text }}>{t('contact_title', 'Contact')}</Text>
+                <View className="flex-1 flex-row items-center pr-3">
+                  <View className="mr-3 h-9 w-9 items-center justify-center rounded-[12px]" style={{ backgroundColor: `${theme.accent}18` }}>
+                    <Ionicons name="person-circle-outline" size={19} color={theme.accent} />
+                  </View>
+                  <Text className="text-xl font-bold" style={{ color: theme.text }}>{t('contact_title', 'Contact')}</Text>
                 </View>
                 <Pressable
-                  className="h-9 w-9 items-center justify-center rounded-full"
+                  className="h-10 w-10 items-center justify-center rounded-full"
+                  style={{ backgroundColor: theme.surface }}
                   onPress={() => setContactVisible(false)}
+                  accessibilityRole="button"
                   accessibilityLabel={t('contact_close', 'Close contact')}
                 >
                   <Ionicons name="close" size={20} color={theme.text} />

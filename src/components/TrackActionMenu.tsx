@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Song } from '../../modules/local-music';
 import { getTranslation } from '../i18n/translations';
 import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
+import ConfirmDeleteModal from './ConfirmDeleteModal';
 import LibraryArtwork from './LibraryArtwork';
 
 type TrackMenuState = {
@@ -15,12 +16,14 @@ type TrackMenuState = {
 interface TrackActionMenuProps {
   trackMenu: TrackMenuState | null;
   onClose: () => void;
-  onAdd: (song: Song) => void;
+  onAdd?: (song: Song) => void;
   onDelete: (song: Song) => void;
   onShare: (song: Song) => void;
   onDetails: (song: Song) => void;
   onOpenGroup: (song: Song, groupMode: 'albums' | 'artists') => void;
   onDefineAs: (song: Song) => void;
+  onEqualizer?: (song: Song) => void;
+  onSettings?: (song: Song) => void;
   /** Notifies the parent that a confirm-delete was requested so it can host the ConfirmDeleteModal outside the menu (avoids nested <Modal> on Android). */
   onRequestDelete?: (song: Song) => void;
 }
@@ -34,6 +37,8 @@ const TrackActionMenu = ({
   onDetails,
   onOpenGroup,
   onDefineAs,
+  onEqualizer,
+  onSettings,
   onRequestDelete,
 }: TrackActionMenuProps) => {
   const insets = useSafeAreaInsets();
@@ -52,12 +57,14 @@ const TrackActionMenu = ({
     label: string;
     onPress: () => void;
   }[] = [
-    { label: t('track_action_add_to_playlist', 'Add to playlist'), onPress: () => onAdd(song) },
+    ...(onAdd ? [{ label: t('track_action_add_to_playlist', 'Add to playlist'), onPress: () => onAdd(song) }] : []),
     { label: t('track_action_share', 'Share'), onPress: () => onShare(song) },
     { label: t('track_action_details', 'Track details'), onPress: () => onDetails(song) },
     { label: t('track_action_album', 'Album'), onPress: () => onOpenGroup(song, 'albums') },
     { label: t('track_action_artist', 'Artist'), onPress: () => onOpenGroup(song, 'artists') },
     { label: t('track_action_define_as', 'Set as'), onPress: () => onDefineAs(song) },
+    ...(onEqualizer ? [{ label: t('player_equalizer', 'Equalizer'), onPress: () => onEqualizer(song) }] : []),
+    ...(onSettings ? [{ label: t('settings', 'Settings'), onPress: () => onSettings(song) }] : []),
     {
       label: t('track_action_delete', 'Delete'),
       onPress: () => {
@@ -80,28 +87,28 @@ const TrackActionMenu = ({
   };
 
   return (
-    <Modal transparent visible={!confirmDeleteVisible} animationType="slide" onRequestClose={handleClose}>
-      <View className="flex-1 justify-end">
-        <Pressable className="absolute inset-0 bg-black/70" onPress={handleClose} />
-        <View
-          className="rounded-t-[32px] border-t px-5 pt-3"
-          style={{
-            backgroundColor: theme.background,
-            borderTopColor: theme.border,
-            paddingBottom: Math.max(insets.bottom, 24),
-            shadowColor: '#000',
-            shadowOpacity: 0.2,
-            shadowRadius: 20,
-            shadowOffset: { width: 0, height: -8 },
-            elevation: 16,
-          }}
-        >
+    <>
+      <Modal transparent visible={!confirmDeleteVisible} animationType="slide" onRequestClose={handleClose}>
+        <View className="flex-1 justify-end">
+          <Pressable className="absolute inset-0 bg-black/70" onPress={handleClose} />
+          <View
+            className="max-h-[86%] rounded-t-[28px] px-5 pt-2"
+            style={{
+              backgroundColor: theme.background,
+              paddingBottom: Math.max(insets.bottom, 24),
+              shadowColor: '#000',
+              shadowOpacity: 0.2,
+              shadowRadius: 20,
+              shadowOffset: { width: 0, height: -8 },
+              elevation: 16,
+            }}
+          >
           <View className="mb-4 items-center">
-            <View className="h-1.5 w-12 rounded-full" style={{ backgroundColor: theme.mutedText + '99' }} />
+            <View className="h-[5px] w-10 rounded-full" style={{ backgroundColor: `${theme.mutedText}55` }} />
           </View>
 
           <View
-            className="mb-4 flex-row items-center rounded-3xl border px-3 py-3"
+            className="mb-4 flex-row items-center rounded-[20px] border px-3 py-3"
             style={{ backgroundColor: theme.surface, borderColor: theme.border }}
           >
             <LibraryArtwork
@@ -119,26 +126,45 @@ const TrackActionMenu = ({
             </View>
           </View>
 
-          <View className="overflow-hidden rounded-3xl border" style={{ backgroundColor: theme.surface, borderColor: theme.border }}>
+          <View className="overflow-hidden rounded-[20px] border" style={{ backgroundColor: theme.surface, borderColor: theme.border }}>
             {actions.map((action, index) => (
               <Pressable
                 key={action.label}
-                className="px-4 py-4"
+                className="flex-row items-center justify-between px-4 py-3.5"
                 style={{
                   borderBottomWidth: index === actions.length - 1 ? 0 : 1,
                   borderBottomColor: theme.border,
                 }}
                 onPress={action.onPress}
+                accessibilityRole="button"
+                accessibilityLabel={action.label}
               >
                 <Text className="text-base font-bold" style={{ color: index === actions.length - 1 ? '#f87171' : theme.text }}>
                   {action.label}
                 </Text>
+                <Text className="text-lg" style={{ color: theme.mutedText }}>›</Text>
               </Pressable>
             ))}
           </View>
+          </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+      {!onRequestDelete ? (
+        <ConfirmDeleteModal
+          visible={confirmDeleteVisible}
+          title={t('delete_song_title', 'Delete song')}
+          message={t('delete_song_message', 'Do you want to delete this song? This action cannot be undone.')}
+          itemName={song.title}
+          artwork={song.artwork}
+          accent="white"
+          onClose={() => setConfirmDeleteVisible(false)}
+          onConfirm={() => {
+            setConfirmDeleteVisible(false);
+            onDelete(song);
+          }}
+        />
+      ) : null}
+    </>
   );
 };
 

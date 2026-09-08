@@ -40,6 +40,9 @@ const SelectedSongsActionBar = ({
         elevation: 10,
       }}
     >
+      <View className="mb-2 items-center">
+        <View className="h-[5px] w-10 rounded-full" style={{ backgroundColor: `${theme.mutedText}55` }} />
+      </View>
       <View className="flex-row items-center justify-around">
         <Pressable
           className="min-w-[64px] items-center gap-1 rounded-[16px] px-2 py-1"
@@ -58,7 +61,7 @@ const SelectedSongsActionBar = ({
           accessibilityRole="button"
           accessibilityLabel={t('add', 'Add')}
         >
-          <View className="h-9 w-9 items-center justify-center rounded-full" style={{ backgroundColor: theme.background }}>
+          <View className="h-9 w-9 items-center justify-center rounded-full" style={{ backgroundColor: `${theme.accent}18` }}>
             <PlusIcon size={21} color={theme.text} />
           </View>
           <Text className="text-xs font-bold" style={{ color: theme.text }}>{t('add', 'Add')}</Text>
@@ -69,7 +72,7 @@ const SelectedSongsActionBar = ({
           accessibilityRole="button"
           accessibilityLabel={t('track_action_share', 'Share')}
         >
-          <View className="h-9 w-9 items-center justify-center rounded-full" style={{ backgroundColor: theme.background }}>
+          <View className="h-9 w-9 items-center justify-center rounded-full" style={{ backgroundColor: `${theme.accent}18` }}>
             <ShareIcon size={20} color={theme.text} />
           </View>
           <Text className="text-xs font-bold" style={{ color: theme.text }}>{t('track_action_share', 'Share')}</Text>

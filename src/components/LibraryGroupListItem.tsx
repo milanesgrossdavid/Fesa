@@ -20,11 +20,8 @@ const LibraryGroupListItem = ({ group, onPress }: LibraryGroupListItemProps) => 
 
   return (
     <Pressable
-      className="mx-4 mb-2 rounded-2xl border px-4 py-3"
-      style={{
-        backgroundColor: theme.surface,
-        borderColor: theme.border,
-      }}
+      className="mx-4 mb-3  px-4 py-3"
+      
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={group.name}

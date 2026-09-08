@@ -58,11 +58,16 @@ const HideMusicModal = ({ visible, songs, hiddenSongIds, onClose, onToggleHidden
           </View>
 
           <View className="mb-4 flex-row items-center justify-between">
-            <View className="flex-1 pr-4">
-              <Text className="text-xl font-bold" style={{ color: theme.text }}>{t('hide_music', 'Hide Music')}</Text>
+            <View className="flex-1 flex-row items-center pr-4">
+              <View className="mr-3 h-9 w-9 items-center justify-center rounded-[12px]" style={{ backgroundColor: `${theme.accent}18` }}>
+                <Ionicons name="eye-off-outline" size={18} color={theme.accent} />
+              </View>
+              <View className="flex-1">
+                <Text className="text-xl font-bold" style={{ color: theme.text }}>{t('hide_music', 'Hide Music')}</Text>
               <Text className="mt-1 text-sm" style={{ color: theme.mutedText }}>
                 {hiddenSongIds.length} {hiddenSongIds.length === 1 ? t('hidden_file_single', 'hidden file') : t('hidden_file_plural', 'hidden files')}
               </Text>
+              </View>
             </View>
             <Pressable
               className="h-9 w-9 items-center justify-center rounded-full"

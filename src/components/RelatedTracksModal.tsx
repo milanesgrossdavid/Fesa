@@ -112,8 +112,8 @@ const RelatedTracksModal = ({
                 accessibilityRole="button"
                 accessibilityLabel={t('play', 'Play')}
               >
-                <PlayIcon size={16} color="#ffffff" />
-                <Text className="font-bold" style={{ color: '#ffffff' }}>
+                <PlayIcon size={16} color={theme.background} />
+                <Text className="font-bold" style={{ color: theme.background }}>
                   {t('play', 'Play')}
                 </Text>
               </Pressable>
@@ -135,7 +135,7 @@ const RelatedTracksModal = ({
               >
                 <LibraryArtwork
                   artwork={item.artwork}
-                  className="mr-3 h-11 w-11 rounded-xl"
+                  className="mr-3 h-12 w-12 rounded-[12px]"
                   fallbackTextClassName="text-lg text-white"
                 />
                 <View className="flex-1">

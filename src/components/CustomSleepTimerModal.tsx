@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { getTranslation } from "../i18n/translations";
 import { setSleepTimer } from "../settings/appSettings";
 import {
@@ -90,7 +91,7 @@ const Wheel = ({
       <View
         style={[
           styles.wheelSurface,
-          { backgroundColor: surfaceColor },
+          { backgroundColor: surfaceColor, borderColor: mutedColor + "44" },
         ]}
       >
         <View
@@ -289,28 +290,19 @@ const CustomSleepTimerModal = ({
             </View>
 
             <View style={styles.headerRow}>
-              <Pressable
-                onPress={onClose}
-                accessibilityRole="button"
-                accessibilityLabel={t("cancel", "Cancel")}
-                hitSlop={12}
-                style={({ pressed }) => [
-                  styles.headerButton,
-                  { opacity: pressed ? 0.4 : 1 },
-                ]}
-              >
-                <Text
-                  style={[styles.headerButtonText, { color: theme.accent }]}
-                >
-                  {t("cancel", "Cancel")}
-                </Text>
-              </Pressable>
-              <Text
-                style={[styles.title, { color: theme.text }]}
-                numberOfLines={1}
-              >
-                {t("custom_sleep_timer", "Custom Timer")}
-              </Text>
+              <View style={styles.headerLeading}>
+                <View style={[styles.headerIcon, { backgroundColor: `${theme.accent}18` }]}>
+                  <Ionicons name="timer-outline" size={18} color={theme.accent} />
+                </View>
+                <View style={{ height: 40, justifyContent: "center" }}>
+                  <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
+                    {t("custom_sleep_timer", "Custom Timer")}
+                  </Text>
+                  <Text style={[styles.headerSubtitle, { color: theme.mutedText }]} numberOfLines={1}>
+                    {t("custom_sleep_timer_description", "Pick how long until playback stops.")}
+                  </Text>
+                </View>
+              </View>
               <Pressable
                 onPress={handleApply}
                 accessibilityRole="button"
@@ -334,19 +326,7 @@ const CustomSleepTimerModal = ({
               </Pressable>
             </View>
 
-            <Text
-              style={[
-                styles.subtitle,
-                { color: theme.mutedText, paddingHorizontal: 24 },
-              ]}
-            >
-              {t(
-                "custom_sleep_timer_description",
-                "Pick how long until playback stops.",
-              )}
-            </Text>
-
-            <View style={styles.previewWrapper}>
+            <View style={[styles.previewWrapper, { backgroundColor: theme.surface, borderColor: theme.border }]}>
               <Text
                 style={[
                   styles.previewLabel,
@@ -444,13 +424,13 @@ const styles = StyleSheet.create({
     width: "100%",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingHorizontal: 20,
+    paddingTop: 2,
     shadowColor: "#000",
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: -6 },
-    elevation: 14,
+    shadowOpacity: 0.25,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: -8 },
+    elevation: 18,
   },
   handleWrapper: {
     alignItems: "center",
@@ -466,9 +446,27 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 8,
-    paddingTop: 4,
-    paddingBottom: 8,
+    paddingHorizontal: 0,
+    paddingTop: 6,
+    paddingBottom: 12,
+  },
+  headerLeading: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingRight: 10,
+  },
+  headerIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
   },
   headerButton: {
     minWidth: 70,
@@ -500,8 +498,10 @@ const styles = StyleSheet.create({
   },
   previewWrapper: {
     alignItems: "center",
-    paddingVertical: 14,
+    paddingVertical: 16,
     paddingHorizontal: 24,
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   previewLabel: {
     fontSize: 13,
@@ -537,6 +537,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: "hidden",
     position: "relative",
+    borderWidth: StyleSheet.hairlineWidth,
   },
   wheelHighlight: {
     position: "absolute",

@@ -176,24 +176,24 @@ const Header = () => {
               >
                 <Ionicons name="chevron-back" size={26} color={theme.accent} />
               </Pressable>
-              <Text
-                style={{
-                  color: theme.text,
-                  fontSize: 26,
-                  fontWeight: '700',
-                  letterSpacing: 0.37,
-                  paddingHorizontal: 8,
-                }}
-              >
-                {t('search_modal_title', 'Search')}
-              </Text>
+              <View className="flex-1 flex-row items-center rounded-[14px] px-3" style={{ height: 44 }}>
+                <View className="mr-2 h-7 w-7 items-center justify-center rounded-[9px]" style={{ backgroundColor: `${theme.accent}18` }}>
+                  <SearchIcon size={16} color={theme.accent} />
+                </View>
+                <Text
+                  className="text-xl font-bold"
+                  style={{ color: theme.text }}
+                >
+                  {t('search_modal_title', 'Search')}
+                </Text>
+              </View>
             </View>
           </View>
 
           <View className="mb-4 px-4">
             <View
-              className="flex-row items-center rounded-xl border px-3"
-              style={{ backgroundColor: theme.surface, borderColor: theme.border, height: 48 }}
+              className="flex-row items-center rounded-[16px] border px-3"
+              style={{ backgroundColor: theme.surface, borderColor: theme.border, height: 50 }}
             >
               <SearchIcon size={20} color={theme.mutedText} />
               <TextInput
@@ -251,14 +251,12 @@ const Header = () => {
             }
             renderItem={({ item, index }) => (
               <Pressable
-                className="flex-row items-center"
+                className="mx-1 flex-row items-center px-3 py-2"
                 style={({ pressed }) => ({
-                  backgroundColor: pressed ? theme.surface : 'transparent',
-                  borderRadius: 12,
+                  backgroundColor: pressed ? theme.background : theme.surface,
+                  borderColor: theme.border,
                   marginBottom: 4,
                   opacity: pressed ? 0.72 : 1,
-                  paddingHorizontal: 8,
-                  paddingVertical: 6,
                 })}
                 onPress={() => playSearchResult(index)}
                 accessibilityRole="button"
@@ -269,7 +267,7 @@ const Header = () => {
                   className="mr-3 h-12 w-12 rounded-lg"
                   fallbackTextClassName="text-xl text-white"
                 />
-                <View className="flex-1 border-b-[0.5px] py-2" style={{ borderBottomColor: theme.border, minHeight: 52, justifyContent: 'center' }}>
+                <View className="flex-1 py-2" style={{ minHeight: 52, justifyContent: 'center' }}>
                   <Text style={{ fontSize: 17, color: theme.text }} numberOfLines={1}>
                     {item.title}
                   </Text>

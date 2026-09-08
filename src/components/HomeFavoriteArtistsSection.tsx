@@ -30,15 +30,12 @@ const HomeFavoriteArtistsSection = ({
   return (
     <View className="py-2">
       {artists.length ? (
-        <View className="flex-row flex-wrap justify-between gap-y-5 px-4">
+        <View className="flex-row flex-wrap justify-between gap-y-4 px-4">
           {artists.slice(0, 6).map(artist => (
             <Pressable
               key={artist.id}
-              className="w-[48%] items-center rounded-2xl p-2"
-              style={({ pressed }) => ({
-                backgroundColor: pressed ? theme.surface : 'transparent',
-                opacity: pressed ? 0.72 : 1,
-              })}
+              className="w-[47%] items-center rounded-2xl p-2"
+              style={({ pressed }) => ({ backgroundColor: pressed ? theme.surface : 'transparent', opacity: pressed ? 0.72 : 1 })}
               onPress={() => onOpenArtist(artist)}
               accessibilityRole="button"
               accessibilityLabel={artist.name}
@@ -46,13 +43,12 @@ const HomeFavoriteArtistsSection = ({
               <LibraryArtwork
                 artwork={artist.artwork}
                 fallback={artist.name.charAt(0).toUpperCase()}
-                className="h-32 w-32 rounded-full"
-                fallbackTextClassName="text-6xl font-bold text-[#b64400]"
+                className="aspect-square w-full rounded-xl"
               />
-              <View className="mt-3 w-full px-2">
+              <View className="mt-2 w-full px-1">
                 <AutoScrollingText
                   key={`${artist.id}-name`}
-                  className="text-center text-base font-bold"
+                  className="text-center text-sm font-bold"
                   style={{ color: theme.text }}
                 >
                   {artist.name}

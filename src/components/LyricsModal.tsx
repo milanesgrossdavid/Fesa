@@ -1462,14 +1462,19 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
               <View className="h-[5px] w-10 rounded-full" style={{ backgroundColor: `${theme.mutedText}55` }} />
             </View>
 
-            <View className="mb-5 flex-row items-center justify-between">
-              <View className="flex-1 pr-4">
-                <Text className="text-xl font-bold" style={{ color: theme.text }}>
-                  {t('lyrics_share_select_title', 'Select lyrics')}
-                </Text>
-                <Text className="mt-1 text-xs" style={{ color: theme.mutedText }}>
-                  {song?.title || t('player_lyrics', 'Lyrics')}
-                </Text>
+            <View className="mb-4 flex-row items-center justify-between">
+              <View className="flex-1 flex-row items-center pr-4">
+                <View className="mr-3 h-9 w-9 items-center justify-center rounded-[12px]" style={{ backgroundColor: `${theme.accent}18` }}>
+                  <Ionicons name="text-outline" size={19} color={theme.accent} />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-xl font-bold" style={{ color: theme.text }}>
+                    {t('lyrics_share_select_title', 'Select lyrics')}
+                  </Text>
+                  <Text className="mt-1 text-xs" style={{ color: theme.mutedText }}>
+                    {song?.title || t('player_lyrics', 'Lyrics')}
+                  </Text>
+                </View>
               </View>
               <Pressable
                 className="h-10 w-10 items-center justify-center rounded-full"
@@ -1500,6 +1505,7 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
                       : `${theme.surface}88`,
                   borderColor: theme.border,
                 }}
+                accessibilityState={{ disabled: shareStart === null || shareEnd === null }}
               >
                 <Text
                   className="text-base font-semibold"
@@ -1510,48 +1516,50 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
               </Pressable>
             </View>
 
-            <ScrollView
-              ref={(ref) => {
-                selectionScrollRef.current = ref;
-              }}
-              showsVerticalScrollIndicator={false}
-            >
-              {lines.length === 0 ? (
-                <View className="items-center rounded-[20px] border px-5 py-8" style={{ backgroundColor: theme.surface, borderColor: theme.border }}>
-                  <Text className="text-base font-semibold" style={{ color: theme.text }}>
-                    {t('lyrics_share_empty', 'No lyrics available to share.')}
-                  </Text>
-                </View>
-              ) : (
-                <View className="gap-2 pb-4">
-                  {lines.map((line, index) => {
-                    const isSelected =
-                      shareStart !== null &&
-                      shareEnd !== null &&
-                      index >= Math.min(shareStart, shareEnd) &&
-                      index <= Math.max(shareStart, shareEnd);
+            <View className="flex-1 overflow-hidden rounded-[20px] border px-2 pt-2" style={{ backgroundColor: theme.surface, borderColor: theme.border }}>
+              <ScrollView
+                ref={(ref) => {
+                  selectionScrollRef.current = ref;
+                }}
+                showsVerticalScrollIndicator={false}
+              >
+                {lines.length === 0 ? (
+                  <View className="items-center px-5 py-8">
+                    <Text className="text-base font-semibold" style={{ color: theme.text }}>
+                      {t('lyrics_share_empty', 'No lyrics available to share.')}
+                    </Text>
+                  </View>
+                ) : (
+                  <View className="gap-2 pb-4">
+                    {lines.map((line, index) => {
+                      const isSelected =
+                        shareStart !== null &&
+                        shareEnd !== null &&
+                        index >= Math.min(shareStart, shareEnd) &&
+                        index <= Math.max(shareStart, shareEnd);
 
-                    return (
-                      <SwipeableLyricRow
-                        key={`${index}-${line.time}-${line.text}`}
-                        text={line.text || " "}
-                        isSelected={isSelected}
-                        textColor={isSelected ? theme.background : theme.text}
-                        backgroundColor={theme.surface}
-                        selectedBackgroundColor={theme.accent}
-                        borderColor={theme.border}
-                        swipeHint={t(
-                          "lyrics_swipe_remove_hint",
-                          "Swipe to remove",
-                        )}
-                        onPress={() => handleShareLinePress(index)}
-                        onRemove={() => removeLyricLineAt(index)}
-                      />
-                    );
-                  })}
-                </View>
-              )}
-            </ScrollView>
+                      return (
+                        <SwipeableLyricRow
+                          key={`${index}-${line.time}-${line.text}`}
+                          text={line.text || " "}
+                          isSelected={isSelected}
+                          textColor={isSelected ? theme.background : theme.text}
+                          backgroundColor={theme.surface}
+                          selectedBackgroundColor={theme.accent}
+                          borderColor={theme.border}
+                          swipeHint={t(
+                            "lyrics_swipe_remove_hint",
+                            "Swipe to remove",
+                          )}
+                          onPress={() => handleShareLinePress(index)}
+                          onRemove={() => removeLyricLineAt(index)}
+                        />
+                      );
+                    })}
+                  </View>
+                )}
+              </ScrollView>
+            </View>
 
             <View className="mt-4 pt-2">
               <Pressable
@@ -1613,13 +1621,18 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
             </View>
 
             <View className="mb-4 flex-row items-center justify-between">
-              <View className="flex-1 pr-4">
-                <Text className="text-xl font-bold" style={{ color: shareTheme.text }}>
-                  {t("lyrics_share_preview_title", "Preview")}
-                </Text>
-                <Text className="mt-1 text-xs" style={{ color: shareTheme.muted }}>
-                  {song?.title || t('player_lyrics', 'Lyrics')}
-                </Text>
+              <View className="flex-1 flex-row items-center pr-4">
+                <View className="mr-3 h-9 w-9 items-center justify-center rounded-[12px]" style={{ backgroundColor: `${shareTheme.accent}22` }}>
+                  <Ionicons name="share-social-outline" size={19} color={shareTheme.accent} />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-xl font-bold" style={{ color: shareTheme.text }}>
+                    {t("lyrics_share_preview_title", "Preview")}
+                  </Text>
+                  <Text className="mt-1 text-xs" style={{ color: shareTheme.muted }}>
+                    {song?.title || t('player_lyrics', 'Lyrics')}
+                  </Text>
+                </View>
               </View>
               <Pressable
                 className="h-10 w-10 items-center justify-center rounded-full"
@@ -1684,8 +1697,12 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
               </View>
             </View>
 
-            <View className="mt-auto flex-row flex-wrap items-center justify-center gap-2 pb-5 pt-8">
-              {SHARE_THEMES.map((themeOption) => {
+            <View className="mt-auto rounded-[20px] border px-3 py-3" style={{ backgroundColor: `${shareTheme.card}cc`, borderColor: `${shareTheme.text}18` }}>
+              <Text className="mb-2 text-xs font-semibold uppercase tracking-[1px]" style={{ color: shareTheme.muted }}>
+                {t("lyrics_share_theme_label", "Style")}
+              </Text>
+              <View className="flex-row flex-wrap items-center justify-center gap-2">
+                {SHARE_THEMES.map((themeOption) => {
                 const isSelected = themeOption.id === shareThemeId;
                 const previewTheme =
                   themeOption.id === "dynamic" ? dynamicShareTheme : themeOption;
@@ -1694,6 +1711,9 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
                   <Pressable
                     key={themeOption.id}
                     onPress={() => setShareThemeId(themeOption.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={themeOption.name}
+                    accessibilityState={{ selected: isSelected }}
                     style={{
                       width: 40,
                       height: 40,
@@ -1737,14 +1757,15 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
                       )}
                     </View>
                   </Pressable>
-                );
-              })}
+                  );
+                })}
+              </View>
             </View>
 
             <Pressable
               onPress={() => { void saveLyricsCard(); }}
               disabled={!shareText.trim()}
-              className="items-center justify-center rounded-full py-4"
+              className="items-center justify-center rounded-full py-4 mt-4"
               style={{
                 backgroundColor: shareText.trim() ? theme.accent : `${theme.surface}88`,
                 borderWidth: 1,

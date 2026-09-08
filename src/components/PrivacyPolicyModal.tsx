@@ -1,6 +1,7 @@
 import React from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import { getTranslation } from '../i18n/translations';
 
@@ -52,14 +53,19 @@ const PrivacyPolicyModal = ({ visible, onClose }: PrivacyPolicyModalProps) => {
             <View className="h-[5px] w-10 rounded-full" style={{ backgroundColor: `${theme.mutedText}55` }} />
           </View>
 
-          <View className="mb-4 flex-row items-center justify-between px-2">
-            <View className="flex-1">
+          <View className="mb-4 flex-row items-center justify-between px-1">
+            <View className="flex-1 flex-row items-center pr-3">
+              <View className="mr-3 h-9 w-9 items-center justify-center rounded-[12px]" style={{ backgroundColor: `${theme.accent}18` }}>
+                <Ionicons name="shield-checkmark-outline" size={18} color={theme.accent} />
+              </View>
+              <View className="flex-1">
               <Text className="text-xl font-bold" style={{ color: theme.text }}>
                 {t('privacy_policy_title', 'Privacy Policy')}
               </Text>
               <Text className="mt-1 text-xs" style={{ color: theme.mutedText }}>
                 {t('privacy_policy_intro', 'This policy describes how FESA handles music and settings on your device.')}
               </Text>
+              </View>
             </View>
             <Pressable
               className="ml-3 h-10 w-10 items-center justify-center rounded-full"

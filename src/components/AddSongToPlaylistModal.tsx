@@ -89,7 +89,7 @@ const AddSongToPlaylistModal = ({
               accessibilityRole="button"
               accessibilityLabel={t('close', 'Close')}
             >
-              <Text className="text-sm font-bold" style={{ color: theme.text }}>{t('close', 'Close')}</Text>
+              <Text className="text-sm font-bold" style={{ color: theme.accent }}>{t('close', 'Close')}</Text>
             </Pressable>
           </View>
 
@@ -166,7 +166,7 @@ const AddSongToPlaylistModal = ({
             accessibilityRole="button"
             accessibilityLabel={t('create_new_playlist', 'Create new list')}
           >
-            <PlusIcon size={18} color={theme.background} />
+            <PlusIcon size={18} color={ theme.background} />
             <Text className="text-center text-base font-bold" style={{ color: theme.background }}>
               {t('create_new_playlist', 'Create new list')}
             </Text>

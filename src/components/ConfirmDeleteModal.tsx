@@ -186,6 +186,9 @@ const ConfirmDeleteModal = ({
               },
             ]}
           >
+            <View style={styles.handleWrapper} pointerEvents="none">
+              <View style={[styles.handle, { backgroundColor: theme.mutedText }]} />
+            </View>
             {/* Top-edge danger gradient for the strong (danger) variant only.
                 The brand-voice (white) variant stays clean and minimal. */}
             {!isWhiteAccent ? (
@@ -391,21 +394,19 @@ const styles = StyleSheet.create({
   },
   kavWrapper: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 24,
+    justifyContent: "flex-end",
   },
   card: {
     width: "100%",
-    maxWidth: 420,
-    borderRadius: 24,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderWidth: 0,
     paddingHorizontal: 20,
-    paddingTop: 28,
-    paddingBottom: 18,
-    shadowOpacity: 0.22,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 12 },
+    paddingTop: 8,
+    paddingBottom: 24,
+    shadowOpacity: 0.25,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: -8 },
     elevation: 18,
     // The card itself does not clip its children so the count chip can
     // extend slightly beyond the icon circle bounds. The top gradient is
@@ -419,17 +420,27 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 140,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+  },
+  handleWrapper: {
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  handle: {
+    width: 40,
+    height: 5,
+    borderRadius: 3,
+    opacity: 0.32,
   },
   header: {
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 14,
   },
   iconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -452,7 +463,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   title: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "700",
     letterSpacing: -0.5,
     textAlign: "center",
@@ -465,12 +476,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   itemCard: {
-    marginTop: 18,
+    marginTop: 16,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 10,
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
   },
   itemPlaceholder: {
@@ -488,12 +499,12 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   actions: {
-    marginTop: 22,
+    marginTop: 20,
     gap: 10,
   },
   secondaryButton: {
-    minHeight: 50,
-    borderRadius: 14,
+    minHeight: 52,
+    borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: "center",
     justifyContent: "center",
@@ -505,8 +516,8 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   primaryButton: {
-    minHeight: 50,
-    borderRadius: 14,
+    minHeight: 52,
+    borderRadius: 16,
     borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",

@@ -81,22 +81,26 @@ const PlaylistSongSelectorModal = ({
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
       <View className="flex-1 justify-end">
-        <Pressable className="absolute inset-0 bg-black/70" onPress={onClose} />
+        <Pressable
+          className="absolute inset-0 bg-black/70"
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel={t('cancel', 'Cancel')}
+        />
         <View
-          className="max-h-[88%] rounded-t-3xl border-t px-5 pt-3"
+          className="max-h-[88%] rounded-t-[28px] px-5 pt-2"
           style={{
             backgroundColor: theme.background,
             paddingBottom: Math.max(insets.bottom, 16),
-            borderColor: theme.border,
             shadowColor: '#000',
-            shadowOpacity: 0.2,
-            shadowRadius: 18,
-            shadowOffset: { width: 0, height: -6 },
-            elevation: 12,
+            shadowOpacity: 0.25,
+            shadowRadius: 22,
+            shadowOffset: { width: 0, height: -8 },
+            elevation: 18,
           }}
         >
           <View className="mb-4 items-center">
-            <View className="h-1 w-10 rounded-full bg-white/20" />
+            <View className="h-[5px] w-10 rounded-full" style={{ backgroundColor: `${theme.mutedText}55` }} />
           </View>
 
           <View className="mb-4 flex-row items-center justify-between">
@@ -108,12 +112,23 @@ const PlaylistSongSelectorModal = ({
                 {selectedSongIds.length} {selectedSongIds.length === 1 ? t('selection_selected_one', 'selected') : t('selection_selected_many', 'selected')}
               </Text>
             </View>
-            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel={t('close', 'Close')} style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, padding: 8 })}>
+            <Pressable
+              className="h-10 w-14 items-center justify-center rounded-full"
+              style={({ pressed }) => ({ backgroundColor: theme.surface, opacity: pressed ? 0.6 : 1 })}
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel={t('close', 'Close')}
+              hitSlop={8}
+            >
               <Text className="font-bold" style={{ color: theme.text }}>{t('close', 'Close')}</Text>
             </Pressable>
           </View>
 
-          <View className="mb-4 flex-row rounded-full p-1" style={{ backgroundColor: theme.surface }}>
+          <View
+            className="mb-4 flex-row rounded-[16px] border p-1"
+            style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+            accessibilityRole="tablist"
+          >
             {TABS.map(tab => {
               const isSelected = activeTab === tab.value;
 
@@ -121,8 +136,11 @@ const PlaylistSongSelectorModal = ({
                 <Pressable
                   key={tab.value}
                   className="flex-1 rounded-full py-2.5"
-                  style={{ backgroundColor: isSelected ? theme.text : 'transparent' }}
+                  style={{ backgroundColor: isSelected ? theme.accent : 'transparent' }}
                   onPress={() => onTabChange(tab.value)}
+                  accessibilityRole="tab"
+                  accessibilityLabel={tab.label}
+                  accessibilityState={{ selected: isSelected }}
                 >
                   <Text className="text-center text-xs font-bold" style={{ color: isSelected ? theme.background : theme.mutedText }}>
                     {tab.label}
@@ -139,29 +157,30 @@ const PlaylistSongSelectorModal = ({
               return (
                 <Pressable
                   key={song.id}
-                  className="mb-2 flex-row items-center rounded-3xl px-3 py-3"
+                  className="mb-2 flex-row items-center rounded-[20px] border px-3 py-3"
                   style={{
                     backgroundColor: theme.surface,
                     borderWidth: isSelected ? 1 : 0,
-                    borderColor: isSelected ? 'rgba(255,255,255,0.18)' : 'transparent',
+                    borderColor: isSelected ? theme.accent : theme.border,
                   }}
                   onPress={() => onToggleSong(song)}
                   accessibilityRole="checkbox"
+                  accessibilityLabel={`${song.title}, ${normalizeValue(song.artist, t('unknown_artist', 'Unknown Artist'))}`}
                   accessibilityState={{ checked: isSelected }}
                 >
                   <View
-                    className="mr-3 h-6 w-6 items-center justify-center rounded-full"
+                    className="mr-3 h-7 w-7 items-center justify-center rounded-full"
                     style={{
                       borderColor: isSelected ? 'transparent' : theme.mutedText,
                       borderWidth: isSelected ? 0 : 1,
-                      backgroundColor: isSelected ? theme.text : 'transparent',
+                      backgroundColor: isSelected ? theme.accent : 'transparent',
                     }}
                   >
-                    {isSelected ? <CheckIcon size={18} color={theme.background} /> : null}
+                    {isSelected ? <CheckIcon size={18} color="#ffffff" /> : null}
                   </View>
                   <LibraryArtwork
                     artwork={song.artwork}
-                    className="mr-3 h-11 w-11 rounded-xl"
+                    className="mr-3 h-12 w-12 rounded-[12px]"
                     fallbackTextClassName="text-xl text-white"
                   />
                   <View className="flex-1">
@@ -182,29 +201,30 @@ const PlaylistSongSelectorModal = ({
               return (
                 <Pressable
                   key={group.id}
-                  className="mb-2 flex-row items-center rounded-3xl px-3 py-3"
+                  className="mb-2 flex-row items-center rounded-[20px] border px-3 py-3"
                   style={{
                     backgroundColor: theme.surface,
                     borderWidth: isSelected ? 1 : 0,
-                    borderColor: isSelected ? 'rgba(255,255,255,0.18)' : 'transparent',
+                    borderColor: isSelected ? theme.accent : theme.border,
                   }}
                   onPress={() => onToggleGroup(group)}
                   accessibilityRole="checkbox"
+                  accessibilityLabel={`${group.name}, ${selectedCount}/${groupSongIds.length} ${t('selection_selected_many', 'selected')}`}
                   accessibilityState={{ checked: isSelected }}
                 >
                   <View
-                    className="mr-3 h-6 w-6 items-center justify-center rounded-full"
+                    className="mr-3 h-7 w-7 items-center justify-center rounded-full"
                     style={{
                       borderColor: isSelected ? 'transparent' : theme.mutedText,
                       borderWidth: isSelected ? 0 : 1,
-                      backgroundColor: isSelected ? theme.text : 'transparent',
+                      backgroundColor: isSelected ? theme.accent : 'transparent',
                     }}
                   >
-                    {isSelected ? <CheckIcon size={18} color={theme.background} /> : null}
+                    {isSelected ? <CheckIcon size={18} color="#ffffff" /> : null}
                   </View>
                   <LibraryArtwork
                     artwork={group.artwork}
-                    className="mr-3 h-11 w-11 rounded-xl"
+                    className="mr-3 h-12 w-12 rounded-[12px]"
                     fallbackTextClassName="text-xl text-white"
                   />
                   <View className="flex-1">
@@ -221,8 +241,8 @@ const PlaylistSongSelectorModal = ({
           </ScrollView>
 
           <Pressable
-            className="mt-4 rounded-xl py-4"
-            style={{ backgroundColor: theme.text }}
+            className="mt-4 rounded-[16px] py-4"
+            style={{ backgroundColor: theme.accent }}
             onPress={onSave}
             accessibilityRole="button"
             accessibilityLabel={isEditing ? t('save_changes', 'Save changes') : t('create_playlist', 'Create playlist')}

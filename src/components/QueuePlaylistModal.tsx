@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Song } from '../../modules/local-music';
 import { useMusicPlayerUi } from '../audio/musicPlayer';
 import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
@@ -44,6 +45,7 @@ interface QueuePlaylistItemProps {
     border: string;
     text: string;
     mutedText: string;
+    accent: string;
   };
   noTitleLabel: string;
   unknownArtistLabel: string;
@@ -108,8 +110,11 @@ const QueuePlaylistItem = React.memo(function QueuePlaylistItem({
       }}
     >
       <Pressable
-        className="mb-2 flex-row items-center rounded-[20px]  px-3 py-2.5"
-        
+        className="mx-1 mb-2 flex-row items-center rounded-[18px] border px-3 py-2.5"
+        style={{
+          backgroundColor: isActive ? `${theme.accent}12` : theme.surface,
+          borderColor: isActive ? `${theme.accent}66` : theme.border,
+        }}
         onPress={() => {
           if (!dragActive) onSelectSong(index);
         }}
@@ -118,6 +123,7 @@ const QueuePlaylistItem = React.memo(function QueuePlaylistItem({
           item.artist?.trim() || unknownArtistLabel
         }`}
         accessibilityHint={isActive ? 'Currently playing' : 'Play this song'}
+        accessibilityState={{ selected: isActive }}
       >
         <View
           className="mr-2 h-12 w-10 items-center justify-center rounded-xl"
@@ -471,11 +477,10 @@ const QueuePlaylistModal = ({
           accessibilityLabel={t('cancel', 'Cancel')}
         />
         <View
-          className="max-h-[82%] rounded-t-[28px] border-t px-3 pt-1"
+          className="max-h-[88%] rounded-t-[28px] px-4 pt-2"
           style={{
             backgroundColor: theme.background,
-            paddingBottom: Math.max(insets.bottom, 12),
-            borderTopColor: theme.border,
+            paddingBottom: Math.max(insets.bottom, 16),
             shadowColor: '#000',
             shadowOpacity: 0.25,
             shadowRadius: 22,
@@ -483,21 +488,26 @@ const QueuePlaylistModal = ({
             elevation: 18,
           }}
         >
-          <View className="items-center py-2">
+          <View className="mb-2 items-center py-1">
             <View
-              className="h-1.5 w-10 rounded-full"
-              style={{ backgroundColor: theme.mutedText + '66' }}
+              className="h-[5px] w-10 rounded-full"
+              style={{ backgroundColor: `${theme.mutedText}55` }}
             />
           </View>
 
-          <View className="min-h-[52px] flex-row items-center justify-between px-2 pb-2">
-            <View className="flex-1 pr-3">
-              <Text className="text-[22px] font-bold tracking-[-0.4px]" style={{ color: theme.text }}>
-                {t('player_queue_title', 'Queue')}
-              </Text>
-              <Text className="mt-0.5 text-xs" style={{ color: theme.mutedText }}>
-                {t('queue_reorder_hint', 'Drag songs to reorder')}
-              </Text>
+          <View className="mb-4 min-h-[52px] flex-row items-center justify-between px-1">
+            <View className="flex-1 flex-row items-center pr-3">
+              <View className="mr-3 h-9 w-9 items-center justify-center rounded-[12px]" style={{ backgroundColor: `${theme.accent}18` }}>
+                <Ionicons name="list-outline" size={19} color={theme.accent} />
+              </View>
+              <View className="flex-1">
+                <Text className="text-xl font-bold tracking-[-0.4px]" style={{ color: theme.text }}>
+                  {t('player_queue_title', 'Queue')}
+                </Text>
+                <Text className="mt-1 text-xs" style={{ color: theme.mutedText }}>
+                  {t('queue_reorder_hint', 'Drag songs to reorder')}
+                </Text>
+              </View>
             </View>
             <View
               className="mr-2 rounded-full border px-3 py-1.5"
@@ -511,19 +521,21 @@ const QueuePlaylistModal = ({
               </Text>
             </View>
             <Pressable
-              className="min-h-[40px] min-w-[40px] items-center justify-center rounded-full px-2"
+              className="h-10 w-10 items-center justify-center rounded-full"
               onPress={onClose}
               accessibilityRole="button"
               accessibilityLabel={t('close', 'Close')}
-              style={({ pressed }) => ({ opacity: pressed ? 0.45 : 1 })}
+              style={({ pressed }) => ({
+                backgroundColor: theme.surface,
+                opacity: pressed ? 0.45 : 1,
+              })}
             >
-              <Text className="text-[15px] font-semibold" style={{ color: theme.accent }}>
-                {t('close', 'Close')}
-              </Text>
+              <Text className="text-lg font-semibold" style={{ color: theme.accent }}>×</Text>
             </Pressable>
           </View>
 
           <View
+            className="overflow-hidden py-2"
             ref={listContainerRef}
             onLayout={(e) => {
               listTopY.current = e.nativeEvent.layout.y;

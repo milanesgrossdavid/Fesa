@@ -46,10 +46,15 @@ const TopNavPlaylist = ({
       rightContent={
         onCreatePlaylist ? (
           <Pressable
-            className="flex-row items-center justify-center rounded-full border p-2.5"
+            className="flex-row items-center justify-center rounded-[14px] border p-2.5"
             style={{
               backgroundColor: theme.surface,
               borderColor: theme.border,
+              shadowColor: '#000',
+              shadowOpacity: 0.12,
+              shadowRadius: 8,
+              shadowOffset: { width: 0, height: 2 },
+              elevation: 2,
             }}
             onPress={onCreatePlaylist}
             accessibilityRole="button"
