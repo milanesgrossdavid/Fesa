@@ -42,11 +42,11 @@ const HomeMostPlayedSection = ({
   const remainingSongs = featuredSongs.slice(1);
 
   return (
-    <View className="px-4 py-4">
+    <View className="px-4 py-2">
       {topSong ? (
         <>
-          <View className="mb-4">
-            <View className="aspect-[1.75] w-full overflow-hidden rounded-3xl" style={{ backgroundColor: theme.surface }}>
+          <View className="mb-4 overflow-hidden rounded-2xl" style={{ backgroundColor: theme.surface, shadowColor: '#000', shadowOpacity: 0.14, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3 }}>
+            <View className="aspect-[1.75] w-full overflow-hidden rounded-2xl">
               <LibraryArtwork
                 artwork={topSong.artwork}
                 className="h-full w-full rounded-3xl"
@@ -61,9 +61,11 @@ const HomeMostPlayedSection = ({
                   </AutoScrollingText>
                 </View>
                 <Pressable
-                  className="rounded-full p-4"
-                  style={{ backgroundColor: theme.background }}
+                  className="h-12 w-12 items-center justify-center rounded-full"
+                  style={({ pressed }) => ({ backgroundColor: theme.background, opacity: pressed ? 0.65 : 1 })}
                   onPress={() => onPlaySong(0)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('play_song', 'Play song')}
                 >
                   <PlayIcon size={24} color={theme.text} />
                 </Pressable>
@@ -75,11 +77,11 @@ const HomeMostPlayedSection = ({
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: 20, gap: 16 }}
+              contentContainerStyle={{ paddingHorizontal: 4, gap: 12 }}
             >
               {remainingSongs.map((song, index) => (
-                <View key={song.id} className="w-56">
-                  <View className="aspect-[1.35] w-full overflow-hidden rounded-3xl" style={{ backgroundColor: theme.surface }}>
+                <View key={song.id} className="w-56 overflow-hidden rounded-2xl" style={{ backgroundColor: theme.surface, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 7, shadowOffset: { width: 0, height: 3 }, elevation: 2 }}>
+                  <View className="aspect-[1.35] w-full overflow-hidden rounded-2xl">
                     <LibraryArtwork
                       artwork={song.artwork}
                       className="h-full w-full rounded-3xl"
@@ -94,9 +96,11 @@ const HomeMostPlayedSection = ({
                         </AutoScrollingText>
                       </View>
                       <Pressable
-                        className="rounded-full p-3"
-                        style={{ backgroundColor: theme.background }}
+                        className="h-10 w-10 items-center justify-center rounded-full"
+                        style={({ pressed }) => ({ backgroundColor: theme.background, opacity: pressed ? 0.65 : 1 })}
                         onPress={() => onPlaySong(index + 1)}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('play_song', 'Play song')}
                       >
                         <PlayIcon size={20} color={theme.text} />
                       </Pressable>

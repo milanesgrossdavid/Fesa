@@ -96,24 +96,28 @@ const LibraryGroupDetailModal = ({
             removeClippedSubviews
             ListHeaderComponent={
               <View style={{ paddingTop: Math.max(insets.top, 12) }}>
-                <View className="mb-2 items-center px-5 pt-1">
+                <View className="mb-3 items-center px-5 pt-1">
                   <View className="h-1 w-10 rounded-full bg-white/20" />
                 </View>
 
                 <View className="mb-4 flex-row items-center justify-between px-4">
                   <Pressable
-                    className="h-10 w-10 items-center justify-center rounded-full"
-                    style={{ backgroundColor: theme.surface }}
+                    className="h-11 w-11 items-center justify-center rounded-xl border"
+                    style={{ backgroundColor:theme.surface, borderColor: theme.border}}
                     onPress={onClose}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('close', 'Close')}
                   >
                     <BackIcon size={22} color={theme.text} />
                   </Pressable>
 
                   {onPlayAll && songCount > 0 ? (
                     <Pressable
-                      className="flex-row items-center gap-2 rounded-full px-4 py-2.5"
-                      style={{ backgroundColor: theme.surface }}
+                      className="flex-row items-center gap-2 rounded-xl border px-4 py-3"
+                      style={{ backgroundColor: theme.surface, borderColor: theme.border }}
                       onPress={onPlayAll}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('play_all', 'Play all')}
                     >
                       <PlayIcon size={16} color={theme.text} />
                       <Text className="text-sm font-bold" style={{ color: theme.text }}>
@@ -126,7 +130,10 @@ const LibraryGroupDetailModal = ({
                 </View>
 
                 <View className="mb-5 items-center px-5">
-                  <LibraryArtwork
+                  <View
+                    className="rounded-3xl p-1"
+                  >
+                    <LibraryArtwork
                     artwork={group.artwork}
                     fallback={isArtist ? group.name.charAt(0).toUpperCase() : '♪'}
                     className={`h-44 w-44 ${isArtist ? 'rounded-full' : 'rounded-[28px]'}`}
@@ -135,7 +142,8 @@ const LibraryGroupDetailModal = ({
                         ? 'text-6xl font-bold text-white'
                         : 'text-5xl font-bold text-white'
                     }
-                  />
+                    />
+                  </View>
 
                   <Text
                     className="mt-5 text-center text-2xl font-bold"
@@ -145,7 +153,7 @@ const LibraryGroupDetailModal = ({
                     {group.name}
                   </Text>
                   {variant !== 'playlist' ? (
-                    <Text className="mt-1 text-center text-xs font-bold uppercase tracking-[1.2px]" style={{ color: theme.mutedText }}>
+                    <Text className="mt-2 text-center text-sm" style={{ color: theme.mutedText }}>
                       {songCountLabel}
                     </Text>
                   ) : null}

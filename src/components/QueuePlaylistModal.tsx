@@ -108,26 +108,26 @@ const QueuePlaylistItem = React.memo(function QueuePlaylistItem({
       }}
     >
       <Pressable
-        className="mb-2 flex-row items-center rounded-[22px] px-3 py-2.5"
-        style={{
-          backgroundColor: isActive ? theme.surface : 'transparent',
-          borderWidth: isActive ? 1 : 0,
-          borderColor: theme.border,
-          shadowColor: isDragging ? '#000' : 'transparent',
-          shadowOpacity: isDragging ? 0.2 : 0,
-          shadowRadius: isDragging ? 10 : 0,
-          shadowOffset: { width: 0, height: isDragging ? 4 : 0 },
-          elevation: isDragging ? 8 : 0,
-        }}
+        className="mb-2 flex-row items-center rounded-[20px]  px-3 py-2.5"
+        
         onPress={() => {
           if (!dragActive) onSelectSong(index);
         }}
+        accessibilityRole="button"
+        accessibilityLabel={`${item.title || noTitleLabel}, ${
+          item.artist?.trim() || unknownArtistLabel
+        }`}
+        accessibilityHint={isActive ? 'Currently playing' : 'Play this song'}
       >
         <View
-          className="mr-2 h-12 w-8 items-center justify-center rounded-xl"
+          className="mr-2 h-12 w-10 items-center justify-center rounded-xl"
           hitSlop={{ left: 10, right: 10, top: 10, bottom: 10 }}
           {...panHandlers}
           onTouchStart={event => beginDrag(index, event.nativeEvent.pageY)}
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel={`Reorder ${item.title || noTitleLabel}`}
+          accessibilityHint="Drag to change the song order"
         >
           <DragHandleIcon size={22} color={theme.mutedText} />
         </View>
@@ -155,9 +155,11 @@ const QueuePlaylistItem = React.memo(function QueuePlaylistItem({
             </View>
           </View>
         ) : null}
-        <Text className="text-xs font-medium" style={{ color: theme.mutedText }}>
-          {formatDuration(item.duration)}
-        </Text>
+        <View className="ml-2 min-w-[44px] items-end">
+          <Text className="text-xs font-medium" style={{ color: theme.mutedText }}>
+            {formatDuration(item.duration)}
+          </Text>
+        </View>
       </Pressable>
     </Animated.View>
   );
@@ -454,33 +456,51 @@ const QueuePlaylistModal = ({
   );
 
   return (
-    <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal
+      transparent
+      visible={visible}
+      animationType="slide"
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
       <View className="flex-1 justify-end">
-        <Pressable className="absolute inset-0 bg-black/70" onPress={onClose} />
+        <Pressable
+          className="absolute inset-0 bg-black/70"
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel={t('cancel', 'Cancel')}
+        />
         <View
-          className="max-h-[78%] rounded-t-[32px] px-4 pt-3"
+          className="max-h-[82%] rounded-t-[28px] border-t px-3 pt-1"
           style={{
             backgroundColor: theme.background,
-            paddingBottom: Math.max(insets.bottom, 24),
+            paddingBottom: Math.max(insets.bottom, 12),
             borderTopColor: theme.border,
-            borderTopWidth: 1,
             shadowColor: '#000',
-            shadowOpacity: 0.2,
-            shadowRadius: 20,
+            shadowOpacity: 0.25,
+            shadowRadius: 22,
             shadowOffset: { width: 0, height: -8 },
-            elevation: 16,
+            elevation: 18,
           }}
         >
-          <View className="mb-4 items-center">
-            <View className="h-1.5 w-12 rounded-full" style={{ backgroundColor: theme.mutedText + '99' }} />
+          <View className="items-center py-2">
+            <View
+              className="h-1.5 w-10 rounded-full"
+              style={{ backgroundColor: theme.mutedText + '66' }}
+            />
           </View>
 
-          <View className="mb-4 flex-row items-center justify-between px-1">
-            <Text className="text-2xl font-bold" style={{ color: theme.text }}>
-              {t('player_queue_title', 'Queue')}
-            </Text>
+          <View className="min-h-[52px] flex-row items-center justify-between px-2 pb-2">
+            <View className="flex-1 pr-3">
+              <Text className="text-[22px] font-bold tracking-[-0.4px]" style={{ color: theme.text }}>
+                {t('player_queue_title', 'Queue')}
+              </Text>
+              <Text className="mt-0.5 text-xs" style={{ color: theme.mutedText }}>
+                {t('queue_reorder_hint', 'Drag songs to reorder')}
+              </Text>
+            </View>
             <View
-              className="rounded-full border px-2.5 py-1"
+              className="mr-2 rounded-full border px-3 py-1.5"
               style={{
                 backgroundColor: theme.surface,
                 borderColor: theme.border,
@@ -490,6 +510,17 @@ const QueuePlaylistModal = ({
                 {queueCountLabel}
               </Text>
             </View>
+            <Pressable
+              className="min-h-[40px] min-w-[40px] items-center justify-center rounded-full px-2"
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel={t('close', 'Close')}
+              style={({ pressed }) => ({ opacity: pressed ? 0.45 : 1 })}
+            >
+              <Text className="text-[15px] font-semibold" style={{ color: theme.accent }}>
+                {t('close', 'Close')}
+              </Text>
+            </Pressable>
           </View>
 
           <View
@@ -504,7 +535,7 @@ const QueuePlaylistModal = ({
               data={queue}
               keyExtractor={(item, index) => `${item.id}-${index}`}
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingTop: 4, paddingBottom: 12 }}
+              contentContainerStyle={{ paddingTop: 4, paddingBottom: 8 }}
               // Cap the per-frame work for very long queues. A 5,000-track
               // queue would otherwise create an Animated.Value per index on
               // every queue update, choking the JS thread on drag.

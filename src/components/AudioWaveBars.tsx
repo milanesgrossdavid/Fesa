@@ -112,12 +112,14 @@ const AudioWaveBars = React.memo(({
   return (
     <View
       pointerEvents="none"
+      accessible={false}
       style={{
         height,
         flexDirection: 'row',
         alignItems: 'flex-end',
         justifyContent: 'center',
         gap,
+        opacity: playing ? 1 : 0.72,
       }}
     >
       {renderBar(firstBar)}

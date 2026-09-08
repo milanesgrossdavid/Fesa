@@ -25,14 +25,21 @@ const HomeRecommendedArtistsSection = ({
   const theme = useAppSettingsTheme();
 
   return (
-    <View className="py-4">
-      <View className="flex-row flex-wrap justify-between gap-y-6 px-4">
+    <View className="py-2">
+      <View className="flex-row flex-wrap justify-between gap-y-4 px-4">
         {artists.map(artist => (
-          <Pressable key={artist.id} className="w-[47%] items-center" onPress={() => onOpenArtist(artist)}>
+          <Pressable
+            key={artist.id}
+            className="w-[47%] items-center rounded-2xl p-2"
+            style={({ pressed }) => ({ backgroundColor: pressed ? theme.surface : 'transparent', opacity: pressed ? 0.72 : 1 })}
+            onPress={() => onOpenArtist(artist)}
+            accessibilityRole="button"
+            accessibilityLabel={artist.name}
+          >
             <LibraryArtwork
               artwork={artist.artwork}
               fallback={artist.name.charAt(0).toUpperCase()}
-              className="aspect-square w-full rounded-2xl"
+              className="aspect-square w-full rounded-xl"
             />
             <View className="mt-2 w-full px-1">
               <AutoScrollingText key={`${artist.id}-name`} className="text-center text-sm font-bold" style={{ color: theme.text }}>

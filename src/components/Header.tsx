@@ -107,24 +107,40 @@ const Header = () => {
   return (
     <View
       className="flex-row items-center justify-between px-4 py-2"
-      style={{ backgroundColor: theme.background }}
+      style={{
+        backgroundColor: theme.background,
+        paddingTop: Math.max(insets.top, 8),
+        shadowColor: '#000',
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 2 },
+        elevation: 2,
+      }}
     >
-      <View style={{ height: 52, justifyContent: 'center' }}>
-        <Text style={{ color: theme.text, fontSize: 34, fontWeight: '700' }}>FESA</Text>
+      <View style={{ height: 48, justifyContent: 'center' }}>
+        <Text style={{ color: theme.text, fontSize: 30, fontWeight: '700', letterSpacing: 0.2 }}>FESA</Text>
       </View>
       <View className="flex-row items-center">
         <Pressable
-          className="h-11 w-11 items-center justify-center rounded-full"
-          style={({ pressed }) => ({ backgroundColor: pressed ? theme.surface : 'transparent' })}
+          className="mr-1 h-11 w-11 items-center justify-center rounded-xl"
+          style={({ pressed }) => ({
+            backgroundColor: pressed ? theme.surface : 'transparent',
+            opacity: pressed ? 0.7 : 1,
+          })}
           onPress={() => setSearchVisible(true)}
+          accessibilityRole="button"
           accessibilityLabel={t('search_open_label', 'Search')}
         >
           <SearchIcon size={22} color={theme.text} />
         </Pressable>
         <Pressable
-          className="h-11 w-11 items-center justify-center rounded-full"
-          style={({ pressed }) => ({ backgroundColor: pressed ? theme.surface : 'transparent' })}
+          className="h-11 w-11 items-center justify-center rounded-xl"
+          style={({ pressed }) => ({
+            backgroundColor: pressed ? theme.surface : 'transparent',
+            opacity: pressed ? 0.7 : 1,
+          })}
           onPress={() => setSettingsVisible(true)}
+          accessibilityRole="button"
           accessibilityLabel={t('settings', 'Settings')}
         >
           <SettingsIcon size={22} color={theme.text} />
@@ -140,19 +156,21 @@ const Header = () => {
             paddingBottom: insets.bottom,
           }}
         >
-          <View style={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8 }}>
-            <View className="flex-row items-center" style={{ height: 44 }}>
+          <View style={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 12 }}>
+            <View className="flex-row items-center" style={{ height: 48 }}>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t('close', 'Close')}
                 style={({ pressed }) => ({
-                  height: 32,
-                  minWidth: 32,
-                  paddingHorizontal: 4,
+                  height: 40,
+                  minWidth: 40,
+                  paddingHorizontal: 8,
                   flexDirection: 'row',
                   alignItems: 'center',
                   justifyContent: 'center',
                   opacity: pressed ? 0.5 : 1,
+                  borderRadius: 10,
+                  backgroundColor: pressed ? theme.surface : 'transparent',
                 })}
                 onPress={closeSearch}
               >
@@ -161,10 +179,10 @@ const Header = () => {
               <Text
                 style={{
                   color: theme.text,
-                  fontSize: 28,
+                  fontSize: 26,
                   fontWeight: '700',
                   letterSpacing: 0.37,
-                  paddingHorizontal: 4,
+                  paddingHorizontal: 8,
                 }}
               >
                 {t('search_modal_title', 'Search')}
@@ -174,8 +192,8 @@ const Header = () => {
 
           <View className="mb-4 px-4">
             <View
-              className="flex-row items-center rounded-xl px-3"
-              style={{ backgroundColor: theme.surface, height: 44 }}
+              className="flex-row items-center rounded-xl border px-3"
+              style={{ backgroundColor: theme.surface, borderColor: theme.border, height: 48 }}
             >
               <SearchIcon size={20} color={theme.mutedText} />
               <TextInput
@@ -234,8 +252,17 @@ const Header = () => {
             renderItem={({ item, index }) => (
               <Pressable
                 className="flex-row items-center"
-                style={{ paddingVertical: 6 }}
+                style={({ pressed }) => ({
+                  backgroundColor: pressed ? theme.surface : 'transparent',
+                  borderRadius: 12,
+                  marginBottom: 4,
+                  opacity: pressed ? 0.72 : 1,
+                  paddingHorizontal: 8,
+                  paddingVertical: 6,
+                })}
                 onPress={() => playSearchResult(index)}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.title}, ${item.artist || t('unknown_artist', 'Unknown Artist')}`}
               >
                 <LibraryArtwork
                   artwork={item.artwork}

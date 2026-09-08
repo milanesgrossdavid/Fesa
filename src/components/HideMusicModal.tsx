@@ -35,13 +35,26 @@ const HideMusicModal = ({ visible, songs, hiddenSongIds, onClose, onToggleHidden
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
       <View className="flex-1 justify-end">
-        <Pressable className="absolute inset-0 bg-black/70" onPress={onClose} />
+        <Pressable
+          className="absolute inset-0 bg-black/70"
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel={t('cancel', 'Cancel')}
+        />
         <View
-          className="max-h-[82%] rounded-t-[32px] px-5 pb-6 pt-3"
-          style={{ backgroundColor: theme.background, paddingBottom: Math.max(insets.bottom, 24) }}
+          className="max-h-[82%] rounded-t-[28px] px-5 pb-6 pt-2"
+          style={{
+            backgroundColor: theme.background,
+            paddingBottom: Math.max(insets.bottom, 24),
+            shadowColor: '#000',
+            shadowOpacity: 0.25,
+            shadowRadius: 22,
+            shadowOffset: { width: 0, height: -8 },
+            elevation: 18,
+          }}
         >
           <View className="mb-4 items-center">
-            <View className="h-1 w-10 rounded-full" style={{ backgroundColor: `${theme.text}40` }} />
+            <View className="h-[5px] w-10 rounded-full" style={{ backgroundColor: `${theme.mutedText}55` }} />
           </View>
 
           <View className="mb-4 flex-row items-center justify-between">
@@ -53,7 +66,9 @@ const HideMusicModal = ({ visible, songs, hiddenSongIds, onClose, onToggleHidden
             </View>
             <Pressable
               className="h-9 w-9 items-center justify-center rounded-full"
+              style={{ backgroundColor: theme.surface }}
               onPress={onClose}
+              accessibilityRole="button"
               accessibilityLabel={t('close_hide_music', 'Close hide music')}
             >
               <Ionicons name="close" size={20} color={theme.text} />
@@ -80,12 +95,17 @@ const HideMusicModal = ({ visible, songs, hiddenSongIds, onClose, onToggleHidden
                 return (
                   <Pressable
                     key={song.id}
-                    className="mb-2 flex-row items-center rounded-[22px] px-3 py-3"
+                    className="mb-2 flex-row items-center rounded-[20px] border px-3 py-3"
                     style={{
                       backgroundColor: theme.surface,
+                      borderColor: theme.border,
                       opacity: isHidden ? 0.8 : 1,
                     }}
                     onPress={() => onToggleHidden(song.id)}
+                    accessibilityRole="switch"
+                    accessibilityState={{ checked: isHidden }}
+                    accessibilityLabel={`${song.title}, ${song.artist?.trim() || t('unknown_artist', 'Unknown Artist')}`}
+                    accessibilityHint={isHidden ? t('show_song', 'Show song') : t('hide_song', 'Hide song')}
                   >
                     <LibraryArtwork
                       artwork={song.artwork}

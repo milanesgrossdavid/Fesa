@@ -44,7 +44,7 @@ const HomeRecentlyAddedSection = ({
   const theme = useAppSettingsTheme();
 
   return (
-    <View className="py-4">
+    <View className="py-2">
       {songs.map((song, index) => {
         const isSelected = selectedSongIds.includes(song.id);
 

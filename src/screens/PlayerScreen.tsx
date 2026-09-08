@@ -39,6 +39,7 @@ import AppSettingsModal from "../components/AppSettingsModal";
 import AppModal from "../components/AppModal";
 import AudioWaveBars from "../components/AudioWaveBars";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
+import DefineAsModal from "../components/DefineAsModal";
 import QueuePlaylistModal from "../components/QueuePlaylistModal";
 import RelatedTracksModal from "../components/RelatedTracksModal";
 import SetAsSuccessModal from "../components/SetAsSuccessModal";
@@ -1128,7 +1129,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
           <AppModal
             transparent
             visible={(trackMenuVisible || trackMenuClosing) && parentAnimationDone}
-            animationType="fade"
+            animationType="slide"
             onRequestClose={requestCloseTrackMenu}
             onModalHide={() => {
               setTrackMenuMounted(false);
@@ -1138,10 +1139,50 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
             <View className="flex-1 justify-end">
               <Pressable className="absolute inset-0 bg-black/70" onPress={requestCloseTrackMenu} />
               <View
-                className="rounded-t-[32px] px-6 pb-8 pt-6"
-                style={{ backgroundColor: theme.surface }}
+                className="rounded-t-[32px] border-t px-5 pt-3"
+                style={{
+                  backgroundColor: theme.background,
+                  borderTopColor: theme.border,
+                  paddingBottom: Math.max(insets.bottom, 24),
+                  shadowColor: '#000',
+                  shadowOpacity: 0.2,
+                  shadowRadius: 20,
+                  shadowOffset: { width: 0, height: -8 },
+                  elevation: 16,
+                }}
               >
-                {[
+                <View key="track-menu-handle" className="mb-4 items-center">
+                  <View className="h-1.5 w-12 rounded-full" style={{ backgroundColor: theme.mutedText + '99' }} />
+                </View>
+
+                <View
+                  key="track-menu-song"
+                  className="mb-4 flex-row items-center rounded-3xl border px-3 py-3"
+                  style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+                  accessibilityRole="summary"
+                  accessibilityLabel={`${currentSong.title}, ${normalizeValue(currentSong.artist, UNKNOWN_ARTIST)}`}
+                >
+                  <Image
+                    source={currentSong.artwork ? { uri: currentSong.artwork } : DEFAULT_MUSIC_ARTWORK}
+                    className="mr-3 h-14 w-14 rounded-2xl"
+                    resizeMode="cover"
+                  />
+                  <View className="flex-1 pr-2">
+                    <Text className="text-base font-bold" style={{ color: theme.text }} numberOfLines={1}>
+                      {currentSong.title}
+                    </Text>
+                    <Text className="mt-1 text-sm" style={{ color: theme.mutedText }} numberOfLines={1}>
+                      {normalizeValue(currentSong.artist, UNKNOWN_ARTIST)}
+                    </Text>
+                  </View>
+                </View>
+
+                <View
+                  key="track-menu-actions"
+                  className="overflow-hidden rounded-3xl border"
+                  style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+                >
+                  {[
                   [t('track_action_delete', 'Delete'), () => { requestCloseTrackMenu(); setDeleteConfirmVisible(true); }],
                   [t('track_action_share', 'Share'), () => { requestCloseTrackMenu(); void shareAudioFile(currentSong.id); }],
                   [t('track_action_details', 'Track details'), () => { requestCloseTrackMenu(); setDetailsVisible(true); }],
@@ -1151,10 +1192,27 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                   [t('track_action_define_as', 'Set as'), handleOpenDefineAs],
                   [t('settings', 'Settings'), () => { requestCloseTrackMenu(); setSettingsVisible(true); }],
                 ].map(([label, onPress]) => (
-                  <Pressable key={label as string} className="border-b border-white/5 px-2 py-4" onPress={onPress as () => void}>
-                    <Text className="text-base font-bold" style={{ color: theme.text }}>{label as string}</Text>
+                  <Pressable
+                    key={label as string}
+                    className="px-4 py-4"
+                    style={({ pressed }) => ({
+                      borderBottomWidth: label === t('settings', 'Settings') ? 0 : 1,
+                      borderBottomColor: theme.border,
+                      opacity: pressed ? 0.68 : 1,
+                    })}
+                    onPress={onPress as () => void}
+                    accessibilityRole="button"
+                    accessibilityLabel={label as string}
+                  >
+                    <Text
+                      className="text-base font-bold"
+                      style={{ color: label === t('track_action_delete', 'Delete') ? '#f87171' : theme.text }}
+                    >
+                      {label as string}
+                    </Text>
                   </Pressable>
                 ))}
+                </View>
               </View>
             </View>
           </AppModal>
@@ -1199,101 +1257,13 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
         />
 
         {defineAsMounted ? (
-          <AppModal
-            transparent
-            visible={defineAsVisible && parentAnimationDone}
-            animationType="fade"
-            onRequestClose={requestCloseDefineAs}
-            onModalHide={() => {
-              setDefineAsMounted(false);
-              setDefineAsClosing(false);
+          <DefineAsModal
+            song={defineAsVisible && parentAnimationDone ? currentSong : null}
+            onClose={requestCloseDefineAs}
+            onDefineAs={(_, type) => {
+              void defineSongAs(type);
             }}
-          >
-            <View className="flex-1 justify-end">
-              <Pressable className="absolute inset-0 bg-black/70" onPress={requestCloseDefineAs} />
-              <View
-                className="rounded-t-[32px] px-4 pt-3"
-                style={{
-                  backgroundColor: theme.background,
-                  borderTopColor: theme.border,
-                  borderTopWidth: 1,
-                  paddingBottom: Math.max(insets.bottom, 24),
-                  shadowColor: '#000',
-                  shadowOpacity: 0.22,
-                  shadowRadius: 18,
-                  shadowOffset: { width: 0, height: -8 },
-                  elevation: 12,
-                }}
-              >
-                <View className="mb-4 items-center">
-                  <View className="h-1.5 w-12 rounded-full" style={{ backgroundColor: theme.mutedText + '99' }} />
-                </View>
-
-                <View className="mb-4 flex-row items-center justify-between px-1">
-                  <View className="flex-1 pr-3">
-                    <Text className="text-2xl font-bold" style={{ color: theme.text }}>
-                      {t('player_define_as_title', 'Set as')}
-                    </Text>
-                    <Text className="mt-1 text-sm" style={{ color: theme.mutedText }} numberOfLines={1}>
-                      {currentSong.title}
-                    </Text>
-                  </View>
-                  <Pressable
-                    className="rounded-full px-3 py-2"
-                    onPress={requestCloseDefineAs}
-                  >
-                    <Text className="text-sm font-semibold" style={{ color: theme.text }}>
-                      {t('close', 'Close')}
-                    </Text>
-                  </Pressable>
-                </View>
-
-                <View className="mb-4 flex-row items-center rounded-[24px] px-3 py-3">
-                  {currentSong.artwork ? (
-                    <Image
-                      source={{ uri: currentSong.artwork }}
-                      className="mr-3 h-12 w-12 rounded-xl"
-                      resizeMode="cover"
-                      fadeDuration={0}
-                    />
-                  ) : (
-                    <View className="mr-3 h-12 w-12 items-center justify-center rounded-xl bg-white/10">
-                      <MaterialCommunityIcons name="music-note" size={22} color={theme.text} />
-                    </View>
-                  )}
-                  <View className="flex-1">
-                    <Text className="text-sm font-bold" style={{ color: theme.text }} numberOfLines={1}>
-                      {currentSong.title}
-                    </Text>
-                    <Text className="mt-1 text-xs" style={{ color: theme.mutedText }} numberOfLines={1}>
-                      {normalizeValue(currentSong.artist, UNKNOWN_ARTIST)}
-                    </Text>
-                  </View>
-                </View>
-
-                <View className="gap-2">
-                  {[
-                    { label: t('tone_option_ringtone', 'Device tone'), value: 'ringtone' as ToneType, description: t('tone_option_ringtone_desc', 'Use as ringtone') },
-                    { label: t('tone_option_alarm', 'Alarm tone'), value: 'alarm' as ToneType, description: t('tone_option_alarm_desc', 'Use as alarm') },
-                  ].map(option => (
-                    <Pressable
-                      key={option.value}
-                      className="rounded-[22px] border px-4 py-4"
-                      style={{ backgroundColor: theme.surface + 'CC', borderColor: theme.border }}
-                      onPress={() => void defineSongAs(option.value)}
-                    >
-                      <Text className="text-base font-bold" style={{ color: theme.text }}>
-                        {option.label}
-                      </Text>
-                      <Text className="mt-1 text-sm" style={{ color: theme.mutedText }}>
-                        {option.description}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
-            </View>
-          </AppModal>
+          />
         ) : null}
 
         {miniPlayerMounted ? (
@@ -1373,7 +1343,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                     {/* Base blur: provides the frosted backdrop */}
                     <BlurView
                       pointerEvents="none"
-                      intensity={110}
+                      intensity={80}
                       tint="dark"
                       style={StyleSheet.absoluteFill}
                     />

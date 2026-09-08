@@ -19,11 +19,23 @@ const LibraryPlaylistCard = ({ playlist, onPress }: LibraryPlaylistCardProps) =>
   const theme = useAppSettingsTheme();
 
   return (
-    <Pressable className="mb-5 flex-1 rounded-[26px] p-3" onPress={onPress}>
-      <View className="overflow-hidden rounded-[22px]">
+    <Pressable
+      className="mb-5 flex-1 rounded-2xl p-3"
+      style={({ pressed }) => ({
+        backgroundColor: pressed ? theme.surface : 'transparent',
+        opacity: pressed ? 0.76 : 1,
+      })}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={playlist.name}
+    >
+      <View
+        className="overflow-hidden rounded-2xl"
+        style={{ shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2 }}
+      >
         <LibraryArtwork
           artwork={playlist.songs[0]?.artwork}
-          className="aspect-square w-full rounded-[20px]"
+          className="aspect-square w-full rounded-xl"
           fallbackTextClassName="text-4xl font-bold text-white"
           fallbackTextStyle={{ color: theme.text }}
         />

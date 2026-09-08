@@ -29,24 +29,60 @@ const SelectedSongsActionBar = ({
 
   return (
     <View
-      className="absolute bottom-5 left-5 right-5 rounded-3xl px-4 py-3 shadow-lg"
-      style={{ backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }}
+      className="absolute bottom-5 left-4 right-4 rounded-[24px] border px-3 py-3 shadow-lg"
+      style={{
+        backgroundColor: theme.surface,
+        borderColor: theme.border,
+        shadowColor: '#000',
+        shadowOpacity: 0.2,
+        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 6 },
+        elevation: 10,
+      }}
     >
-      <View className="flex-row items-center justify-between">
-        <Pressable className="items-center gap-1" onPress={onPlay}>
-          <PlayIcon size={24} color={theme.text} />
+      <View className="flex-row items-center justify-around">
+        <Pressable
+          className="min-w-[64px] items-center gap-1 rounded-[16px] px-2 py-1"
+          onPress={onPlay}
+          accessibilityRole="button"
+          accessibilityLabel={t('play', 'Play')}
+        >
+          <View className="h-9 w-9 items-center justify-center rounded-full" style={{ backgroundColor: `${theme.accent}18` }}>
+            <PlayIcon size={20} color={theme.accent} />
+          </View>
           <Text className="text-xs font-bold" style={{ color: theme.text }}>{t('play', 'Play')}</Text>
         </Pressable>
-        <Pressable className="items-center gap-1" onPress={onAdd}>
-          <PlusIcon size={25} color={theme.text} />
+        <Pressable
+          className="min-w-[64px] items-center gap-1 rounded-[16px] px-2 py-1"
+          onPress={onAdd}
+          accessibilityRole="button"
+          accessibilityLabel={t('add', 'Add')}
+        >
+          <View className="h-9 w-9 items-center justify-center rounded-full" style={{ backgroundColor: theme.background }}>
+            <PlusIcon size={21} color={theme.text} />
+          </View>
           <Text className="text-xs font-bold" style={{ color: theme.text }}>{t('add', 'Add')}</Text>
         </Pressable>
-        <Pressable className="items-center gap-1" onPress={onShare}>
-          <ShareIcon size={24} color={theme.text} />
+        <Pressable
+          className="min-w-[64px] items-center gap-1 rounded-[16px] px-2 py-1"
+          onPress={onShare}
+          accessibilityRole="button"
+          accessibilityLabel={t('track_action_share', 'Share')}
+        >
+          <View className="h-9 w-9 items-center justify-center rounded-full" style={{ backgroundColor: theme.background }}>
+            <ShareIcon size={20} color={theme.text} />
+          </View>
           <Text className="text-xs font-bold" style={{ color: theme.text }}>{t('track_action_share', 'Share')}</Text>
         </Pressable>
-        <Pressable className="items-center gap-1" onPress={onDelete}>
-          <DeleteIcon size={25} color={theme.text} />
+        <Pressable
+          className="min-w-[64px] items-center gap-1 rounded-[16px] px-2 py-1"
+          onPress={onDelete}
+          accessibilityRole="button"
+          accessibilityLabel={t('delete', 'Delete')}
+        >
+          <View className="h-9 w-9 items-center justify-center rounded-full" style={{ backgroundColor: `${theme.accent}18` }}>
+            <DeleteIcon size={21} color={theme.accent} />
+          </View>
           <Text className="text-xs font-bold" style={{ color: theme.text }}>{t('delete', 'Delete')}</Text>
         </Pressable>
       </View>

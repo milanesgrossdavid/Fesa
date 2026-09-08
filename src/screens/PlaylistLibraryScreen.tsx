@@ -859,9 +859,11 @@ const PlaylistLibraryScreen = () => {
           {t('permission_required_music', 'Music permissions are required to read your library.')}
         </Text>
         <Pressable 
-          className="mt-4 rounded-full px-6 py-2" 
-          style={{ backgroundColor: theme.surface }}
+          className="mt-4 rounded-xl px-6 py-3"
+          style={({ pressed }) => ({ backgroundColor: theme.surface, opacity: pressed ? 0.65 : 1 })}
           onPress={() => void requestPermissionsAndLoadMusic()}
+          accessibilityRole="button"
+          accessibilityLabel={t('retry', 'Retry')}
         >
           <Text style={{ color: theme.text }}>{t('retry', 'Retry')}</Text>
         </Pressable>
@@ -888,8 +890,8 @@ const PlaylistLibraryScreen = () => {
               onSortChange={handleTrackSortChange}
               onCreatePlaylist={openCreatePlaylist}
             />
-            <View className="px-5 pb-2 pt-4">
-              <View className="flex-row gap-4">
+            <View className="px-4 pb-2 pt-4">
+              <View className="flex-row gap-3">
                 {defaultPlaylists.map(playlist => (
                   <LibraryPlaylistCard
                     key={playlist.id}
@@ -902,7 +904,7 @@ const PlaylistLibraryScreen = () => {
           </View>
         }
         ListEmptyComponent={
-          <Text className="px-5 py-6 text-center text-[#707070]">{t('playlist_empty_state', 'You have not created any playlists yet.')}</Text>
+          <Text className="mx-4 rounded-2xl px-5 py-6 text-center" style={{ backgroundColor: theme.surface, color: theme.mutedText }}>{t('playlist_empty_state', 'You have not created any playlists yet.')}</Text>
         }
         contentContainerStyle={{
           paddingBottom: isPlaylistSelectionMode || isSelectionMode

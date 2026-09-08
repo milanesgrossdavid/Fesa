@@ -25,11 +25,18 @@ const HomeRecommendedAlbumsSection = ({
   const theme = useAppSettingsTheme();
 
   return (
-    <View className="py-4">
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 18 }}>
+    <View className="py-2">
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}>
         {albums.map(album => (
-          <Pressable key={album.id} className="w-40" onPress={() => onOpenAlbum(album)}>
-            <LibraryArtwork artwork={album.artwork} className="aspect-square w-full rounded-2xl" />
+          <Pressable
+            key={album.id}
+            className="w-40 rounded-2xl p-2"
+            style={({ pressed }) => ({ backgroundColor: pressed ? theme.surface : 'transparent', opacity: pressed ? 0.72 : 1 })}
+            onPress={() => onOpenAlbum(album)}
+            accessibilityRole="button"
+            accessibilityLabel={album.name}
+          >
+            <LibraryArtwork artwork={album.artwork} className="aspect-square w-full rounded-xl" />
             <View className="w-full px-1">
               <AutoScrollingText key={`${album.id}-name`} className="mt-2 text-base font-bold" style={{ color: theme.text }}>
                 {album.name}

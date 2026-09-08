@@ -12,7 +12,12 @@ export type AppModalProps = Omit<RNModalProps, 'onModalHide'> & {
  */
 export const AppModal: React.FC<AppModalProps> = (props) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return <RNModal {...(props as any)} />;
+  return (
+    <RNModal
+      {...(props as any)}
+      accessibilityViewIsModal={props.accessibilityViewIsModal ?? true}
+    />
+  );
 };
 
 export default AppModal;

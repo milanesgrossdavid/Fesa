@@ -9,12 +9,14 @@ import {
   PermissionsAndroid,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { deleteAudioFile, getAudioFiles, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
 import { musicPlayer, useMusicPlayerUi } from '../audio/musicPlayer';
 import { useAppSettingsHiddenSongIds, useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
@@ -138,14 +140,14 @@ const HomeSectionHeader = ({ title, onPress, onPressLabel }: { title: string; on
 
   return (
     <View className="flex-row items-center justify-between px-4 pb-2 pt-4">
-      <Text className="text-2xl font-bold" style={{ color: theme.text }}>{title}</Text>
+      <Text className="text-[22px] font-bold" style={{ color: theme.text }}>{title}</Text>
       {onPress ? (
         <Pressable
           style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
           onPress={onPress}
           accessibilityLabel={`${onPressLabel ?? t('view_all', 'View All')}: ${title}`}
         >
-          <Text className="text-sm font-semibold uppercase tracking-[0.12em]" style={{ color: theme.mutedText }}>
+          <Text className="text-sm font-semibold" style={{ color: theme.accent }}>
             {onPressLabel ?? t('view_all', 'View All')}
           </Text>
         </Pressable>
@@ -186,6 +188,7 @@ const HomeLibraryScreen = () => {
   const [selectedSongIds, setSelectedSongIds] = useState<string[]>([]);
   const groupModalTranslateY = useRef(new Animated.Value(1)).current;
   const theme = useAppSettingsTheme();
+  const insets = useSafeAreaInsets();
   const language = useAppSettingsLanguage();
   const hiddenSongIds = useAppSettingsHiddenSongIds();
   const translationHelper = useTranslation(language.id);
@@ -649,6 +652,14 @@ const HomeLibraryScreen = () => {
     <View className="flex-1" style={{ backgroundColor: theme.background }}>
       <ScrollView
         className="flex-1"
+        refreshControl={
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={() => void requestPermissionsAndLoadMusic()}
+            tintColor={theme.accent}
+            colors={[theme.accent]}
+          />
+        }
         contentContainerStyle={{
           paddingBottom: isSelectionMode ? SELECTION_BAR_BOTTOM_INSET : MINI_PLAYER_BOTTOM_INSET,
         }}

@@ -115,25 +115,41 @@ const TabNavigator = () => {
             swipeEnabled: true,
             tabBarScrollEnabled: true,
             tabBarPressColor: 'transparent',
-            tabBarItemStyle: { width: 'auto', paddingHorizontal: 4 },
-            tabBarContentContainerStyle: { paddingHorizontal: 12 },
+            tabBarItemStyle: {
+              width: 'auto',
+              minHeight: 48,
+              paddingHorizontal: 4,
+              paddingVertical: 4,
+            },
+            tabBarContentContainerStyle: {
+              paddingHorizontal: 12,
+              alignItems: 'center',
+            },
             tabBarIndicatorStyle: { height: 0 },
             tabBarLabel: ({ focused, color, children }) => (
               <View
                 style={{
-                  backgroundColor: 'transparent',
-                  borderRadius: 999,
-                  paddingHorizontal: focused ? 18 : 12,
+                  alignItems: 'center',
+                  backgroundColor: focused ? theme.surface : 'transparent',
+                  borderColor: focused ? theme.border : 'transparent',
+                  borderRadius: 12,
+                  borderWidth: focused ? 1 : 0,
+                  minWidth: 72,
+                  paddingHorizontal: 14,
                   paddingVertical: 8,
+                  shadowColor: '#000',
+                  shadowOpacity: focused ? 0.08 : 0,
+                  shadowRadius: 6,
+                  shadowOffset: { width: 0, height: 2 },
+                  elevation: focused ? 2 : 0,
                 }}
               >
                 <Text
                   style={{
                     color: color,
-                    fontSize: focused ? 15 : 13,
-                    fontWeight: focused ? '800' : '500',
-                    letterSpacing: focused ? 0.6 : 0.2,
-                    textTransform: focused ? 'uppercase' : 'capitalize',
+                    fontSize: 14,
+                    fontWeight: focused ? '700' : '500',
+                    letterSpacing: 0.1,
                   }}
                 >
                   {children}
@@ -142,10 +158,12 @@ const TabNavigator = () => {
             ),
             tabBarStyle: {
               backgroundColor: theme.background,
-              borderBottomWidth: 0,
-              borderTopColor: theme.border,
-              elevation: 0,
-              shadowOpacity: 0,
+              borderTopColor: 'transparent',
+              elevation: 2,
+              shadowColor: '#000',
+              shadowOpacity: 0.06,
+              shadowRadius: 8,
+              shadowOffset: { width: 0, height: 2 },
             },
             tabBarActiveTintColor: theme.text,
             tabBarInactiveTintColor: theme.mutedText,

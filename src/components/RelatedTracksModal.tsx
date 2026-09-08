@@ -40,44 +40,54 @@ const RelatedTracksModal = ({
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
       <View className="flex-1 justify-end">
-        <Pressable className="absolute inset-0 bg-black/70" onPress={onClose} />
+        <Pressable
+          className="absolute inset-0 bg-black/70"
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel={t('cancel', 'Cancel')}
+        />
         <View
-          className="max-h-[82%] rounded-t-[32px] px-4 pt-3"
+          className="max-h-[82%] rounded-t-[28px] px-5 pt-2"
           style={{
             backgroundColor: theme.background,
             paddingBottom: Math.max(insets.bottom, 24),
-            borderTopColor: theme.border,
-            borderTopWidth: 1,
             shadowColor: '#000',
-            shadowOpacity: 0.2,
-            shadowRadius: 20,
+            shadowOpacity: 0.25,
+            shadowRadius: 22,
             shadowOffset: { width: 0, height: -8 },
-            elevation: 16,
+            elevation: 18,
           }}
         >
           <View className="mb-4 items-center">
-            <View className="h-1.5 w-12 rounded-full" style={{ backgroundColor: theme.mutedText + '99' }} />
+            <View className="h-[5px] w-10 rounded-full" style={{ backgroundColor: `${theme.mutedText}55` }} />
           </View>
 
           <View className="mb-4 flex-row items-center justify-between px-1">
-            <View className="flex-1 pr-4">
+            <View className="flex-1 pr-3">
+              <Text className="text-xl font-bold" style={{ color: theme.text }} numberOfLines={1}>
+                {title}
+              </Text>
               <Text className="mt-1 text-xs font-semibold uppercase tracking-[1.1px]" style={{ color: theme.mutedText }}>
                 {songCountLabel}
               </Text>
             </View>
-            <Pressable className="rounded-full px-3 py-2" onPress={onClose}>
-              <Text className="text-base font-semibold" style={{ color: theme.text }}>{t('close', 'Close')}</Text>
+            <Pressable
+              className="h-10 w-10 items-center justify-center rounded-full"
+              style={{ backgroundColor: theme.surface }}
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel={t('close', 'Close')}
+            >
+              <Text className="text-lg font-semibold" style={{ color: theme.accent }}>×</Text>
             </Pressable>
           </View>
 
           <View className="mb-4 items-center">
-            <View
-              className="rounded-[30px] p-2.5"
-            >
+            <View className="rounded-[24px] border p-2" style={{ backgroundColor: theme.surface, borderColor: theme.border }}>
               <LibraryArtwork
                 artwork={artwork ?? songs[0]?.artwork}
                 fallback={isArtist ? title.charAt(0).toUpperCase() : '♪'}
-                className={`h-36 w-36 ${isArtist ? 'rounded-full' : 'rounded-[28px]'}`}
+                className={`h-32 w-32 ${isArtist ? 'rounded-full' : 'rounded-[20px]'}`}
                 fallbackTextClassName="text-5xl font-bold text-white"
               />
             </View>
@@ -97,11 +107,13 @@ const RelatedTracksModal = ({
             {onPlayAll && songs.length > 0 ? (
               <Pressable
                 className="mt-4 flex-row items-center gap-2 rounded-full px-5 py-3"
-                style={{ backgroundColor: theme.surface }}
+                style={{ backgroundColor: theme.accent }}
                 onPress={onPlayAll}
+                accessibilityRole="button"
+                accessibilityLabel={t('play', 'Play')}
               >
-                <PlayIcon size={16} color={theme.text} />
-                <Text className="font-bold" style={{ color: theme.text }}>
+                <PlayIcon size={16} color="#ffffff" />
+                <Text className="font-bold" style={{ color: '#ffffff' }}>
                   {t('play', 'Play')}
                 </Text>
               </Pressable>
@@ -115,8 +127,11 @@ const RelatedTracksModal = ({
             contentContainerStyle={{ paddingBottom: 12 }}
             renderItem={({ item, index }) => (
               <Pressable
-                className="mb-2 flex-row items-center rounded-[22px] px-3 py-3"
+                className="mb-2 flex-row items-center rounded-[20px] border px-3 py-3"
+                style={{ backgroundColor: theme.surface, borderColor: theme.border }}
                 onPress={() => onSelectSong(index)}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.title}, ${item.artist?.trim() || t('unknown_artist', 'Unknown Artist')}`}
               >
                 <LibraryArtwork
                   artwork={item.artwork}

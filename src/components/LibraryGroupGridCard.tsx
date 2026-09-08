@@ -21,12 +21,23 @@ const LibraryGroupGridCard = ({ group, isArtist, onPress }: LibraryGroupGridCard
   const theme = useAppSettingsTheme();
 
   return (
-    <Pressable className="mb-5 flex-1 rounded-[26px] p-3" onPress={onPress}>
-      <View className="overflow-hidden rounded-[22px]">
+    <Pressable
+      className="mb-5 flex-1 rounded-2xl p-3"
+      style={({ pressed }) => ({
+        backgroundColor: pressed ? theme.surface : 'transparent',
+        opacity: pressed ? 0.76 : 1,
+      })}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={group.name}
+    >
+      <View
+        className="overflow-hidden rounded-2xl"
+      >
         <LibraryArtwork
           artwork={group.artwork}
           fallback={isArtist ? group.name.charAt(0).toUpperCase() : '♪'}
-          className={`aspect-square w-full ${isArtist ? 'rounded-full' : 'rounded-[20px]'}`}
+          className={`aspect-square w-full ${isArtist ? 'rounded-full' : 'rounded-xl'}`}
           fallbackTextClassName={isArtist ? 'text-5xl font-bold text-white' : 'text-4xl font-bold text-white'}
           style={{ borderRadius: isArtist ? 9999 : 18 }}
         />

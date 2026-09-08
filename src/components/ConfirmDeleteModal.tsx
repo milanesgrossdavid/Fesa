@@ -317,14 +317,13 @@ const ConfirmDeleteModal = ({
                   onPressOut={() => animatePress(cancelScale, 1)}
                   accessibilityRole="button"
                   accessibilityLabel={t("cancel", "Cancel")}
-                  style={({ pressed }) => [
+                  style={[
                     styles.secondaryButton,
                     {
                       backgroundColor: theme.surface,
                       borderColor: isWhiteAccent
                         ? theme.border
                         : "rgba(255,255,255,0.10)",
-                      opacity: pressed ? 0.92 : 1,
                     },
                   ]}
                 >
@@ -352,13 +351,12 @@ const ConfirmDeleteModal = ({
                     "confirm_delete_hint",
                     "This action cannot be undone.",
                   )}
-                  style={({ pressed }) => [
+                  style={ [
                     styles.primaryButton,
                     {
                       backgroundColor: confirmButtonBackground,
                       borderColor: confirmButtonBorder,
-                      opacity: pressed ? 0.92 : 1,
-                    },
+                    }
                   ]}
                 >
                   <Ionicons

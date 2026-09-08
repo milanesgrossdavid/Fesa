@@ -295,11 +295,10 @@ const SetAsSuccessModal = ({
                   onPressOut={() => animatePress(primaryScale, 1)}
                   accessibilityRole="button"
                   accessibilityLabel={t("done", "Done")}
-                  style={({ pressed }) => [
+                  style={ [
                     styles.primaryButton,
                     {
                       backgroundColor: theme.text,
-                      opacity: pressed ? 0.9 : 1,
                     },
                   ]}
                 >

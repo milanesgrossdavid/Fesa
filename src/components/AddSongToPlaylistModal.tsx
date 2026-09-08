@@ -42,30 +42,31 @@ const AddSongToPlaylistModal = ({
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
       <View className="flex-1 justify-end">
-        <Pressable className="absolute inset-0 bg-black/55" onPress={onClose} />
+        <Pressable
+          className="absolute inset-0 bg-black/70"
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel={t('cancel', 'Cancel')}
+        />
         <View
-          className="max-h-[80%] rounded-t-[30px] border px-4 pt-3"
+          className="max-h-[82%] rounded-t-[28px] px-5 pt-2"
           style={{
             backgroundColor: theme.background,
-            borderColor: theme.border,
             paddingBottom: Math.max(insets.bottom, 18),
             shadowColor: '#000000',
-            shadowOpacity: 0.12,
-            shadowRadius: 18,
-            shadowOffset: { width: 0, height: -6 },
-            elevation: 8,
+            shadowOpacity: 0.25,
+            shadowRadius: 22,
+            shadowOffset: { width: 0, height: -8 },
+            elevation: 18,
           }}
         >
           <View className="mb-4 items-center">
-            <View className="h-1.5 w-12 rounded-full" style={{ backgroundColor: `${theme.text}40` }} />
+            <View className="h-[5px] w-10 rounded-full" style={{ backgroundColor: `${theme.mutedText}55` }} />
           </View>
 
           <View className="mb-5 flex-row items-center justify-between">
             <View className="flex-row items-center gap-3" style={{ flex: 1, paddingRight: 12 }}>
-              <View
-                className="h-11 w-11 items-center justify-center rounded-full"
-                style={{ backgroundColor: `${theme.accent}18` }}
-              >
+              <View className="h-10 w-10 items-center justify-center rounded-[12px]" style={{ backgroundColor: `${theme.accent}18` }}>
                 <PlusIcon size={20} color={theme.accent} />
               </View>
 
@@ -83,9 +84,10 @@ const AddSongToPlaylistModal = ({
 
             <Pressable
               className="h-9 items-center justify-center rounded-full px-3"
-              style={{ backgroundColor: theme.surface }}
               onPress={onClose}
               hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={t('close', 'Close')}
             >
               <Text className="text-sm font-bold" style={{ color: theme.text }}>{t('close', 'Close')}</Text>
             </Pressable>
@@ -114,14 +116,17 @@ const AddSongToPlaylistModal = ({
                 return (
                   <Pressable
                     key={playlist.id}
-                    className="mb-2 rounded-[24px] border px-4 py-3"
+                    className="mb-2 rounded-[20px] border px-4 py-3.5"
                     style={{
                       backgroundColor: alreadyAdded ? `${theme.surface}80` : theme.surface,
-                      borderColor: alreadyAdded ? theme.border : theme.border,
+                      borderColor: theme.border,
                       opacity: alreadyAdded ? 0.7 : 1,
                     }}
                     disabled={alreadyAdded}
                     onPress={() => onAddToPlaylist(playlist.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={playlist.name}
+                    accessibilityHint={alreadyAdded ? t('song_already_added', 'This song is already in the list') : t('add_to_playlist', 'Add to playlist')}
                   >
                     <View className="flex-row items-center justify-between gap-2">
                       <View className="flex-1 pr-2">
@@ -155,9 +160,11 @@ const AddSongToPlaylistModal = ({
           </ScrollView>
 
           <Pressable
-            className="flex-row items-center justify-center gap-2 rounded-full py-4"
-            style={{ backgroundColor: theme.text }}
+            className="flex-row items-center justify-center gap-2 rounded-[16px] py-4"
+            style={{ backgroundColor: theme.accent }}
             onPress={onCreatePlaylist}
+            accessibilityRole="button"
+            accessibilityLabel={t('create_new_playlist', 'Create new list')}
           >
             <PlusIcon size={18} color={theme.background} />
             <Text className="text-center text-base font-bold" style={{ color: theme.background }}>

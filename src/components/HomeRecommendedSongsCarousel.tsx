@@ -36,7 +36,7 @@ const HomeRecommendedSongsCarousel = ({
   const { t } = useTranslation(language.id);
 
   return (
-    <View className="py-4">
+    <View className="py-2">
       {circularSongs.length ? (
         <Animated.FlatList
           horizontal
@@ -78,9 +78,9 @@ const HomeRecommendedSongsCarousel = ({
 
             return (
               <Animated.View style={{ opacity, transform: [{ translateY }, { scale }] }}>
-                <View className="overflow-hidden rounded-[34px] bg-[#333333]" style={{ width: cardWidth }}>
+                <View className="overflow-hidden rounded-2xl" style={{ width: cardWidth, backgroundColor: theme.surface, shadowColor: '#000', shadowOpacity: 0.14, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3 }}>
                   <View className="aspect-[1.55] w-full">
-                    <LibraryArtwork artwork={song.artwork} className="h-full w-full rounded-[34px]" />
+                    <LibraryArtwork artwork={song.artwork} className="h-full w-full rounded-2xl" />
                     <View className="absolute bottom-0 left-0 right-0 flex-row items-center justify-between bg-black/30 px-4 py-2">
                       <View className="mr-2 flex-1">
                         <AutoScrollingText key={`${song.id}-title`} className="text-lg font-bold text-white">
@@ -91,9 +91,11 @@ const HomeRecommendedSongsCarousel = ({
                         </AutoScrollingText>
                       </View>
                       <Pressable
-                        className="rounded-full p-4"
-                        style={{ backgroundColor: theme.background }}
+                        className="h-12 w-12 items-center justify-center rounded-full"
+                        style={({ pressed }) => ({ backgroundColor: theme.background, opacity: pressed ? 0.65 : 1 })}
                         onPress={() => onPlaySong(playIndex)}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('play_song', 'Play song')}
                       >
                         <PlayIcon size={22} color={theme.text} />
                       </Pressable>

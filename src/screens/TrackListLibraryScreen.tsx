@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, GestureResponderEvent, PermissionsAndroid, Platform, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, GestureResponderEvent, PermissionsAndroid, Platform, RefreshControl, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { deleteAudioFile, getAudioFiles, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
 import { useMusicPlayerUi } from '../audio/musicPlayer';
 import { useAppSettingsHiddenSongIds, useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
@@ -22,7 +23,7 @@ import { loadSortPreference, saveSortPreference } from '../utils/sortPreferences
 import PlayerScreen from './PlayerScreen';
 import { Pressable } from 'react-native';
 import { FavoritedIcon } from '../Icons';
-import { getTranslation } from '../i18n/translations';
+import { useTranslation } from '../i18n/translations';
 
 type TrackListMode = 'tracks' | 'favorites';
 
@@ -102,8 +103,9 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
   const [trackSortDirection, setTrackSortDirection] = useState<TrackSortDirection>('asc');
   const theme = useAppSettingsTheme();
   const language = useAppSettingsLanguage();
+  const insets = useSafeAreaInsets();
   const hiddenSongIds = useAppSettingsHiddenSongIds();
-  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
+  const { t } = useTranslation(language.id);
   const {
     currentSong,
     playing,
@@ -449,9 +451,11 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
           {t('permission_required_music', 'Music permissions are required to read your library.')}
         </Text>
         <Pressable 
-          className="mt-4 rounded-full px-6 py-2" 
-          style={{ backgroundColor: theme.surface }}
+          className="mt-4 rounded-xl px-6 py-3"
+          style={({ pressed }) => ({ backgroundColor: theme.surface, opacity: pressed ? 0.65 : 1 })}
           onPress={() => void requestPermissionsAndLoadMusic()}
+          accessibilityRole="button"
+          accessibilityLabel={t('retry', 'Retry')}
         >
           <Text style={{ color: theme.text }}>{t('retry', 'Retry')}</Text>
         </Pressable>
@@ -505,7 +509,17 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
             </View>
           </View>
         }
-        contentContainerStyle={{ paddingBottom: isSelectionMode ? SELECTION_BAR_BOTTOM_INSET : MINI_PLAYER_BOTTOM_INSET }}
+        contentContainerStyle={{
+          paddingBottom: isSelectionMode ? SELECTION_BAR_BOTTOM_INSET : MINI_PLAYER_BOTTOM_INSET,
+        }}
+        refreshControl={(
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={() => void requestPermissionsAndLoadMusic()}
+            tintColor={theme.accent}
+            colors={[theme.accent]}
+          />
+        )}
         renderItem={renderTrackItem}
       />
 

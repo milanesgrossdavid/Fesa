@@ -19,7 +19,16 @@ const LibraryGroupListItem = ({ group, onPress }: LibraryGroupListItemProps) => 
   const theme = useAppSettingsTheme();
 
   return (
-    <Pressable className="mx-3 mb-2 rounded-[24px]  px-4 py-3" onPress={onPress}>
+    <Pressable
+      className="mx-4 mb-2 rounded-2xl border px-4 py-3"
+      style={{
+        backgroundColor: theme.surface,
+        borderColor: theme.border,
+      }}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={group.name}
+    >
       <View className="flex-row items-center">
         <LibraryArtwork
           artwork={group.artwork}
@@ -34,8 +43,8 @@ const LibraryGroupListItem = ({ group, onPress }: LibraryGroupListItemProps) => 
             {group.subtitle}
           </Text>
         </View>
-        <Text className="text-2xl" style={{ color: theme.mutedText }}>
-          ›
+        <Text className="text-2xl" style={{ color: theme.mutedText }} accessible={false}>
+          {'›'}
         </Text>
       </View>
     </Pressable>

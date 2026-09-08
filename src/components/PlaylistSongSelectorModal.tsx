@@ -83,10 +83,16 @@ const PlaylistSongSelectorModal = ({
       <View className="flex-1 justify-end">
         <Pressable className="absolute inset-0 bg-black/70" onPress={onClose} />
         <View
-          className="max-h-[88%] rounded-t-[32px] px-5 pt-3"
+          className="max-h-[88%] rounded-t-3xl border-t px-5 pt-3"
           style={{
             backgroundColor: theme.background,
-            paddingBottom: Math.max(insets.bottom, 24),
+            paddingBottom: Math.max(insets.bottom, 16),
+            borderColor: theme.border,
+            shadowColor: '#000',
+            shadowOpacity: 0.2,
+            shadowRadius: 18,
+            shadowOffset: { width: 0, height: -6 },
+            elevation: 12,
           }}
         >
           <View className="mb-4 items-center">
@@ -102,7 +108,7 @@ const PlaylistSongSelectorModal = ({
                 {selectedSongIds.length} {selectedSongIds.length === 1 ? t('selection_selected_one', 'selected') : t('selection_selected_many', 'selected')}
               </Text>
             </View>
-            <Pressable onPress={onClose}>
+            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel={t('close', 'Close')} style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, padding: 8 })}>
               <Text className="font-bold" style={{ color: theme.text }}>{t('close', 'Close')}</Text>
             </Pressable>
           </View>
@@ -140,6 +146,8 @@ const PlaylistSongSelectorModal = ({
                     borderColor: isSelected ? 'rgba(255,255,255,0.18)' : 'transparent',
                   }}
                   onPress={() => onToggleSong(song)}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: isSelected }}
                 >
                   <View
                     className="mr-3 h-6 w-6 items-center justify-center rounded-full"
@@ -181,6 +189,8 @@ const PlaylistSongSelectorModal = ({
                     borderColor: isSelected ? 'rgba(255,255,255,0.18)' : 'transparent',
                   }}
                   onPress={() => onToggleGroup(group)}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: isSelected }}
                 >
                   <View
                     className="mr-3 h-6 w-6 items-center justify-center rounded-full"
@@ -211,9 +221,11 @@ const PlaylistSongSelectorModal = ({
           </ScrollView>
 
           <Pressable
-            className="mt-5 rounded-full py-4"
+            className="mt-4 rounded-xl py-4"
             style={{ backgroundColor: theme.text }}
             onPress={onSave}
+            accessibilityRole="button"
+            accessibilityLabel={isEditing ? t('save_changes', 'Save changes') : t('create_playlist', 'Create playlist')}
           >
             <Text className="text-center font-bold" style={{ color: theme.background }}>
               {isEditing ? t('save_changes', 'Save changes') : t('create_playlist', 'Create playlist')}

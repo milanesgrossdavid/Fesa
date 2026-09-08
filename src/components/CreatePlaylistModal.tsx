@@ -222,9 +222,9 @@ const styles = StyleSheet.create({
   sheet: {
     width: "100%",
     maxWidth: 420,
-    borderRadius: 20,
+    borderRadius: 24,
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: 12,
     paddingBottom: 20,
     shadowColor: "#000",
     shadowOpacity: 0.22,

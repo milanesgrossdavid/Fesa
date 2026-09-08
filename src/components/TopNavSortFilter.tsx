@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FilterIcon, SortAscIcon, SortDescIcon } from '../Icons';
-import { getTranslation } from '../i18n/translations';
+import { useTranslation } from '../i18n/translations';
 import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 
 export type TrackSortOption = 'name' | 'date' | 'artist' | 'albums';
@@ -29,7 +30,8 @@ const TopNavSortFilter = ({
 }: TopNavSortFilterProps) => {
   const theme = useAppSettingsTheme();
   const language = useAppSettingsLanguage();
-  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
+  const { t } = useTranslation(language.id);
+  const insets = useSafeAreaInsets();
   const [modalVisible, setModalVisible] = useState(false);
   const selectedLabel = sortOptions.find(option => option.value === selectedSort)?.label ?? t('sort_name', 'Name');
 
@@ -49,13 +51,14 @@ const TopNavSortFilter = ({
     >
       <View className="flex-row items-center justify-between gap-3">
         <Pressable
-          className="flex-row items-center gap-2 rounded-full border px-3 py-2.5"
+          className="flex-row items-center gap-2 rounded-xl border px-4 py-3"
           onPress={() => setModalVisible(true)}
+          accessibilityRole="button"
+          accessibilityLabel={`${t('sort_by', 'Sort by')}: ${selectedLabel}`}
           style={{
             backgroundColor: theme.surface,
             borderColor: theme.border,
             shadowColor: '#000000',
-            shadowOpacity: 0.08,
             shadowRadius: 8,
             shadowOffset: { width: 0, height: 2 },
             elevation: 2,
@@ -73,11 +76,11 @@ const TopNavSortFilter = ({
         {rightContent}
       </View>
 
-      <Modal transparent visible={modalVisible} animationType="fade" onRequestClose={() => setModalVisible(false)}>
-        <View className="flex-1 items-center justify-center px-5">
-          <Pressable className="absolute inset-0 bg-black/50" onPress={() => setModalVisible(false)} />
+      <Modal transparent visible={modalVisible} animationType="slide" onRequestClose={() => setModalVisible(false)}>
+        <View className="flex-1 justify-end">
+          <Pressable className="absolute inset-0 bg-black/50" onPress={() => setModalVisible(false)} accessibilityLabel={t('cancel', 'Cancel')} />
           <View
-            className="w-full max-w-[420px] overflow-hidden rounded-[30px] border p-2"
+            className="w-full overflow-hidden rounded-t-3xl border p-2"
             style={{
               backgroundColor: theme.surface,
               borderColor: theme.border,
@@ -86,6 +89,7 @@ const TopNavSortFilter = ({
               shadowRadius: 24,
               shadowOffset: { width: 0, height: 10 },
               elevation: 8,
+              paddingBottom: Math.max(insets.bottom, 8),
             }}
           >
             <View className="px-4 pb-2 pt-3">
@@ -108,6 +112,8 @@ const TopNavSortFilter = ({
                     marginBottom: index === sortOptions.length - 1 ? 8 : 4,
                   }}
                   onPress={() => handleSelectSort(option.value)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSelected }}
                 >
                   <Text
                     className="text-base font-bold"

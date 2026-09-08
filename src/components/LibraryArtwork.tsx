@@ -29,7 +29,10 @@ const LibraryArtwork = ({
   return (
     <View
       style={style}
-      className={`items-center justify-center overflow-hidden bg-[#333333] ${className}`}
+      className={`items-center justify-center overflow-hidden rounded-[14px] bg-[#333333] ${className}`}
+      accessible
+      accessibilityRole="image"
+      accessibilityLabel={hasArtwork ? 'Artwork' : fallback}
     >
       {hasArtwork ? (
         <ExpoImage

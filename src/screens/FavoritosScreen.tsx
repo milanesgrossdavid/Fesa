@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { memo } from 'react';
 import TrackListLibraryScreen from './TrackListLibraryScreen';
 
-const FavoritosScreen = () => <TrackListLibraryScreen mode="favorites" />;
+const FavoritosScreen = memo(() => <TrackListLibraryScreen mode="favorites" />);
 
 export default FavoritosScreen;

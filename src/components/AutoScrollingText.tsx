@@ -91,6 +91,9 @@ const AutoScrollingText = React.memo(function AutoScrollingText({
     <View
       className="overflow-hidden"
       onLayout={handleContainerLayout}
+      accessible
+      accessibilityRole="text"
+      accessibilityLabel={children}
     >
       <Animated.Text
         className={className}
@@ -108,6 +111,7 @@ const AutoScrollingText = React.memo(function AutoScrollingText({
       <Text
         className={className}
         numberOfLines={1}
+        accessible={false}
         onTextLayout={({ nativeEvent }) => {
           const nextWidth = nativeEvent.lines[0]?.width ?? 0;
           if (nextWidth > 0 && nextWidth !== lastTextWidthRef.current) {

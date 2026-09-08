@@ -46,21 +46,50 @@ const OpenSourceLicensesModal = ({ visible, onClose }: OpenSourceLicensesModalPr
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
       <View className="flex-1 justify-end">
-        <Pressable className="absolute inset-0 bg-black/70" onPress={onClose} />
+        <Pressable
+          className="absolute inset-0 bg-black/70"
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel={t('cancel', 'Cancel')}
+        />
         <View
-          className="max-h-[85%] rounded-t-[32px] px-5 pb-6 pt-3"
-          style={{ backgroundColor: theme.background, paddingBottom: Math.max(insets.bottom, 24) }}
+          className="max-h-[85%] rounded-t-[28px] px-5 pb-6 pt-2"
+          style={{
+            backgroundColor: theme.background,
+            paddingBottom: Math.max(insets.bottom, 24),
+            shadowColor: '#000',
+            shadowOpacity: 0.25,
+            shadowRadius: 22,
+            shadowOffset: { width: 0, height: -8 },
+            elevation: 18,
+          }}
         >
           <View className="mb-4 items-center">
-            <View className="h-1 w-10 rounded-full" style={{ backgroundColor: `${theme.text}40` }} />
+            <View className="h-[5px] w-10 rounded-full" style={{ backgroundColor: `${theme.mutedText}55` }} />
           </View>
 
-          <Text className="mb-4 text-center text-xl font-bold" style={{ color: theme.text }}>
-            {t('licenses_title', 'Open Source Licenses')}
-          </Text>
+          <View className="mb-4 flex-row items-center justify-between px-2">
+            <View className="flex-1">
+              <Text className="text-xl font-bold" style={{ color: theme.text }}>
+                {t('licenses_title', 'Open Source Licenses')}
+              </Text>
+              <Text className="mt-1 text-xs" style={{ color: theme.mutedText }}>
+                {t('licenses_intro', 'This list summarizes the main dependencies and support licenses used to build FESA.')}
+              </Text>
+            </View>
+            <Pressable
+              className="ml-3 h-10 w-10 items-center justify-center rounded-full"
+              style={{ backgroundColor: theme.surface }}
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel={t('close', 'Close')}
+            >
+              <Text className="text-lg font-semibold" style={{ color: theme.accent }}>×</Text>
+            </Pressable>
+          </View>
 
           <ScrollView showsVerticalScrollIndicator={false}>
-            <View className="overflow-hidden rounded-2xl" style={{ backgroundColor: theme.surface }}>
+            <View className="overflow-hidden rounded-[20px] border" style={{ backgroundColor: theme.surface, borderColor: theme.border }}>
               {licenses.map((license, index) => (
                 <View
                   key={license.title}
@@ -80,9 +109,6 @@ const OpenSourceLicensesModal = ({ visible, onClose }: OpenSourceLicensesModalPr
               ))}
             </View>
 
-            <Text className="mt-4 text-center text-xs leading-5" style={{ color: theme.mutedText }}>
-              {t('licenses_intro', 'This list summarizes the main dependencies and support licenses used to build FESA.')}
-            </Text>
           </ScrollView>
         </View>
       </View>

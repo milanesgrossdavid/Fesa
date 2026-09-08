@@ -47,16 +47,24 @@ const MiniPlayer = () => {
     <>
       <View className="absolute bottom-5 left-4 right-4 z-50" pointerEvents="box-none">
         <Pressable
-          className="flex-row items-center rounded-2xl border px-3 py-2 shadow-lg"
+          className="flex-row items-center rounded-[24px] border px-3 py-2.5 shadow-lg"
           style={{
             backgroundColor: theme.surface,
             borderColor: theme.border,
+            shadowColor: '#000',
+            shadowOpacity: 0.18,
+            shadowRadius: 16,
+            shadowOffset: { width: 0, height: 6 },
+            elevation: 8,
           }}
           onPress={() => setShowPlayer(true)}
+          accessibilityRole="button"
+          accessibilityLabel={`${currentSong.title}, ${currentSong.artist || t('unknown_artist', 'Unknown Artist')}`}
+          accessibilityHint={t('open_player', 'Open player')}
         >
           <LibraryArtwork
             artwork={currentSong.artwork}
-            className="mr-3 h-12 w-12 rounded-2xl"
+            className="mr-3 h-12 w-12 rounded-[14px]"
             fallbackTextClassName="text-xl text-white"
           />
 
@@ -69,43 +77,51 @@ const MiniPlayer = () => {
             </AutoScrollingText>
           </View>
 
-          <View className="ml-2 flex-row items-center gap-2">
+          <View className="ml-2 flex-row items-center gap-1">
             <Pressable
-              className="h-9 w-9 items-center justify-center rounded-full"
+              className="h-10 w-10 items-center justify-center rounded-full"
               onPress={event => {
                 event.stopPropagation();
                 void playPrevious();
               }}
+              accessibilityRole="button"
+              accessibilityLabel={t('previous_song', 'Previous song')}
             >
               <Ionicons name="play-skip-back" size={18} color={theme.text} />
             </Pressable>
             <Pressable
-              className="h-10 w-10 items-center justify-center rounded-full"
+              className="h-11 w-11 items-center justify-center rounded-full"
               style={{ backgroundColor: theme.background }}
               onPress={event => {
                 event.stopPropagation();
                 void togglePlayPause();
               }}
+              accessibilityRole="button"
+              accessibilityLabel={playing ? t('pause', 'Pause') : t('play', 'Play')}
             >
-              <Ionicons name={playing ? 'pause' : 'play'} size={20} color={theme.text} />
+              <Ionicons name={playing ? 'pause' : 'play'} size={20} color="#ffffff" />
             </Pressable>
             <Pressable
-              className="h-9 w-9 items-center justify-center rounded-full"
+              className="h-10 w-10 items-center justify-center rounded-full"
               onPress={event => {
                 event.stopPropagation();
                 void playNext();
               }}
+              accessibilityRole="button"
+              accessibilityLabel={t('next_song', 'Next song')}
             >
               <Ionicons name="play-skip-forward" size={18} color={theme.text} />
             </Pressable>
 
             <Pressable
-              className="h-9 w-9 items-center justify-center rounded-full"
+              className="h-10 w-10 items-center justify-center rounded-full"
               style={{ backgroundColor: theme.background }}
               onPress={event => {
                 event.stopPropagation();
                 setShowQueue(true);
               }}
+              accessibilityRole="button"
+              accessibilityLabel={t('queue', 'Queue')}
             >
               <MaterialCommunityIcons name="playlist-music" size={20} color={theme.text} />
             </Pressable>
