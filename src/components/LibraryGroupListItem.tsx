@@ -1,7 +1,8 @@
 import React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import LibraryArtwork from './LibraryArtwork';
 import { useAppSettingsTheme } from '../settings/appSettings';
+import MicroPressable from './MicroPressable';
 
 type LibraryGroupListItemData = {
   id: string;
@@ -19,7 +20,7 @@ const LibraryGroupListItem = ({ group, onPress }: LibraryGroupListItemProps) => 
   const theme = useAppSettingsTheme();
 
   return (
-    <Pressable
+    <MicroPressable
       className="mx-4 mb-3  px-4 py-3"
       
       onPress={onPress}
@@ -44,7 +45,7 @@ const LibraryGroupListItem = ({ group, onPress }: LibraryGroupListItemProps) => 
           {'›'}
         </Text>
       </View>
-    </Pressable>
+    </MicroPressable>
   );
 };
 

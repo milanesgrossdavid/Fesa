@@ -1,7 +1,8 @@
 import React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import LibraryArtwork from './LibraryArtwork';
 import { useAppSettingsTheme } from '../settings/appSettings';
+import MicroPressable from './MicroPressable';
 
 type PlaylistCardData = {
   id: string;
@@ -19,8 +20,8 @@ const LibraryPlaylistCard = ({ playlist, onPress }: LibraryPlaylistCardProps) =>
   const theme = useAppSettingsTheme();
 
   return (
-    <Pressable
-      className="mb-5 flex-1 rounded-2xl p-3"
+    <MicroPressable
+      className="mb-5 w-52 rounded-2xl p-3"
       style={({ pressed }) => ({
         backgroundColor: pressed ? theme.surface : 'transparent',
         opacity: pressed ? 0.76 : 1,
@@ -49,7 +50,7 @@ const LibraryPlaylistCard = ({ playlist, onPress }: LibraryPlaylistCardProps) =>
           {playlist.subtitle}
         </Text>
       ) : null}
-    </Pressable>
+    </MicroPressable>
   );
 };
 

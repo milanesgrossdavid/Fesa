@@ -7,6 +7,7 @@ import { CheckIcon, DotsIcon } from '../Icons';
 import { formatDuration } from '../utils/time';
 import AudioWaveBars from './AudioWaveBars';
 import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
+import MicroPressable from './MicroPressable';
 
 const DEFAULT_MUSIC_ARTWORK = require('../../assets/musicNotFound.jpg');
 
@@ -53,7 +54,7 @@ const SongListItem = ({
   }, [item, onOpenTrackMenu]);
 
   return (
-    <Pressable
+    <MicroPressable
       className="mx-4 mb-2 flex-row items-center rounded-2xl border px-2 py-2"
       style={{
         backgroundColor: isSelected ? theme.accent + '1A' : isActive ? theme.surface : 'transparent',
@@ -122,7 +123,7 @@ const SongListItem = ({
           </Pressable>
         ) : null)}
       </View>
-    </Pressable>
+    </MicroPressable>
   );
 };
 

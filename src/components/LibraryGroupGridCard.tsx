@@ -1,7 +1,8 @@
 import React from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import LibraryArtwork from './LibraryArtwork';
 import AutoScrollingText from './AutoScrollingText';
+import MicroPressable from './MicroPressable';
 import { useAppSettingsTheme } from '../settings/appSettings';
 
 type LibraryGroupCardData = {
@@ -21,8 +22,8 @@ const LibraryGroupGridCard = ({ group, isArtist, onPress }: LibraryGroupGridCard
   const theme = useAppSettingsTheme();
 
   return (
-    <Pressable
-      className="mb-5 flex-1 rounded-2xl p-3"
+    <MicroPressable
+      className="mb-5 w-52 rounded-2xl p-3"
       style={({ pressed }) => ({
         backgroundColor: pressed ? theme.surface : 'transparent',
         opacity: pressed ? 0.76 : 1,
@@ -49,7 +50,7 @@ const LibraryGroupGridCard = ({ group, isArtist, onPress }: LibraryGroupGridCard
       <AutoScrollingText className="mt-1 text-center text-xs" style={{ color: theme.mutedText }}>
         {group.subtitle}
       </AutoScrollingText>
-    </Pressable>
+    </MicroPressable>
   );
 };
 

@@ -1,8 +1,9 @@
 import React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { getTranslation } from '../i18n/translations';
 import { DeleteIcon, PlayIcon, PlusIcon, ShareIcon } from '../Icons';
 import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
+import MicroPressable from './MicroPressable';
 
 interface SelectedSongsActionBarProps {
   visible: boolean;
@@ -44,7 +45,7 @@ const SelectedSongsActionBar = ({
         <View className="h-[5px] w-10 rounded-full" style={{ backgroundColor: `${theme.mutedText}55` }} />
       </View>
       <View className="flex-row items-center justify-around">
-        <Pressable
+        <MicroPressable
           className="min-w-[64px] items-center gap-1 rounded-[16px] px-2 py-1"
           onPress={onPlay}
           accessibilityRole="button"
@@ -54,8 +55,8 @@ const SelectedSongsActionBar = ({
             <PlayIcon size={20} color={theme.accent} />
           </View>
           <Text className="text-xs font-bold" style={{ color: theme.text }}>{t('play', 'Play')}</Text>
-        </Pressable>
-        <Pressable
+        </MicroPressable>
+        <MicroPressable
           className="min-w-[64px] items-center gap-1 rounded-[16px] px-2 py-1"
           onPress={onAdd}
           accessibilityRole="button"
@@ -65,8 +66,8 @@ const SelectedSongsActionBar = ({
             <PlusIcon size={21} color={theme.text} />
           </View>
           <Text className="text-xs font-bold" style={{ color: theme.text }}>{t('add', 'Add')}</Text>
-        </Pressable>
-        <Pressable
+        </MicroPressable>
+        <MicroPressable
           className="min-w-[64px] items-center gap-1 rounded-[16px] px-2 py-1"
           onPress={onShare}
           accessibilityRole="button"
@@ -76,8 +77,8 @@ const SelectedSongsActionBar = ({
             <ShareIcon size={20} color={theme.text} />
           </View>
           <Text className="text-xs font-bold" style={{ color: theme.text }}>{t('track_action_share', 'Share')}</Text>
-        </Pressable>
-        <Pressable
+        </MicroPressable>
+        <MicroPressable
           className="min-w-[64px] items-center gap-1 rounded-[16px] px-2 py-1"
           onPress={onDelete}
           accessibilityRole="button"
@@ -87,7 +88,7 @@ const SelectedSongsActionBar = ({
             <DeleteIcon size={21} color={theme.accent} />
           </View>
           <Text className="text-xs font-bold" style={{ color: theme.text }}>{t('delete', 'Delete')}</Text>
-        </Pressable>
+        </MicroPressable>
       </View>
     </View>
   );

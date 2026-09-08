@@ -9,6 +9,7 @@ import PlayerScreen from '../screens/PlayerScreen';
 import AutoScrollingText from './AutoScrollingText';
 import LibraryArtwork from './LibraryArtwork';
 import QueuePlaylistModal from './QueuePlaylistModal';
+import MicroPressable from './MicroPressable';
 
 const MiniPlayer = () => {
   const [showPlayer, setShowPlayer] = useState(false);
@@ -46,7 +47,7 @@ const MiniPlayer = () => {
   return (
     <>
       <View className="absolute bottom-5 left-4 right-4 z-50" pointerEvents="box-none">
-        <Pressable
+        <MicroPressable
           className="flex-row items-center rounded-[24px] border px-3 py-2.5 shadow-lg"
           style={{
             backgroundColor: theme.surface,
@@ -126,7 +127,7 @@ const MiniPlayer = () => {
               <MaterialCommunityIcons name="playlist-music" size={20} color={theme.text} />
             </Pressable>
           </View>
-        </Pressable>
+        </MicroPressable>
       </View>
 
       {showPlayer ? <PlayerScreen onBack={() => setShowPlayer(false)} /> : null}
