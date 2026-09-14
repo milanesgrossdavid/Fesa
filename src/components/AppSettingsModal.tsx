@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { getAudioFilesWithPermission, Song } from '../../modules/local-music';
 import {
   acceptTerms,
@@ -53,20 +52,20 @@ interface AppSettingsModalProps {
 
 const SETTINGS_ACCENT = '#ffffff';
 const SETTINGS_ACCENT_SOFT = 'rgba(255,255,255,0.12)';
-const IOS_TOGGLE_ON = '#34C759';
+const TOGGLE_ON_COLOR = '#34C759';
 
-// Paleta iOS "Settings.app": cada fila tiene un icono con contenedor tintado
-// para transmitir jerarquía visual (Clarity + Depth del HIG).
-const IOS_ICON_COLORS = {
-  moon: '#5E5CE6',       // Indigo iOS
-  speed: '#FF9F0A',      // Orange iOS
-  lock: '#8E8E93',       // Gray iOS
-  tabs: '#0A84FF',       // Blue iOS
-  palette: '#FF375F',    // Pink iOS
-  shield: '#30D158',     // Green iOS
-  doc: '#FFD60A',        // Yellow iOS
-  contact: '#64D2FF',    // Teal iOS
-  language: '#FFB703',   // Amber iOS
+
+
+const SETTINGS_ICON_COLORS = {
+  moon: '#5E5CE6',
+  speed: '#FF9F0A',
+  lock: '#8E8E93',
+  tabs: '#0A84FF',
+  palette: '#FF375F',
+  shield: '#30D158',
+  doc: '#FFD60A',
+  contact: '#64D2FF',
+  language: '#FFB703',
 };
 
 const getAccentOverlay = (hex: string) => `${hex}22`;
@@ -83,8 +82,6 @@ const getSleepTimerOptions = (t: (key: string, fallback?: string) => string) => 
   { label: t('sleep_timer_45', '45 minutes'), value: 45 },
   { label: t('sleep_timer_60', '60 minutes'), value: 60 },
 ];
-const CUSTOM_SLEEP_MIN = 1;
-const CUSTOM_SLEEP_MAX = 23 * 60 + 59;
 const SUPPORT_EMAIL = 'davmilgross@gmail.com';
 const FACEBOOK_APP_URL = 'fb://facewebmodal/f?href=https%3A%2F%2Fwww.facebook.com%2Fdavid.milanes.10';
 const FACEBOOK_WEB_URL = 'https://www.facebook.com/david.milanes.10';
@@ -172,8 +169,8 @@ const SheetHandle = () => (
   </View>
 );
 
-// Switch estilo iOS: track verde sistema cuando está activo, knob blanco
-// con sombra sutil (HIG - "Depth"). Tamaño 51x31 como UISwitch nativo.
+
+
 const SettingsToggle = ({
   value,
   trackOff,
@@ -189,7 +186,7 @@ const SettingsToggle = ({
       borderRadius: 31,
       justifyContent: 'center',
       paddingHorizontal: 2,
-      backgroundColor: value ? IOS_TOGGLE_ON : trackOff,
+      backgroundColor: value ? TOGGLE_ON_COLOR : trackOff,
     }}
   >
     <View
@@ -209,9 +206,9 @@ const SettingsToggle = ({
   </View>
 );
 
-// Fila estilo Settings.app: icono tintado en contenedor cuadrado redondeado,
-// título en peso semibold, valor en color secundario, chevron `chevron.forward`.
-// Separadores insertados que respetan el padding del icono (HIG - Clarity).
+
+
+
 const SettingsRow = ({
   label,
   subtitle,
@@ -319,6 +316,7 @@ const OptionSheet = ({
   surface,
   textColor,
   mutedColor,
+  closeLabel,
   onClose,
   onHidden,
   children,
@@ -330,6 +328,7 @@ const OptionSheet = ({
   surface: string;
   textColor: string;
   mutedColor: string;
+  closeLabel: string;
   onClose: () => void;
   onHidden?: () => void;
   children: React.ReactNode;
@@ -373,9 +372,9 @@ const OptionSheet = ({
           style={{ backgroundColor: surface }}
           onPress={onClose}
           accessibilityRole="button"
-          accessibilityLabel="Close"
+          accessibilityLabel={closeLabel}
         >
-          <Ionicons name="close" size={20} color={textColor} />
+          <Ionicons name="close" size={20} color={SETTINGS_ACCENT} />
         </Pressable>
       </View>
       <View style={{ backgroundColor: surface, borderRadius: 20, borderWidth: 1, borderColor: `${mutedColor}22`, overflow: 'hidden' }}>
@@ -445,9 +444,9 @@ const DraggableTabsList = ({
     return next;
   };
 
-  // Build the PanResponder for each tab ONCE (they read live state from refs).
-  // Holding the responders in a ref instead of a `useMemo` means dragging
-  // never causes a re-render of every tab row.
+
+
+
   const handleRespondersRef = useRef<Map<TabId, ReturnType<typeof PanResponder.create>>>(new Map());
   if (handleRespondersRef.current.size === 0) {
     for (const defaultTab of DEFAULT_TABS) {
@@ -593,9 +592,9 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
   const [librarySongs, setLibrarySongs] = useState<Song[]>([]);
   const [now, setNow] = useState(Date.now());
 
-  // Lazy-mount flags: each sub-sheet is only inserted into the tree when first
-  // opened, and is unmounted after the close animation finishes to release
-  // the native view hierarchy.
+
+
+
   const [sleepTimerMounted, setSleepTimerMounted] = useState(false);
   const [playbackSpeedMounted, setPlaybackSpeedMounted] = useState(false);
   const [tabsMounted, setTabsMounted] = useState(false);
@@ -684,23 +683,6 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
     }
   };
 
-  const openPhone = async (phone: string) => {
-    const telUrl = `tel:${phone}`;
-
-    try {
-      const supported = await Linking.canOpenURL(telUrl);
-
-      if (!supported) {
-        Alert.alert(t('system_error_title', 'Could not open'), `${t('call_label', 'Call')} ${phone}.`);
-        return;
-      }
-
-      await Linking.openURL(telUrl);
-    } catch {
-      Alert.alert(t('phone_unavailable', 'Phone unavailable'), `${t('call_label', 'Call')} ${phone}.`);
-    }
-  };
-
   const openAppLink = async (appUrl: string, webUrl: string, fallbackMessage: string) => {
     try {
       await Linking.openURL(appUrl);
@@ -748,7 +730,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
           paddingBottom: insets.bottom,
         }}
       >
-        {/* Barra de navegación estilo iOS con Large Title (HIG - Deference) */}
+
         <View style={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8 }}>
           <View className="flex-row items-center" style={{ height: 44 }}>
             <Pressable
@@ -766,7 +748,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
               onPress={onClose}
             >
               <Ionicons name="chevron-back" size={26} color={theme.accent} />
-              
+
             </Pressable>
             <Text
             style={{
@@ -780,7 +762,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
             {t('settings_title', 'Settings')}
           </Text>
           </View>
-          
+
         </View>
 
         <ScrollView
@@ -813,7 +795,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 subtitle={formatRemainingTime(sleepTimerEndsAt, now, t)}
                 onPress={() => { setSleepTimerMounted(true); setSleepTimerVisible(true); }}
                 icon="moon"
-                iconColor={IOS_ICON_COLORS.moon}
+                iconColor={SETTINGS_ICON_COLORS.moon}
                 showChevron
                 {...rowProps}
               />
@@ -823,7 +805,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 value={formatSpeedLabel(playbackRate)}
                 onPress={() => { setPlaybackSpeedMounted(true); setPlaybackSpeedVisible(true); }}
                 icon="speedometer"
-                iconColor={IOS_ICON_COLORS.speed}
+                iconColor={SETTINGS_ICON_COLORS.speed}
                 showChevron
                 isLast
                 {...rowProps}
@@ -858,7 +840,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 onPress={() => setLockScreenControlsEnabled(!lockScreenControlsEnabled)}
                 toggleValue={lockScreenControlsEnabled}
                 icon="lock-closed"
-                iconColor={IOS_ICON_COLORS.lock}
+                iconColor={SETTINGS_ICON_COLORS.lock}
                 {...rowProps}
               />
               <SettingsRow
@@ -866,7 +848,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 subtitle={`${visibleTabs.length}/${DEFAULT_TABS.length} ${t('visible_short', 'visible')}`}
                 onPress={() => { setTabsMounted(true); setTabsVisible(true); }}
                 icon="grid"
-                iconColor={IOS_ICON_COLORS.tabs}
+                iconColor={SETTINGS_ICON_COLORS.tabs}
                 showChevron
                 isLast
                 {...rowProps}
@@ -901,7 +883,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 value={language.label}
                 onPress={() => { setLanguageMounted(true); setLanguageVisible(true); }}
                 icon="globe"
-                iconColor={IOS_ICON_COLORS.language}
+                iconColor={SETTINGS_ICON_COLORS.language}
                 showChevron
                 {...rowProps}
               />
@@ -911,7 +893,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 value={getThemeDisplayName(theme.id)}
                 onPress={() => { setThemesMounted(true); setThemesVisible(true); }}
                 icon="color-palette"
-                iconColor={IOS_ICON_COLORS.palette}
+                iconColor={SETTINGS_ICON_COLORS.palette}
                 showChevron
                 isLast
                 {...rowProps}
@@ -945,7 +927,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 subtitle={`${hiddenSongIds.length} ${hiddenSongIds.length === 1 ? t('hidden_file_single', 'hidden file') : t('hidden_file_plural', 'hidden files')}`}
                 onPress={() => { setHideMusicMounted(true); setHideMusicVisible(true); }}
                 icon="eye-off"
-                iconColor={IOS_ICON_COLORS.shield}
+                iconColor={SETTINGS_ICON_COLORS.shield}
                 showChevron
                 {...rowProps}
               />
@@ -954,7 +936,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 subtitle={t('permission_open_system', 'Open system settings')}
                 onPress={() => { void openPermissions(); }}
                 icon="shield-checkmark"
-                iconColor={IOS_ICON_COLORS.shield}
+                iconColor={SETTINGS_ICON_COLORS.shield}
                 showChevron
                 {...rowProps}
               />
@@ -963,7 +945,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 subtitle={t('privacy_policy_subtitle', 'How we use your music and settings')}
                 onPress={() => { setPrivacyMounted(true); setPrivacyVisible(true); }}
                 icon="shield-checkmark"
-                iconColor={IOS_ICON_COLORS.shield}
+                iconColor={SETTINGS_ICON_COLORS.shield}
                 showChevron
                 {...rowProps}
               />
@@ -972,7 +954,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 subtitle={t('licenses_subtitle', 'App dependencies')}
                 onPress={() => { setLicensesMounted(true); setLicensesVisible(true); }}
                 icon="library"
-                iconColor={IOS_ICON_COLORS.doc}
+                iconColor={SETTINGS_ICON_COLORS.doc}
                 showChevron
                 {...rowProps}
               />
@@ -981,7 +963,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 subtitle={termsAccepted ? t('terms_subtitle_accepted', 'Accepted') : t('terms_subtitle_pending', 'Pending review')}
                 onPress={() => { setTermsMounted(true); setTermsVisible(true); }}
                 icon="document-text"
-                iconColor={IOS_ICON_COLORS.doc}
+                iconColor={SETTINGS_ICON_COLORS.doc}
                 showChevron
                 {...rowProps}
               />
@@ -990,7 +972,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 subtitle={t('support', 'Support')}
                 onPress={openContact}
                 icon="person-circle"
-                iconColor={IOS_ICON_COLORS.contact}
+                iconColor={SETTINGS_ICON_COLORS.contact}
                 showChevron
                 isLast
                 {...rowProps}
@@ -1004,6 +986,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
             visible={sleepTimerVisible}
             title={t('sleep_timer', 'Sleep Timer')}
             subtitle={t('sleep_timer_description', 'Playback will pause automatically when the time is reached')}
+            closeLabel={t('close', 'Close')}
             background={theme.background}
             surface={theme.surface}
             textColor={theme.text}
@@ -1036,10 +1019,10 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                   setSleepTimerVisible(false);
                 }}
               >
-                <Text className="text-base font-bold" style={{ color: isSelected ? SETTINGS_ACCENT : theme.text }}>
+                <Text className="text-base font-bold" style={{ color: isSelected ? theme.mutedText : theme.text }}>
                   {option.label}
                 </Text>
-                {isSelected ? <CheckIcon size={22} color={SETTINGS_ACCENT} /> : null}
+                {isSelected ? <CheckIcon size={22} color={theme.mutedText} /> : null}
               </Pressable>
             );
           })}
@@ -1058,7 +1041,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                 onPress={openCustomSleepTimer}
               >
                 <View className="flex-1 pr-3">
-                  <Text className="text-base font-bold" style={{ color: isCustomSelected ? SETTINGS_ACCENT : theme.text }}>
+                  <Text className="text-base font-bold" style={{ color: isCustomSelected ? theme.mutedText : theme.text }}>
                     {t('custom_timer_short', 'Custom')}
                   </Text>
                   <Text className="mt-0.5 text-xs" style={{ color: theme.mutedText }}>
@@ -1067,7 +1050,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                       : t('custom_timer_short_description', 'Choose your own time')}
                   </Text>
                 </View>
-                {isCustomSelected ? <CheckIcon size={22} color={SETTINGS_ACCENT} /> : (
+                {isCustomSelected ? <CheckIcon size={22} color={theme.mutedText} /> : (
                   <Ionicons name="chevron-forward" size={18} color={theme.mutedText} />
                 )}
               </Pressable>
@@ -1097,6 +1080,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
             visible={playbackSpeedVisible}
             title={t('playback_speed', 'Playback Speed')}
             subtitle={t('playback_speed_description', 'The change applies immediately to the current song and the next ones')}
+            closeLabel={t('close', 'Close')}
             background={theme.background}
             surface={theme.surface}
             textColor={theme.text}
@@ -1121,10 +1105,10 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                   setPlaybackSpeedVisible(false);
                 }}
               >
-                <Text className="text-base font-bold" style={{ color: isSelected ? SETTINGS_ACCENT : theme.text }}>
+                <Text className="text-base font-bold" style={{ color: isSelected ? theme.mutedText : theme.text }}>
                   {formatSpeedLabel(speed)}
                 </Text>
-                {isSelected ? <CheckIcon size={22} color={SETTINGS_ACCENT} /> : null}
+                {isSelected ? <CheckIcon size={22} color={theme.mutedText} /> : null}
               </Pressable>
             );
           })}
@@ -1158,8 +1142,8 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                   </Text>
                   </View>
                 </View>
-                <Pressable className="h-10 w-10 items-center justify-center rounded-full" style={{ backgroundColor: theme.surface }} onPress={requestCloseTabs} accessibilityRole="button" accessibilityLabel="Close">
-                  <Ionicons name="close" size={20} color={theme.text} />
+                <Pressable className="h-10 w-10 items-center justify-center rounded-full" style={{ backgroundColor: theme.surface }} onPress={requestCloseTabs} accessibilityRole="button" accessibilityLabel={t('close', 'Close')}>
+                <Ionicons name="close" size={20} color={theme.accent} />
                 </Pressable>
               </View>
 
@@ -1186,6 +1170,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
             visible={languageVisible}
             title={t('language', 'Language')}
             subtitle={t('language_choose', 'Choose the app’s main language')}
+            closeLabel={t('close', 'Close')}
             background={theme.background}
             surface={theme.surface}
             textColor={theme.text}
@@ -1229,6 +1214,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
             visible={themesVisible}
             title={t('theme', 'Theme')}
             subtitle={t('theme_choose', 'Change accent color and app style')}
+            closeLabel={t('close', 'Close')}
             background={theme.background}
             surface={theme.surface}
             textColor={theme.text}
@@ -1330,8 +1316,9 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                   </View>
                   <Text className="text-xl font-bold" style={{ color: theme.text }}>{t('terms_title', 'Terms and Conditions')}</Text>
                 </View>
-                <Pressable className="h-10 w-10 items-center justify-center rounded-full" style={{ backgroundColor: theme.surface }} onPress={requestCloseTerms} accessibilityRole="button" accessibilityLabel="Close">
-                  <Ionicons name="close" size={20} color={theme.text} />
+                <Pressable className="h-10 w-10 items-center justify-center rounded-full" style={{ backgroundColor: theme.surface }} onPress={requestCloseTerms} accessibilityRole="button" accessibilityLabel={t('close', 'Close')}>
+                <Ionicons name="close" size={20} color={theme.accent} />
+
                 </Pressable>
               </View>
 
@@ -1411,7 +1398,7 @@ const AppSettingsModal = ({ visible, onClose }: AppSettingsModalProps) => {
                   accessibilityRole="button"
                   accessibilityLabel={t('contact_close', 'Close contact')}
                 >
-                  <Ionicons name="close" size={20} color={theme.text} />
+                  <Ionicons name="close" size={20} color={theme.accent} />
                 </Pressable>
               </View>
 

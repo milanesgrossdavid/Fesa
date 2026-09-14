@@ -1,4 +1,3 @@
-import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { getTranslation } from '../i18n/translations';
 import { DeleteIcon, EditIcon, PlayIcon, PlusIcon } from '../Icons';
@@ -22,7 +21,6 @@ interface PlaylistActionModalProps {
 const PlaylistActionModal = ({
   playlist,
   selectedCount,
-  onClose,
   onPlay,
   onAdd,
   onEdit,

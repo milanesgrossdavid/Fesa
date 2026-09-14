@@ -1,12 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Song } from '../../modules/local-music';
 import { getTranslation } from '../i18n/translations';
-import { formatDuration } from '../utils/time';
+import { formatSongDuration } from '../utils/time';
 import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import { formatDateValue, normalizeValue, UNKNOWN_ALBUM } from '../utils/text';
 import LibraryArtwork from './LibraryArtwork';
+import { Ionicons } from '@expo/vector-icons';
 
 interface SongDetailsModalProps {
   song: Song | null;
@@ -43,7 +44,6 @@ const SongDetailsModal = ({ song, visible, onClose }: SongDetailsModalProps) => 
   const language = useAppSettingsLanguage();
   const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const isOpen = visible ?? Boolean(song);
-  const [isEditing] = useState(false);
   const [draft, setDraft] = useState<{ title: string; artist: string; album: string; artwork: string | null } | null>(null);
 
   useEffect(() => {
@@ -107,7 +107,7 @@ const SongDetailsModal = ({ song, visible, onClose }: SongDetailsModalProps) => 
                   accessibilityRole="button"
                   accessibilityLabel={t('song_details_close', 'Close')}
                 >
-                  <Text className="text-lg font-semibold" style={{ color: theme.accent }}>×</Text>
+                  <Ionicons name="close" size={20} color={theme.accent} />
                 </Pressable>
               </View>
             </View>
@@ -147,7 +147,7 @@ const SongDetailsModal = ({ song, visible, onClose }: SongDetailsModalProps) => 
                 />
                 <DetailRow
                   label={t('song_detail_duration', 'Duration')}
-                  value={formatDuration(visibleSong.duration)}
+                  value={formatSongDuration(visibleSong.duration)}
                   mutedColor={theme.mutedText}
                   textColor={theme.text}
                   borderColor={theme.border}

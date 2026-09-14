@@ -1,20 +1,17 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   Easing,
   FlatList,
   GestureResponderEvent,
-  PermissionsAndroid,
-  Platform,
   Pressable,
   Text,
   View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import { deleteAudioFile, getAudioFiles, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
+import { deleteAudioFile, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
 import { useMusicPlayerUi } from '../audio/musicPlayer';
 import { useAppSettingsHiddenSongIds, useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import { getTranslation } from '../i18n/translations';
@@ -154,7 +151,7 @@ const buildGroups = (songs: Song[], mode: GroupedLibraryMode, t: (key: string, f
     .sort((a, b) => a.name.localeCompare(b.name));
 };
 
-const GroupedLibraryScreen = ({ mode, title }: GroupedLibraryScreenProps) => {
+const GroupedLibraryScreen = ({ mode }: GroupedLibraryScreenProps) => {
   const [songs, setSongs] = useState<Song[]>([]);
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -223,7 +220,7 @@ const GroupedLibraryScreen = ({ mode, title }: GroupedLibraryScreenProps) => {
 
   useFocusEffect(
     useCallback(() => {
-      // Si no hay canciones, intentamos recargar al enfocar
+
       if (songs.length === 0 && !loading) {
         void requestPermissionsAndLoadMusic();
       }
@@ -237,7 +234,7 @@ const GroupedLibraryScreen = ({ mode, title }: GroupedLibraryScreenProps) => {
           }
         })
         .catch(error => console.warn('No se pudieron cargar las playlists:', error));
-    }, [])
+    }, [loading, requestPermissionsAndLoadMusic, songs.length])
   );
 
   const persistStoredPlaylists = async (nextPlaylists: StoredPlaylist[]) => {

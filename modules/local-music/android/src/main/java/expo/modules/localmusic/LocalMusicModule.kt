@@ -4,6 +4,8 @@ import android.app.PendingIntent
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Intent
+import android.content.IntentFilter
+import android.media.AudioManager
 import android.media.RingtoneManager
 import android.media.audiofx.Equalizer
 import android.net.Uri
@@ -19,6 +21,7 @@ import java.io.File
 
 class LocalMusicModule : Module() {
   private val equalizersBySessionId = mutableMapOf<Int, Equalizer>()
+  private var volumeReceiver: android.content.BroadcastReceiver? = null
 
   private fun audioUri(songId: String): Uri {
     return ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, songId.toLong())
@@ -41,13 +44,6 @@ class LocalMusicModule : Module() {
     }
   }
 
-  /**
-   * expo-audio does not expose a public API to retrieve the audio session id
-   * of its underlying MediaPlayer / AudioTrack. When the JS side passes 0
-   * (the global mix fallback), we still want to attach the equalizer to the
-   * active stream. We do a best-effort scan of the running app's media
-   * session ids via AudioManager and pick the first positive one.
-   */
   private fun resolveRealSessionId(requested: Int): Int {
     if (requested > 0) {
       return requested
@@ -85,7 +81,6 @@ class LocalMusicModule : Module() {
       if (fromConfigs != null && fromConfigs > 0) {
         return fromConfigs
       }
-      // Last resort: use 0 (global mix).
       0
     } catch (_: Exception) {
       0
@@ -125,9 +120,29 @@ class LocalMusicModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("LocalMusic")
 
-    Events("onNotificationAction")
+    Events("onNotificationAction", "onSystemVolumeChange")
 
     OnCreate {
+      val context = appContext.reactContext
+      if (context != null) {
+        volumeReceiver = object : android.content.BroadcastReceiver() {
+          override fun onReceive(context: android.content.Context?, intent: Intent?) {
+            if (intent?.action != "android.media.VOLUME_CHANGED_ACTION") {
+              return
+            }
+
+            val audioManager = context?.getSystemService(android.content.Context.AUDIO_SERVICE) as? AudioManager
+              ?: return
+            val current = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+            val maximum = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+            if (maximum > 0) {
+              sendEvent("onSystemVolumeChange", mapOf("volume" to current.toDouble() / maximum.toDouble()))
+            }
+          }
+        }
+        context.registerReceiver(volumeReceiver, IntentFilter("android.media.VOLUME_CHANGED_ACTION"))
+      }
+
       MusicNotificationActionReceiver.actionCallback = actionCallback@{ action, positionMs ->
         val actionName = when (action) {
           MusicNotificationService.ACTION_PREVIOUS -> "previous"
@@ -136,6 +151,8 @@ class LocalMusicModule : Module() {
           MusicNotificationService.ACTION_SEEK -> "seek"
           MusicNotificationService.ACTION_REWIND -> "rewind"
           MusicNotificationService.ACTION_FORWARD -> "forward"
+          MusicNotificationService.ACTION_SHUFFLE -> "shuffle"
+          MusicNotificationService.ACTION_REPEAT -> "repeat"
           else -> return@actionCallback
         }
         try {
@@ -144,24 +161,41 @@ class LocalMusicModule : Module() {
             mapOf("action" to actionName, "positionMs" to positionMs)
           )
         } catch (e: Exception) {
-          // Module not ready; ignore.
         }
       }
     }
 
     OnDestroy {
       MusicNotificationActionReceiver.actionCallback = null
+      val context = appContext.reactContext
+      volumeReceiver?.let { context?.unregisterReceiver(it) }
+      volumeReceiver = null
+    }
+
+    AsyncFunction("getSystemVolume") {
+      val context = appContext.reactContext ?: return@AsyncFunction 1.0
+      val audioManager = context.getSystemService(android.content.Context.AUDIO_SERVICE) as AudioManager
+      val maximum = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+      if (maximum <= 0) 1.0 else audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toDouble() / maximum.toDouble()
+    }
+
+    AsyncFunction("setSystemVolume") { requestedVolume: Double ->
+      val context = appContext.reactContext ?: return@AsyncFunction
+      val audioManager = context.getSystemService(android.content.Context.AUDIO_SERVICE) as AudioManager
+      val maximum = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+      audioManager.setStreamVolume(
+        AudioManager.STREAM_MUSIC,
+        (requestedVolume.coerceIn(0.0, 1.0) * maximum).toInt(),
+        0,
+      )
     }
 
     AsyncFunction("getAudioFiles") { ->
-      // Tipamos explícitamente como Any? para aceptar distintos tipos de datos y nulos
       val audioList = mutableListOf<Map<String, Any?>>()
       
       val context = appContext.reactContext ?: return@AsyncFunction audioList
 
       val collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-      // Only request the columns we actually need. This keeps the MediaStore scan
-      // lighter on large libraries and reduces the cost of each cursor iteration.
       val projection = mutableListOf(
         MediaStore.Audio.Media._ID,
         MediaStore.Audio.Media.TITLE,
@@ -331,7 +365,6 @@ class LocalMusicModule : Module() {
                 }
               }
             } catch (_: Exception) {
-              // Save title/artist/album metadata even if the artwork write is denied.
             }
           }
         }
@@ -366,10 +399,6 @@ class LocalMusicModule : Module() {
     }
 
     AsyncFunction("setEqualizerState") { sessionId: Double, enabled: Boolean, levels: Array<Double> ->
-      // If the caller passes 0 (the global mix fallback), try to discover the
-      // real audio session id from the active MediaPlayer in this process via
-      // reflection. expo-audio doesn't expose the session id publicly, but the
-      // underlying MediaPlayer/AudioTrack is reachable through the SDK.
       val resolvedSessionId = resolveRealSessionId(sessionId.toInt())
       val equalizer = getOrCreateEqualizer(resolvedSessionId) ?: return@AsyncFunction false
       val bandRange = equalizer.bandLevelRange
@@ -385,10 +414,6 @@ class LocalMusicModule : Module() {
         }
       }
 
-      // Toggle enabled state in a single call. Disabling/re-enabling on every
-      // level change caused audible gaps because Android re-attaches the
-      // effect to the audio session on each toggle. Setting band levels
-      // directly while the effect stays enabled is the recommended path.
       equalizer.enabled = enabled
 
       true

@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import { Animated, Dimensions, Pressable, Text, View } from 'react-native';
 import { Song } from '../../modules/local-music';
 import { PlayIcon } from '../Icons';

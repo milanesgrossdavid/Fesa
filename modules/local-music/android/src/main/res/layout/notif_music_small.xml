@@ -50,6 +50,14 @@
   </LinearLayout>
 
   <ImageButton
+      android:id="@+id/notif_btn_shuffle"
+      android:layout_width="36dp"
+      android:layout_height="36dp"
+      android:background="?android:attr/selectableItemBackgroundBorderless"
+      android:src="@drawable/ic_notif_shuffle"
+      android:contentDescription="Aleatorio" />
+
+  <ImageButton
       android:id="@+id/notif_btn_prev"
       android:layout_width="36dp"
       android:layout_height="36dp"
@@ -72,5 +80,13 @@
       android:background="?android:attr/selectableItemBackgroundBorderless"
       android:src="@drawable/ic_notif_next"
       android:contentDescription="Siguiente" />
+
+  <ImageButton
+      android:id="@+id/notif_btn_repeat"
+      android:layout_width="36dp"
+      android:layout_height="36dp"
+      android:background="?android:attr/selectableItemBackgroundBorderless"
+      android:src="@drawable/ic_notif_repeat"
+      android:contentDescription="Cambiar modo de repetición" />
     </LinearLayout>
 </FrameLayout>

@@ -1,5 +1,4 @@
-import React from "react";
-import { Pressable, Text } from "react-native";
+import { Pressable } from "react-native";
 import { PlusIcon } from "../Icons";
 import { useTranslation } from "../i18n/translations";
 import {

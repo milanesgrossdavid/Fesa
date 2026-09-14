@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { useMemo } from 'react';
+import { FlatList, Modal, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Song } from '../../modules/local-music';
 import { getTranslation } from '../i18n/translations';
@@ -31,6 +31,7 @@ interface PlaylistSongSelectorModalProps {
   onTabChange: (tab: PlaylistSelectionTab) => void;
   onToggleSong: (song: Song) => void;
   onToggleGroup: (group: SongGroup) => void;
+  onDeselectAll: () => void;
   onSave: () => void;
 }
 
@@ -54,6 +55,7 @@ const PlaylistSongSelectorModal = ({
   onTabChange,
   onToggleSong,
   onToggleGroup,
+  onDeselectAll,
   onSave,
 }: PlaylistSongSelectorModalProps) => {
   const insets = useSafeAreaInsets();
@@ -70,6 +72,8 @@ const PlaylistSongSelectorModal = ({
     : activeTab === 'albums'
       ? albumGroups
       : folderGroups;
+  const selectedSongIdSet = useMemo(() => new Set(selectedSongIds), [selectedSongIds]);
+  const selectorData = activeTab === 'tracks' ? sortedSongs : selectorGroups;
 
   const TABS: { label: string; value: PlaylistSelectionTab }[] = [
     { label: t('tab_tracks', 'Tracks'), value: 'tracks' },
@@ -124,6 +128,23 @@ const PlaylistSongSelectorModal = ({
             </Pressable>
           </View>
 
+          <Pressable
+            className="mb-4 items-center justify-center rounded-[16px] border py-3"
+            style={{
+              backgroundColor: selectedSongIds.length > 0 ? theme.surface : `${theme.surface}88`,
+              borderColor: theme.border,
+            }}
+            onPress={onDeselectAll}
+            disabled={selectedSongIds.length === 0}
+            accessibilityRole="button"
+            accessibilityLabel={t('playlist_deselect_all', 'Deseleccionar todo')}
+            accessibilityState={{ disabled: selectedSongIds.length === 0 }}
+          >
+            <Text className="text-sm font-semibold" style={{ color: selectedSongIds.length > 0 ? theme.text : theme.mutedText }}>
+              {t('playlist_deselect_all', 'Deseleccionar todo')}
+            </Text>
+          </Pressable>
+
           <View
             className="mb-4 flex-row rounded-[16px] border p-1"
             style={{ backgroundColor: theme.surface, borderColor: theme.border }}
@@ -150,13 +171,22 @@ const PlaylistSongSelectorModal = ({
             })}
           </View>
 
-          <ScrollView className="max-h-[58%]" showsVerticalScrollIndicator={false}>
-            {activeTab === 'tracks' ? sortedSongs.map(song => {
-              const isSelected = selectedSongIds.includes(song.id);
+          <FlatList<Song | SongGroup>
+            className="max-h-[58%]"
+            data={selectorData}
+            keyExtractor={item => item.id}
+            showsVerticalScrollIndicator={false}
+            initialNumToRender={16}
+            maxToRenderPerBatch={12}
+            windowSize={5}
+            removeClippedSubviews
+            renderItem={({ item }) => {
+              if (activeTab === 'tracks') {
+                const song = item as Song;
+                const isSelected = selectedSongIdSet.has(song.id);
 
-              return (
+                return (
                 <Pressable
-                  key={song.id}
                   className="mb-2 flex-row items-center rounded-[20px] border px-3 py-3"
                   style={{
                     backgroundColor: theme.surface,
@@ -192,15 +222,18 @@ const PlaylistSongSelectorModal = ({
                     </Text>
                   </View>
                 </Pressable>
+                );
+              }
+
+              const group = item as SongGroup;
+              const selectedCount = group.songs.reduce(
+                (count, song) => count + (selectedSongIdSet.has(song.id) ? 1 : 0),
+                0,
               );
-            }) : selectorGroups.map(group => {
-              const groupSongIds = group.songs.map(song => song.id);
-              const selectedCount = groupSongIds.filter(songId => selectedSongIds.includes(songId)).length;
-              const isSelected = selectedCount === groupSongIds.length && groupSongIds.length > 0;
+              const isSelected = selectedCount === group.songs.length && group.songs.length > 0;
 
               return (
                 <Pressable
-                  key={group.id}
                   className="mb-2 flex-row items-center rounded-[20px] border px-3 py-3"
                   style={{
                     backgroundColor: theme.surface,
@@ -209,7 +242,7 @@ const PlaylistSongSelectorModal = ({
                   }}
                   onPress={() => onToggleGroup(group)}
                   accessibilityRole="checkbox"
-                  accessibilityLabel={`${group.name}, ${selectedCount}/${groupSongIds.length} ${t('selection_selected_many', 'selected')}`}
+                  accessibilityLabel={`${group.name}, ${selectedCount}/${group.songs.length} ${t('selection_selected_many', 'selected')}`}
                   accessibilityState={{ checked: isSelected }}
                 >
                   <View
@@ -232,13 +265,13 @@ const PlaylistSongSelectorModal = ({
                       {group.name}
                     </Text>
                     <Text className="mt-1 text-xs" style={{ color: theme.mutedText }}>
-                      {selectedCount}/{groupSongIds.length} {t('selection_selected_many', 'selected')}
+                      {selectedCount}/{group.songs.length} {t('selection_selected_many', 'selected')}
                     </Text>
                   </View>
                 </Pressable>
               );
-            })}
-          </ScrollView>
+            }}
+          />
 
           <Pressable
             className="mt-4 rounded-[16px] py-4"

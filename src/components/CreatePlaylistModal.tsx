@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from 'react';
 import {
   Animated,
   Modal,
@@ -38,7 +38,7 @@ const CreatePlaylistModal = ({
   const canContinue = trimmed.length > 0;
   const counter = trimmed.length;
 
-  // Entrance animation (subtle fade + small upward drift)
+
   const slideAnim = useRef(new Animated.Value(12)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 

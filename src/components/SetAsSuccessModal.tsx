@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from 'react';
 import {
   Animated,
   Easing,
@@ -8,27 +8,15 @@ import {
   Text,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Song, ToneType } from "../../modules/local-music";
+import { Song } from "../../modules/local-music";
 import { getTranslation } from "../i18n/translations";
 import { useAppSettingsLanguage, useAppSettingsTheme } from "../settings/appSettings";
 import LibraryArtwork from "./LibraryArtwork";
 
-/**
- * SetAsSuccessModal — the in-app success dialog shown after a song has
- * been set as a ringtone, contact tone, or alarm tone.
- *
- * Brand voice: celebratory but understated. The success state is an
- * affirmation, not a permission request — the user has already done the
- * work. So the visual treatment is "earned calm": a soft green check
- * inside a circle, a single line of congratulations, a small item card
- * for context, and a single primary action.
- *
- * Animation: a subtle scale-and-fade entry (matches the rest of the app)
- * with a self-dismissing check-mark draw.
- */
+
+
 
 type ToneKind = "ringtone" | "contact" | "alarm";
 
@@ -70,18 +58,17 @@ const SetAsSuccessModal = ({
   tone,
   onClose,
 }: SetAsSuccessModalProps) => {
-  const insets = useSafeAreaInsets();
   const theme = useAppSettingsTheme();
   const language = useAppSettingsLanguage();
   const t = (key: string, fallback?: string) =>
     getTranslation(language.id as any, key, fallback);
 
-  // Card entry animation.
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.92)).current;
   const translateY = useRef(new Animated.Value(20)).current;
 
-  // Checkmark ring fill (stretches around the icon circle).
+
   const ringScale = useRef(new Animated.Value(0.6)).current;
   const ringOpacity = useRef(new Animated.Value(0)).current;
 
@@ -131,7 +118,7 @@ const SetAsSuccessModal = ({
     }
   }, [visible, fadeAnim, scaleAnim, translateY, ringScale, ringOpacity]);
 
-  // Press feedback for the primary button.
+
   const primaryScale = useRef(new Animated.Value(1)).current;
   const animatePress = (value: Animated.Value, toValue: number) =>
     Animated.timing(value, {
@@ -189,7 +176,7 @@ const SetAsSuccessModal = ({
               },
             ]}
           >
-            {/* Soft top-edge success gradient */}
+
             <LinearGradient
               pointerEvents="none"
               colors={[SUCCESS_TINT, "rgba(48, 209, 88, 0)"]}
@@ -198,7 +185,7 @@ const SetAsSuccessModal = ({
               style={styles.topGradient}
             />
 
-            {/* Animated success ring + checkmark icon */}
+
             <View style={styles.header}>
               <View
                 style={[
@@ -229,7 +216,7 @@ const SetAsSuccessModal = ({
               </View>
             </View>
 
-            {/* Title */}
+
             <Text
               style={[styles.title, { color: theme.text }]}
               numberOfLines={2}
@@ -237,7 +224,7 @@ const SetAsSuccessModal = ({
               {titleText}
             </Text>
 
-            {/* Message */}
+
             <Text
               style={[styles.message, { color: theme.mutedText }]}
               numberOfLines={3}
@@ -245,7 +232,7 @@ const SetAsSuccessModal = ({
               {messageText}
             </Text>
 
-            {/* Item preview card */}
+
             {song ? (
               <View
                 style={[
@@ -286,7 +273,7 @@ const SetAsSuccessModal = ({
               </View>
             ) : null}
 
-            {/* Primary action */}
+
             <View style={styles.actions}>
               <Animated.View style={{ transform: [{ scale: primaryScale }] }}>
                 <Pressable
@@ -381,7 +368,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   checkmark: {
-    // The checkmark sits above the animated ring fill.
+
     zIndex: 2,
   },
   title: {

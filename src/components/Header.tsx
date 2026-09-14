@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Modal, Pressable, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppSettingsModal from './AppSettingsModal';
@@ -15,8 +15,8 @@ const Header = () => {
   const [searchVisible, setSearchVisible] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [query, setQuery] = useState('');
-  // Debounced query prevents running O(n*m) Levenshtein over the whole
-  // library on every keystroke.
+
+
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [songs, setSongs] = useState<Song[]>([]);
   const { playSong, requestShowPlayer } = useMusicPlayerUi();
@@ -40,9 +40,9 @@ const Header = () => {
       .catch(error => console.error('Error al cargar música para búsqueda:', error));
   }, [searchVisible, songs.length]);
 
-  // Precompute a lowercase haystack per song once when the library loads.
-  // Scoring then uses cheap prefix / substring matches — orders of magnitude
-  // faster than per-keystroke Levenshtein over the whole library.
+
+
+
   const searchIndex = useMemo(() => {
     const termsBySong = new Map<string, { titlePrefix: string; titleContains: string; titleWords: string[]; artistPrefix: string; artistContains: string; albumPrefix: string; albumContains: string; }>();
     for (const song of songs) {
@@ -67,7 +67,7 @@ const Header = () => {
     const entry = searchIndex.get(song.id);
     if (!entry) return Number.MAX_SAFE_INTEGER;
 
-    // Best score = lowest number. Order: exact prefix < contains < word match.
+
     if (entry.titlePrefix.startsWith(term) || entry.artistPrefix.startsWith(term) || entry.albumPrefix.startsWith(term)) {
       return 0;
     }
@@ -109,12 +109,6 @@ const Header = () => {
       className="flex-row items-center justify-between px-4 py-2"
       style={{
         backgroundColor: theme.background,
-        paddingTop: Math.max(insets.top, 8),
-        shadowColor: '#000',
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 2 },
-        elevation: 2,
       }}
     >
       <View style={{ height: 48, justifyContent: 'center' }}>

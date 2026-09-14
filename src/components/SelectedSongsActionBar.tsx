@@ -1,4 +1,3 @@
-import React from 'react';
 import { Text, View } from 'react-native';
 import { getTranslation } from '../i18n/translations';
 import { DeleteIcon, PlayIcon, PlusIcon, ShareIcon } from '../Icons';

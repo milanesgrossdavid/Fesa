@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from 'react';
 import {
   Animated,
   Easing,
@@ -21,9 +21,9 @@ const GROUP_RADIUS = 20;
 const HANDLE_WIDTH = 40;
 const HANDLE_HEIGHT = 5;
 const ROW_MIN_HEIGHT = 60;
-const IOS_ROW_HORIZONTAL = 16;
-const IOS_ROW_VERTICAL = 12;
-const IOS_GAP = 8;
+const ROW_HORIZONTAL_PADDING = 16;
+const ROW_VERTICAL_PADDING = 12;
+const ROW_ICON_GAP = 8;
 const HEADER_HEIGHT = 44;
 
 interface DefineAsModalProps {
@@ -67,7 +67,7 @@ const DefineAsModal = ({ song, onClose, onDefineAs }: DefineAsModalProps) => {
     },
   ];
 
-  // Slide-in / fade animation matching iOS sheet presentation.
+
   const translateY = useRef(new Animated.Value(560)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -123,7 +123,7 @@ const DefineAsModal = ({ song, onClose, onDefineAs }: DefineAsModalProps) => {
           >
             <SheetHandle color={theme.mutedText} />
 
-            {/* HIG toolbar: leading song info, trailing Close action. */}
+
             <View style={styles.header}>
               <View style={styles.headerLeading}>
                 <View style={styles.headerIconCircle}>
@@ -155,22 +155,15 @@ const DefineAsModal = ({ song, onClose, onDefineAs }: DefineAsModalProps) => {
                 accessibilityRole="button"
                 accessibilityLabel={t("song_details_close", "Close")}
                 hitSlop={10}
-                style={({ pressed }) => [
-                  styles.closeButton,
-                  { opacity: pressed ? 0.4 : 1 },
-                ]}
+                style={{ backgroundColor: theme.surface, borderRadius: 20, padding: 6 }}
               >
-                <Text
-                  style={[styles.closeButtonText, { color: theme.accent }]}
-                >
-                  {t("close", "Close")}
-                </Text>
+                <Ionicons name="close" size={20} color={theme.accent} />
               </Pressable>
             </View>
 
             {song ? (
               <>
-                {/* Song preview row — the iOS Music.app "Now Playing" mini header pattern. */}
+
                 <View
                   style={[
                     styles.songRow,
@@ -203,7 +196,7 @@ const DefineAsModal = ({ song, onClose, onDefineAs }: DefineAsModalProps) => {
                   </View>
                 </View>
 
-                {/* Grouped list of options — HIG Settings.app section pattern. */}
+
                 <Text
                   style={[
                     styles.sectionCaption,
@@ -260,7 +253,7 @@ const OptionRow = ({
   mutedColor,
   onPress,
 }: OptionRowProps) => {
-  // iOS-style press feedback (HIG ScaleButtonStyle).
+
   const scale = useRef(new Animated.Value(1)).current;
   const animateTo = (value: number) =>
     Animated.timing(scale, {
@@ -353,7 +346,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     opacity: 0.32,
   },
-  // HIG navigation toolbar row: 44pt height, content + trailing close.
+
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -398,13 +391,13 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     letterSpacing: -0.2,
   },
-  // HIG list row: 12/16 vertical/horizontal insets, 8 between icon and text.
+
   songRow: {
     flexDirection: "row",
     alignItems: "center",
     marginHorizontal: 4,
-    paddingHorizontal: IOS_ROW_HORIZONTAL,
-    paddingVertical: IOS_ROW_VERTICAL,
+    paddingHorizontal: ROW_HORIZONTAL_PADDING,
+    paddingVertical: ROW_VERTICAL_PADDING,
     borderRadius: GROUP_RADIUS,
     borderWidth: StyleSheet.hairlineWidth,
     minHeight: ROW_MIN_HEIGHT,
@@ -438,8 +431,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   optionRow: {
-    paddingHorizontal: IOS_ROW_HORIZONTAL,
-    paddingVertical: IOS_ROW_VERTICAL,
+    paddingHorizontal: ROW_HORIZONTAL_PADDING,
+    paddingVertical: ROW_VERTICAL_PADDING,
     minHeight: ROW_MIN_HEIGHT,
     justifyContent: "center",
   },
@@ -453,7 +446,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: IOS_GAP + 4,
+    marginRight: ROW_ICON_GAP + 4,
     marginLeft: 8,
   },
   optionText: { flex: 1 },

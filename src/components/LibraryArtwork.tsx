@@ -1,4 +1,4 @@
-import React from 'react';
+import { useEffect, useState } from 'react';
 import { Image, StyleProp, Text, TextStyle, View, ViewStyle } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 
@@ -6,6 +6,7 @@ const DEFAULT_MUSIC_ARTWORK = require('../../assets/musicNotFound.jpg');
 
 interface LibraryArtworkProps {
   artwork?: string | null;
+  fallbackArtwork?: number;
   fallback?: string;
   className?: string;
   style?: StyleProp<ViewStyle>;
@@ -15,16 +16,24 @@ interface LibraryArtworkProps {
 
 const LibraryArtwork = ({
   artwork,
+  fallbackArtwork,
   fallback = '♪',
   className = 'rounded-2xl',
   fallbackTextClassName = 'text-4xl font-bold text-[#b64400]',
   fallbackTextStyle,
   style,
 }: LibraryArtworkProps) => {
-  // expo-image delivers native-side caching, LRU eviction, priority, and
-  // progressive decoding. The shared `transition` keeps the swap smooth when
-  // a card with a placeholder suddenly gets a URI.
-  const hasArtwork = Boolean(artwork);
+
+
+
+  const normalizedArtwork = artwork?.trim() || null;
+  const hasArtwork = Boolean(normalizedArtwork);
+  const placeholderArtwork = fallbackArtwork ?? DEFAULT_MUSIC_ARTWORK;
+  const [artworkFailed, setArtworkFailed] = useState(false);
+
+  useEffect(() => {
+    setArtworkFailed(false);
+  }, [normalizedArtwork]);
 
   return (
     <View
@@ -34,15 +43,22 @@ const LibraryArtwork = ({
       accessibilityRole="image"
       accessibilityLabel={hasArtwork ? 'Artwork' : fallback}
     >
-      {hasArtwork ? (
+      {hasArtwork && !artworkFailed ? (
         <ExpoImage
-          source={{ uri: artwork as string }}
+          source={{ uri: normalizedArtwork as string }}
           style={{ width: '100%', height: '100%' }}
           contentFit="cover"
           cachePolicy="memory-disk"
           priority="normal"
-          recyclingKey={artwork ?? undefined}
+          recyclingKey={normalizedArtwork ?? undefined}
           transition={120}
+          onError={() => setArtworkFailed(true)}
+        />
+      ) : placeholderArtwork ? (
+        <Image
+          source={placeholderArtwork}
+          style={{ width: '100%', height: '100%' }}
+          resizeMode="cover"
         />
       ) : (
         <View className="h-full w-full items-center justify-center bg-[#282828]">

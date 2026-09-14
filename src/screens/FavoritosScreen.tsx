@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import { memo } from 'react';
 import TrackListLibraryScreen from './TrackListLibraryScreen';
 
 const FavoritosScreen = memo(() => <TrackListLibraryScreen mode="favorites" />);

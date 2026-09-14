@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from 'react';
 import {
   Animated,
   Easing,
@@ -9,7 +9,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Ionicons from "@expo/vector-icons/Ionicons";
 import { Song } from "../../modules/local-music";
 import { getTranslation } from "../i18n/translations";
 import { useAppSettingsLanguage, useAppSettingsTheme } from "../settings/appSettings";
@@ -111,7 +110,7 @@ const RemoveSongFromPlaylistSheet = ({
   const translateY = useRef(new Animated.Value(560)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // Slide-in / slide-out animation mirroring the iOS sheet presentation.
+
   useEffect(() => {
     if (visible) {
       Animated.parallel([

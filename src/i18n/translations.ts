@@ -3,13 +3,13 @@ import { AppLanguageId } from '../settings/appSettings';
 
 export const translations: Record<AppLanguageId, Record<string, string>> = {
   es: {
-    // Home & General
+
     'unknown_artist': 'Artista Desconocido',
     'recommended_songs_empty': 'Cuando se cargue tu música, aquí aparecerán canciones recomendadas para escuchar.',
     'favorite_artists_empty': 'Cuando escuches canciones, aquí aparecerán tus artistas favoritos.',
     'most_played_empty': 'Cuando empieces a reproducir canciones, aquí aparecerán tus más escuchadas.',
 
-    // Home Sections
+
     'section_favorite_artists': 'Tus Artistas Favoritos',
     'section_most_played': 'Lo Más Escuchado',
     'section_recently_added': 'Agregado Recientemente',
@@ -18,7 +18,7 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'section_recommended_songs': 'Canciones Recomendadas',
     'view_all': 'Ver todo',
 
-    // Tab labels
+
     'tab_home': 'Inicio',
     'tab_favorites': 'Favoritos',
     'tab_playlist': 'Playlist',
@@ -27,7 +27,7 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'tab_artists': 'Artistas',
     'tab_folders': 'Carpetas',
 
-    // Search Modal
+
     'search_modal_title': 'Buscar',
     'search_open_label': 'Buscar',
     'search_placeholder': 'Canción, artista o álbum',
@@ -39,12 +39,13 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'search_empty_description': 'Encuentra canciones, artistas y álbumes de tu biblioteca local.',
     'unknown_album': 'Álbum Desconocido',
 
-    // Common Actions
+
     'play': 'Reproducir',
     'pause': 'Pausa',
     'next': 'Siguiente',
     'previous': 'Anterior',
     'add_to_playlist': 'Agregar a Playlist',
+    'add_to_favorites': 'Marcar como favorita',
     'remove': 'Eliminar',
     'edit': 'Editar',
     'delete': 'Borrar',
@@ -222,7 +223,7 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'license_text_4': 'Los iconos de la app se apoyan en bibliotecas de iconografía vectorial con estilo nativo para iOS y Android.',
     'license_text_5': 'El diseño visual usa utilidades de Tailwind en React Native para acelerar la composición de interfaces y mantener consistencia.',
 
-    // Settings
+
     'settings': 'Ajustes',
     'settings_title': 'Ajustes',
     'language': 'Idioma',
@@ -270,13 +271,13 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'leave_one_tab_visible': 'Se necesita una pestaña',
     'leave_one_tab_visible_message': 'Mantén al menos una pestaña visible en la biblioteca.',
 
-    // Permissions & Warnings
+
     'permissions_required': 'Se requieren permisos',
     'permission_denied': 'Permiso denegado',
     'library_loading': 'Cargando biblioteca...',
     'library_empty': 'Tu biblioteca está vacía',
 
-    // Settings - Sleep Timer
+
     'sleep_timer_disabled': 'Desactivado',
     'sleep_timer_15': '15 minutos',
     'sleep_timer_30': '30 minutos',
@@ -284,26 +285,28 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'sleep_timer_60': '60 minutos',
     'sleep_timer_remaining': 'restantes',
     'sleep_timer_ending': 'Finalizando...',
+    'sleep_timer_finish_current_song': 'Reproducir la última canción hasta el final',
+    'sleep_timer_finish_current_song_description': 'Cuando termine el temporizador, la canción actual continuará hasta finalizar.',
 
-    // Settings - Playback
+
     'playback_speed_title': 'Velocidad de reproducción',
     'playback_speed_x': 'x',
     'lock_screen_controls': 'Controles en pantalla de bloqueo',
     'skip_silence': 'Saltar silencio entre pistas',
 
-    // Settings - Appearance
+
     'appearance': 'Apariencia',
     'theme_title': 'Tema',
     'language_title': 'Idioma',
     'light_theme': 'Claro',
     'dark_theme': 'Oscuro',
 
-    // Settings - Tabs
+
     'manage_tabs_description': 'Personaliza qué pestañas ves en la navegación',
     'tabs_visible': 'Visible en la barra superior',
     'tabs_hidden': 'Oculta de la navegación',
 
-    // Settings - Support
+
     'support': 'Soporte',
     'privacy_policy': 'Política de privacidad',
     'open_source_licenses': 'Licencias de código abierto',
@@ -313,16 +316,16 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'instagram': 'Instagram',
     'whatsapp': 'WhatsApp',
 
-    // Settings - Permissions
+
     'permissions': 'Permisos',
     'music_permission': 'Permiso de música',
     'open_settings': 'Abrir ajustes del sistema',
 
-    // Terms & Privacy
+
     'terms_and_conditions': 'Términos y condiciones',
     'privacy_notice': 'Aviso de privacidad',
 
-    // Common Modals
+
     'confirm_delete': '¿Estás seguro?',
     'confirm_delete_subtitle': 'Esta acción no se puede deshacer',
     'delete_playlist': 'Eliminar Playlist',
@@ -330,19 +333,39 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'playlist_name': 'Nombre de la Playlist',
     'add_songs': 'Agregar Canciones',
     'hide_music': 'Ocultar Música',
+    'hide_music_search': 'Buscar canciones',
+    'hide_music_search_empty': 'No se encontraron canciones',
     'view_lyrics': 'Ver Letra',
     'song_details': 'Detalles de la Canción',
     'related_tracks': 'Pistas Relacionadas',
     'queue_playlist': 'Encolar Playlist',
+    'show_song': 'Mostrar canción',
+    'hide_song': 'Ocultar canción',
+    'play_song': 'Reproducir canción',
+    'play_all': 'Reproducir todo',
+    'player_lyrics': 'Letra',
+    'open_player': 'Abrir reproductor',
+    'previous_song': 'Canción anterior',
+    'next_song': 'Siguiente canción',
+    'queue': 'Cola',
+    'playlist_deselect_all': 'Deseleccionar todo',
+    'queue_reorder_hint': 'Arrastra para cambiar el orden de las canciones',
+    'shuffle': 'Aleatorio',
+    'player_equalizer_hint': 'Ajustar el ecualizador',
+    'player_equalizer_presets': 'Preajustes',
+    'currently_playing': 'Reproduciendo ahora',
+    'reorder_song': 'Reordenar canción',
+    'equalizer_android_only': 'El ecualizador solo está disponible en Android.',
+    'equalizer_load_error': 'No se pudo cargar el ecualizador del reproductor.',
   },
   en: {
-    // Home & General
+
     'unknown_artist': 'Unknown Artist',
     'recommended_songs_empty': 'When your music loads, recommended songs will appear here.',
     'favorite_artists_empty': 'When you listen to songs, your favorite artists will appear here.',
     'most_played_empty': 'When you start playing songs, your most played will appear here.',
 
-    // Home Sections
+
     'section_favorite_artists': 'Your Favorite Artists',
     'section_most_played': 'Most Played',
     'section_recently_added': 'Recently Added',
@@ -351,7 +374,7 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'section_recommended_songs': 'Recommended Songs',
     'view_all': 'View All',
 
-    // Tab labels
+
     'tab_home': 'Home',
     'tab_favorites': 'Favorites',
     'tab_playlist': 'Playlist',
@@ -360,7 +383,7 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'tab_artists': 'Artists',
     'tab_folders': 'Folders',
 
-    // Search Modal
+
     'search_modal_title': 'Search',
     'search_open_label': 'Search',
     'search_placeholder': 'Song, artist or album',
@@ -372,12 +395,13 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'search_empty_description': 'Find songs, artists and albums from your local library.',
     'unknown_album': 'Unknown Album',
 
-    // Common Actions
+
     'play': 'Play',
     'pause': 'Pause',
     'next': 'Next',
     'previous': 'Previous',
     'add_to_playlist': 'Add to Playlist',
+    'add_to_favorites': 'Mark as favorite',
     'remove': 'Remove',
     'edit': 'Edit',
     'delete': 'Delete',
@@ -555,7 +579,7 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'license_text_4': 'The app icons use vector icon libraries with a native style for iOS and Android.',
     'license_text_5': 'The visual design uses Tailwind-style utilities in React Native to speed up interface composition and maintain consistency.',
 
-    // Settings
+
     'settings': 'Settings',
     'settings_title': 'Settings',
     'language': 'Language',
@@ -603,13 +627,13 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'leave_one_tab_visible': 'A tab is required',
     'leave_one_tab_visible_message': 'Keep at least one tab visible in the library.',
 
-    // Permissions & Warnings
+
     'permissions_required': 'Permissions required',
     'permission_denied': 'Permission denied',
     'library_loading': 'Loading library...',
     'library_empty': 'Your library is empty',
 
-    // Settings - Sleep Timer
+
     'sleep_timer_disabled': 'Disabled',
     'sleep_timer_15': '15 minutes',
     'sleep_timer_30': '30 minutes',
@@ -617,26 +641,28 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'sleep_timer_60': '60 minutes',
     'sleep_timer_remaining': 'remaining',
     'sleep_timer_ending': 'Finishing...',
+    'sleep_timer_finish_current_song': 'Play the last song until the end',
+    'sleep_timer_finish_current_song_description': 'When the timer ends, the current song will continue until it finishes.',
 
-    // Settings - Playback
+
     'playback_speed_title': 'Playback speed',
     'playback_speed_x': 'x',
     'lock_screen_controls': 'Lock screen controls',
     'skip_silence': 'Skip silence between tracks',
 
-    // Settings - Appearance
+
     'appearance': 'Appearance',
     'theme_title': 'Theme',
     'language_title': 'Language',
     'light_theme': 'Light',
     'dark_theme': 'Dark',
 
-    // Settings - Tabs
+
     'manage_tabs_description': 'Customize which tabs you see in navigation',
     'tabs_visible': 'Visible in top bar',
     'tabs_hidden': 'Hidden from navigation',
 
-    // Settings - Support
+
     'support': 'Support',
     'privacy_policy': 'Privacy Policy',
     'open_source_licenses': 'Open Source Licenses',
@@ -646,16 +672,16 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'instagram': 'Instagram',
     'whatsapp': 'WhatsApp',
 
-    // Settings - Permissions
+
     'permissions': 'Permissions',
     'music_permission': 'Music Permission',
     'open_settings': 'Open System Settings',
 
-    // Terms & Privacy
+
     'terms_and_conditions': 'Terms and Conditions',
     'privacy_notice': 'Privacy Notice',
 
-    // Common Modals
+
     'confirm_delete': 'Are you sure?',
     'confirm_delete_subtitle': 'This action cannot be undone',
     'delete_playlist': 'Delete Playlist',
@@ -663,19 +689,39 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'playlist_name': 'Playlist Name',
     'add_songs': 'Add Songs',
     'hide_music': 'Hide Music',
+    'hide_music_search': 'Search songs',
+    'hide_music_search_empty': 'No songs found',
     'view_lyrics': 'View Lyrics',
     'song_details': 'Song Details',
     'related_tracks': 'Related Tracks',
     'queue_playlist': 'Queue Playlist',
+    'show_song': 'Show song',
+    'hide_song': 'Hide song',
+    'play_song': 'Play song',
+    'play_all': 'Play all',
+    'player_lyrics': 'Lyrics',
+    'open_player': 'Open player',
+    'previous_song': 'Previous song',
+    'next_song': 'Next song',
+    'queue': 'Queue',
+    'playlist_deselect_all': 'Deselect all',
+    'queue_reorder_hint': 'Drag to change the song order',
+    'shuffle': 'Shuffle',
+    'player_equalizer_hint': 'Adjust the equalizer',
+    'player_equalizer_presets': 'Presets',
+    'currently_playing': 'Currently playing',
+    'reorder_song': 'Reorder song',
+    'equalizer_android_only': 'The equalizer is only available on Android.',
+    'equalizer_load_error': 'Could not load the player equalizer.',
   },
   pt: {
-    // Home & General
+
     'unknown_artist': 'Artista Desconhecido',
     'recommended_songs_empty': 'Quando sua música for carregada, as músicas recomendadas aparecerão aqui.',
     'favorite_artists_empty': 'Quando você ouve músicas, seus artistas favoritos aparecerão aqui.',
     'most_played_empty': 'Quando você começar a reproduzir músicas, as mais tocadas aparecerão aqui.',
 
-    // Home Sections
+
     'section_favorite_artists': 'Seus Artistas Favoritos',
     'section_most_played': 'Mais Tocado',
     'section_recently_added': 'Adicionado Recentemente',
@@ -684,7 +730,7 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'section_recommended_songs': 'Músicas Recomendadas',
     'view_all': 'Ver Tudo',
 
-    // Tab labels
+
     'tab_home': 'Início',
     'tab_favorites': 'Favoritos',
     'tab_playlist': 'Playlist',
@@ -693,7 +739,7 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'tab_artists': 'Artistas',
     'tab_folders': 'Pastas',
 
-    // Search Modal
+
     'search_modal_title': 'Buscar',
     'search_open_label': 'Buscar',
     'search_placeholder': 'Música, artista ou álbum',
@@ -705,12 +751,13 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'search_empty_description': 'Encontre músicas, artistas e álbuns da sua biblioteca local.',
     'unknown_album': 'Álbum Desconhecido',
 
-    // Common Actions
+
     'play': 'Reproduzir',
     'pause': 'Pausa',
     'next': 'Próxima',
     'previous': 'Anterior',
     'add_to_playlist': 'Adicionar à Playlist',
+    'add_to_favorites': 'Marcar como favorita',
     'remove': 'Remover',
     'edit': 'Editar',
     'delete': 'Excluir',
@@ -872,7 +919,7 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'license_text_4': 'Os ícones do app usam bibliotecas de ícones vetoriais com estilo nativo para iOS e Android.',
     'license_text_5': 'O design visual usa utilitários tipo Tailwind em React Native para acelerar a composição das interfaces e manter consistência.',
 
-    // Settings
+
     'settings': 'Configurações',
     'settings_title': 'Configurações',
     'language': 'Idioma',
@@ -920,13 +967,13 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'leave_one_tab_visible': 'É necessária uma aba',
     'leave_one_tab_visible_message': 'Mantenha pelo menos uma aba visível na biblioteca.',
 
-    // Permissions & Warnings
+
     'permissions_required': 'Permissões obrigatórias',
     'permission_denied': 'Permissão negada',
     'library_loading': 'Carregando biblioteca...',
     'library_empty': 'Sua biblioteca está vazia',
 
-    // Settings - Sleep Timer
+
     'sleep_timer_disabled': 'Desativado',
     'sleep_timer_15': '15 minutos',
     'sleep_timer_30': '30 minutos',
@@ -935,25 +982,25 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'sleep_timer_remaining': 'restantes',
     'sleep_timer_ending': 'Finalizando...',
 
-    // Settings - Playback
+
     'playback_speed_title': 'Velocidade de Reprodução',
     'playback_speed_x': 'x',
     'lock_screen_controls': 'Controles na tela de bloqueio',
     'skip_silence': 'Pular silêncio entre faixas',
 
-    // Settings - Appearance
+
     'appearance': 'Aparência',
     'theme_title': 'Tema',
     'language_title': 'Idioma',
     'light_theme': 'Claro',
     'dark_theme': 'Escuro',
 
-    // Settings - Tabs
+
     'manage_tabs_description': 'Personalize quais abas você vê na navegação',
     'tabs_visible': 'Visível na barra superior',
     'tabs_hidden': 'Oculta da navegação',
 
-    // Settings - Support
+
     'support': 'Suporte',
     'privacy_policy': 'Política de Privacidade',
     'open_source_licenses': 'Licenças de Código Aberto',
@@ -963,16 +1010,16 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'instagram': 'Instagram',
     'whatsapp': 'WhatsApp',
 
-    // Settings - Permissions
+
     'permissions': 'Permissões',
     'music_permission': 'Permissão de Música',
     'open_settings': 'Abrir Configurações do Sistema',
 
-    // Terms & Privacy
+
     'terms_and_conditions': 'Termos e Condições',
     'privacy_notice': 'Aviso de Privacidade',
 
-    // Common Modals
+
     'confirm_delete': 'Tem certeza?',
     'confirm_delete_subtitle': 'Esta ação não pode ser desfeita',
     'delete_playlist': 'Excluir Playlist',
@@ -982,19 +1029,55 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'create_playlist_action': 'Criar',
     'add_songs': 'Adicionar Músicas',
     'hide_music': 'Ocultar Música',
+    'hide_music_search': 'Buscar músicas',
+    'hide_music_search_empty': 'Nenhuma música encontrada',
     'view_lyrics': 'Visualizar Letra',
     'song_details': 'Detalhes da Música',
     'related_tracks': 'Faixas Relacionadas',
     'queue_playlist': 'Enfileirar Playlist',
+    'choose_songs': 'Escolher músicas',
+    'create_playlist_title': 'Nova playlist',
+    'create_playlist_subtitle': 'Organize suas músicas favoritas',
+    'lyrics_deselect_all': 'Desmarcar tudo',
+    'lyrics_share_action': 'Compartilhar',
+    'lyrics_share_empty': 'Não há letras disponíveis para compartilhar.',
+    'lyrics_share_next': 'Próximo',
+    'lyrics_share_preview_title': 'Compartilhe a letra',
+    'lyrics_share_prompt': 'Selecione uma seção da letra.',
+    'lyrics_share_select_title': 'Selecione a letra',
+    'lyrics_swipe_remove_hint': 'Deslize para remover',
+    'playlist_name_label': 'Nome',
+    'sleep_timer_finish_current_song': 'Reproduzir a última música até o fim',
+    'sleep_timer_finish_current_song_description': 'Quando o temporizador terminar, a música atual continuará até o fim.',
+    'song_count_one': 'música',
+    'song_count_many': 'músicas',
+    'show_song': 'Mostrar música',
+    'hide_song': 'Ocultar música',
+    'play_song': 'Reproduzir música',
+    'play_all': 'Reproduzir tudo',
+    'player_lyrics': 'Letra',
+    'open_player': 'Abrir reprodutor',
+    'previous_song': 'Música anterior',
+    'next_song': 'Próxima música',
+    'queue': 'Fila',
+    'playlist_deselect_all': 'Desmarcar tudo',
+    'queue_reorder_hint': 'Arraste para alterar a ordem das músicas',
+    'shuffle': 'Aleatório',
+    'player_equalizer_hint': 'Ajustar o equalizador',
+    'player_equalizer_presets': 'Predefinições',
+    'currently_playing': 'Reproduzindo agora',
+    'reorder_song': 'Reordenar música',
+    'equalizer_android_only': 'O equalizador está disponível apenas no Android.',
+    'equalizer_load_error': 'Não foi possível carregar o equalizador do reprodutor.',
   },
   fr: {
-    // Home & General
+
     'unknown_artist': 'Artiste Inconnu',
     'recommended_songs_empty': 'Lorsque votre musique se chargera, les chansons recommandées apparaîtront ici.',
     'favorite_artists_empty': 'Lorsque vous écoutez des chansons, vos artistes préférés apparaîtront ici.',
     'most_played_empty': 'Lorsque vous commencez à lire des chansons, vos plus écoutées apparaîtront ici.',
 
-    // Home Sections
+
     'section_favorite_artists': 'Vos Artistes Préférés',
     'section_most_played': 'Le Plus Écouté',
     'section_recently_added': 'Ajouté Récemment',
@@ -1003,7 +1086,7 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'section_recommended_songs': 'Chansons Recommandées',
     'view_all': 'Voir Tous',
 
-    // Tab labels
+
     'tab_home': 'Accueil',
     'tab_favorites': 'Favoris',
     'tab_playlist': 'Playlist',
@@ -1012,7 +1095,7 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'tab_artists': 'Artistes',
     'tab_folders': 'Dossiers',
 
-    // Search Modal
+
     'search_modal_title': 'Rechercher',
     'search_open_label': 'Rechercher',
     'search_placeholder': 'Titre, artiste ou album',
@@ -1024,12 +1107,13 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'search_empty_description': 'Trouvez des chansons, artistes et albums de votre bibliothèque locale.',
     'unknown_album': 'Album Inconnu',
 
-    // Common Actions
+
     'play': 'Lire',
     'pause': 'Pause',
     'next': 'Suivant',
     'previous': 'Précédent',
     'add_to_playlist': 'Ajouter à la Playlist',
+    'add_to_favorites': 'Marquer comme favorite',
     'remove': 'Supprimer',
     'edit': 'Modifier',
     'delete': 'Effacer',
@@ -1191,7 +1275,7 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'license_text_4': 'Les icônes de l’application s’appuient sur des bibliothèques d’icônes vectorielles avec un style natif pour iOS et Android.',
     'license_text_5': 'Le design visuel utilise des utilitaires de type Tailwind dans React Native pour accélérer la composition des interfaces et maintenir la cohérence.',
 
-    // Settings
+
     'settings': 'Paramètres',
     'settings_title': 'Paramètres',
     'language': 'Langue',
@@ -1239,13 +1323,13 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'leave_one_tab_visible': 'Un onglet est requis',
     'leave_one_tab_visible_message': 'Gardez au moins un onglet visible dans la bibliothèque.',
 
-    // Permissions & Warnings
+
     'permissions_required': 'Autorisations requises',
     'permission_denied': 'Autorisation refusée',
     'library_loading': 'Chargement de la bibliothèque...',
     'library_empty': 'Votre bibliothèque est vide',
 
-    // Settings - Sleep Timer
+
     'sleep_timer_disabled': 'Désactivé',
     'sleep_timer_15': '15 minutes',
     'sleep_timer_30': '30 minutes',
@@ -1254,25 +1338,25 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'sleep_timer_remaining': 'restantes',
     'sleep_timer_ending': 'Finalisation...',
 
-    // Settings - Playback
+
     'playback_speed_title': 'Vitesse de Lecture',
     'playback_speed_x': 'x',
     'lock_screen_controls': 'Contrôles à l\'écran de verrouillage',
     'skip_silence': 'Ignorer le silence entre les pistes',
 
-    // Settings - Appearance
+
     'appearance': 'Apparence',
     'theme_title': 'Thème',
     'language_title': 'Langue',
     'light_theme': 'Clair',
     'dark_theme': 'Sombre',
 
-    // Settings - Tabs
+
     'manage_tabs_description': 'Personnalisez les onglets visibles dans la navigation',
     'tabs_visible': 'Visible dans la barre supérieure',
     'tabs_hidden': 'Caché de la navigation',
 
-    // Settings - Support
+
     'support': 'Support',
     'privacy_policy': 'Politique de Confidentialité',
     'open_source_licenses': 'Licences Open Source',
@@ -1282,16 +1366,16 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'instagram': 'Instagram',
     'whatsapp': 'WhatsApp',
 
-    // Settings - Permissions
+
     'permissions': 'Autorisations',
     'music_permission': 'Autorisation Musicale',
     'open_settings': 'Ouvrir les Paramètres Système',
 
-    // Terms & Privacy
+
     'terms_and_conditions': 'Conditions Générales',
     'privacy_notice': 'Avis de Confidentialité',
 
-    // Common Modals
+
     'confirm_delete': 'Êtes-vous sûr?',
     'confirm_delete_subtitle': 'Cette action ne peut pas être annulée',
     'delete_playlist': 'Supprimer la Playlist',
@@ -1301,19 +1385,55 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'create_playlist_action': 'Créer',
     'add_songs': 'Ajouter des Chansons',
     'hide_music': 'Masquer la Musique',
+    'hide_music_search': 'Rechercher des chansons',
+    'hide_music_search_empty': 'Aucune chanson trouvée',
     'view_lyrics': 'Voir les Paroles',
     'song_details': 'Détails de la Chanson',
     'related_tracks': 'Pistes Connexes',
     'queue_playlist': 'Ajouter à la File d\'Attente',
+    'choose_songs': 'Choisir des chansons',
+    'create_new_playlist': 'Créer une liste',
+    'create_playlist_subtitle': 'Organisez votre musique préférée',
+    'create_playlist_title': 'Nouvelle playlist',
+    'new_song_many': 'nouvelles chansons',
+    'new_song_one': 'nouvelle chanson',
+    'no_playlists_message': 'Créez une nouvelle liste pour enregistrer ces chansons.',
+    'no_playlists_title': 'Vous n’avez pas encore de playlists',
+    'playlist_name_label': 'Nom',
+    'sleep_timer_finish_current_song': 'Lire la dernière chanson jusqu’à la fin',
+    'sleep_timer_finish_current_song_description': 'À la fin du minuteur, la chanson en cours continuera jusqu’à la fin.',
+    'song_already_added': 'Cette chanson est déjà dans la liste',
+    'song_count_many': 'chansons',
+    'song_count_one': 'chanson',
+    'songs_already_added': 'Ces chansons sont déjà dans la liste',
+    'to_add': 'à ajouter',
+    'show_song': 'Afficher la chanson',
+    'hide_song': 'Masquer la chanson',
+    'play_song': 'Lire la chanson',
+    'play_all': 'Tout lire',
+    'player_lyrics': 'Paroles',
+    'open_player': 'Ouvrir le lecteur',
+    'previous_song': 'Chanson précédente',
+    'next_song': 'Chanson suivante',
+    'queue': 'File d’attente',
+    'playlist_deselect_all': 'Tout désélectionner',
+    'queue_reorder_hint': 'Faites glisser pour modifier l’ordre des chansons',
+    'shuffle': 'Aléatoire',
+    'player_equalizer_hint': 'Régler l’égaliseur',
+    'player_equalizer_presets': 'Préréglages',
+    'currently_playing': 'Lecture en cours',
+    'reorder_song': 'Réordonner la chanson',
+    'equalizer_android_only': 'L’égaliseur est disponible uniquement sur Android.',
+    'equalizer_load_error': 'Impossible de charger l’égaliseur du lecteur.',
   },
   it: {
-    // Home & General
+
     'unknown_artist': 'Artista Sconosciuto',
     'recommended_songs_empty': 'Quando la tua musica si caricherà, qui appariranno i brani consigliati.',
     'favorite_artists_empty': 'Quando ascolti canzoni, i tuoi artisti preferiti appariranno qui.',
     'most_played_empty': 'Quando inizi a riprodurre canzoni, i tuoi più ascoltati appariranno qui.',
 
-    // Home Sections
+
     'section_favorite_artists': 'I Tuoi Artisti Preferiti',
     'section_most_played': 'Più Ascoltato',
     'section_recently_added': 'Aggiunto di Recente',
@@ -1322,7 +1442,7 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'section_recommended_songs': 'Brani Consigliati',
     'view_all': 'Visualizza Tutto',
 
-    // Tab labels
+
     'tab_home': 'Home',
     'tab_favorites': 'Preferiti',
     'tab_playlist': 'Playlist',
@@ -1331,7 +1451,7 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'tab_artists': 'Artisti',
     'tab_folders': 'Cartelle',
 
-    // Search Modal
+
     'search_modal_title': 'Cerca',
     'search_open_label': 'Cerca',
     'search_placeholder': 'Canzone, artista o album',
@@ -1343,12 +1463,13 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'search_empty_description': 'Trova brani, artisti e album della tua libreria locale.',
     'unknown_album': 'Album Sconosciuto',
 
-    // Common Actions
+
     'play': 'Riproduci',
     'pause': 'Pausa',
     'next': 'Successivo',
     'previous': 'Precedente',
     'add_to_playlist': 'Aggiungi a Playlist',
+    'add_to_favorites': 'Segna come preferita',
     'remove': 'Rimuovi',
     'edit': 'Modifica',
     'delete': 'Elimina',
@@ -1518,7 +1639,7 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'license_text_4': 'Le icone dell’app usano librerie di icone vettoriali con stile nativo per iOS e Android.',
     'license_text_5': 'Il design visivo usa utility tipo Tailwind in React Native per velocizzare la composizione delle interfacce e mantenere coerenza.',
 
-    // Settings
+
     'settings': 'Impostazioni',
     'settings_title': 'Impostazioni',
     'language': 'Lingua',
@@ -1566,13 +1687,13 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'leave_one_tab_visible': 'È richiesta almeno una scheda',
     'leave_one_tab_visible_message': 'Mantieni almeno una scheda visibile nella libreria.',
 
-    // Permissions & Warnings
+
     'permissions_required': 'Autorizzazioni richieste',
     'permission_denied': 'Autorizzazione negata',
     'library_loading': 'Caricamento della libreria...',
     'library_empty': 'La tua libreria è vuota',
 
-    // Settings - Sleep Timer
+
     'sleep_timer_disabled': 'Disattivato',
     'sleep_timer_15': '15 minuti',
     'sleep_timer_30': '30 minuti',
@@ -1581,25 +1702,25 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'sleep_timer_remaining': 'rimanenti',
     'sleep_timer_ending': 'Finalizzazione...',
 
-    // Settings - Playback
+
     'playback_speed_title': 'Velocità di Riproduzione',
     'playback_speed_x': 'x',
     'lock_screen_controls': 'Controlli sulla schermata di blocco',
     'skip_silence': 'Salta il silenzio tra i brani',
 
-    // Settings - Appearance
+
     'appearance': 'Aspetto',
     'theme_title': 'Tema',
     'language_title': 'Lingua',
     'light_theme': 'Chiaro',
     'dark_theme': 'Scuro',
 
-    // Settings - Tabs
+
     'manage_tabs_description': 'Personalizza quali schede vedi nella navigazione',
     'tabs_visible': 'Visibile nella barra superiore',
     'tabs_hidden': 'Nascosto dalla navigazione',
 
-    // Settings - Support
+
     'support': 'Supporto',
     'privacy_policy': 'Politica sulla Privacy',
     'open_source_licenses': 'Licenze Open Source',
@@ -1609,16 +1730,16 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'instagram': 'Instagram',
     'whatsapp': 'WhatsApp',
 
-    // Settings - Permissions
+
     'permissions': 'Autorizzazioni',
     'music_permission': 'Autorizzazione Musicale',
     'open_settings': 'Apri Impostazioni di Sistema',
 
-    // Terms & Privacy
+
     'terms_and_conditions': 'Termini e Condizioni',
     'privacy_notice': 'Avviso sulla Privacy',
 
-    // Common Modals
+
     'confirm_delete': 'Sei sicuro?',
     'confirm_delete_subtitle': 'Questa azione non può essere annullata',
     'delete_playlist': 'Elimina Playlist',
@@ -1626,10 +1747,40 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'playlist_name': 'Nome Playlist',
     'add_songs': 'Aggiungi Brani',
     'hide_music': 'Nascondi Musica',
+    'hide_music_search': 'Cerca canzoni',
+    'hide_music_search_empty': 'Nessuna canzone trovata',
     'view_lyrics': 'Visualizza Testo',
     'song_details': 'Dettagli Brano',
     'related_tracks': 'Brani Correlati',
     'queue_playlist': 'Aggiungi alla Coda',
+    'create_new_playlist': 'Crea una lista',
+    'new_song_many': 'nuovi brani',
+    'new_song_one': 'nuovo brano',
+    'no_playlists_message': 'Crea una nuova lista per salvare questi brani.',
+    'no_playlists_title': 'Non hai ancora playlist',
+    'sleep_timer_finish_current_song': 'Riproduci l’ultimo brano fino alla fine',
+    'sleep_timer_finish_current_song_description': 'Quando il timer termina, il brano corrente continuerà fino alla fine.',
+    'song_already_added': 'Questo brano è già nella lista',
+    'songs_already_added': 'Questi brani sono già nella lista',
+    'to_add': 'da aggiungere',
+    'show_song': 'Mostra brano',
+    'hide_song': 'Nascondi brano',
+    'play_song': 'Riproduci brano',
+    'play_all': 'Riproduci tutto',
+    'player_lyrics': 'Testo',
+    'open_player': 'Apri lettore',
+    'previous_song': 'Brano precedente',
+    'next_song': 'Brano successivo',
+    'queue': 'Coda',
+    'playlist_deselect_all': 'Deseleziona tutto',
+    'queue_reorder_hint': 'Trascina per cambiare l’ordine dei brani',
+    'shuffle': 'Casuale',
+    'player_equalizer_hint': 'Regola l’equalizzatore',
+    'player_equalizer_presets': 'Preimpostazioni',
+    'currently_playing': 'In riproduzione',
+    'reorder_song': 'Riordina brano',
+    'equalizer_android_only': 'L’equalizzatore è disponibile solo su Android.',
+    'equalizer_load_error': 'Impossibile caricare l’equalizzatore del lettore.',
   },
 };
 

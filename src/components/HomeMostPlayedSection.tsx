@@ -1,4 +1,3 @@
-import React from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { Song } from "../../modules/local-music";
 import LibraryArtwork from "./LibraryArtwork";
@@ -31,7 +30,6 @@ const normalizeValue = (value: string | null | undefined, fallback: string) => {
 const HomeMostPlayedSection = ({
   group,
   limit,
-  onOpenGroup,
   onPlaySong,
 }: HomeMostPlayedSectionProps) => {
   const theme = useAppSettingsTheme();

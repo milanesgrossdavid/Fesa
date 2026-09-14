@@ -1,4 +1,3 @@
-import React from 'react';
 import { Text, View } from 'react-native';
 import LibraryArtwork from './LibraryArtwork';
 import { useAppSettingsTheme } from '../settings/appSettings';
@@ -22,7 +21,7 @@ const LibraryGroupListItem = ({ group, onPress }: LibraryGroupListItemProps) => 
   return (
     <MicroPressable
       className="mx-4 mb-3  px-4 py-3"
-      
+
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={group.name}

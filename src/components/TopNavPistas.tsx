@@ -1,4 +1,3 @@
-import React from "react";
 import { Pressable, View } from "react-native";
 import { PlayIcon, ShuffleIcon } from "../Icons";
 import { useTranslation } from "../i18n/translations";

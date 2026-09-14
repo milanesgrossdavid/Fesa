@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   BackHandler,
@@ -12,9 +12,9 @@ import {
   type GestureResponderEvent,
   type LayoutChangeEvent,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Image } from "react-native";
 import * as Font from "expo-font";
 import {
   deleteAudioFile,
@@ -47,6 +47,7 @@ import SongDetailsModal from "../components/SongDetailsModal";
 import LyricsModal from "../components/LyricsModal";
 import AutoScrollingText from "../components/AutoScrollingText";
 import TrackActionMenu from "../components/TrackActionMenu";
+import AddSongToPlaylistModal from "../components/AddSongToPlaylistModal";
 import {
   BackIcon,
   BackwardIcon,
@@ -64,7 +65,7 @@ import {
   VolumeHighIcon,
   VolumeLowIcon,
 } from "../Icons";
-import { formatDuration } from "../utils/time";
+import { formatSongDuration } from "../utils/time";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import { useAppSettingsLanguage, useAppSettingsTheme } from "../settings/appSettings";
 import { getTranslation } from "../i18n/translations";
@@ -72,6 +73,7 @@ import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { getGradientColors, useDominantColor, withAlpha } from "../hooks/useDominantColor";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import LibraryArtwork from "../components/LibraryArtwork";
 
 interface PlayerScreenProps {
   onBack: () => void;
@@ -114,7 +116,7 @@ const equalizerPresetLabels: Record<string, string> = {
 const LOCK_DATE_FONT = "Fesa-LockDate";
 const UNKNOWN_ALBUM = "Álbum Desconocido";
 const UNKNOWN_ARTIST = "Artista Desconocido";
-const DEFAULT_MUSIC_ARTWORK = require("../../assets/musicNotFound.jpg");
+const CUSTOM_PLAYLISTS_STORAGE_KEY = "@fesa:custom-playlists";
 let lockFontPromise: Promise<void> | null = null;
 
 const normalizeValue = (value: string | null | undefined, fallback: string) =>
@@ -406,8 +408,8 @@ const PlaybackProgressBar = React.memo(({
         </View>
       </View>
       <View className="-mt-1 flex-row items-center justify-between">
-        <Text className="text-xs font-medium text-white/60">{formatDuration(Math.round(displayTime * 1000))}</Text>
-        <Text className="text-xs font-medium text-white/60">-{formatDuration(Math.round(Math.max(playbackDuration - displayTime, 0) * 1000))}</Text>
+        <Text className="text-xs font-medium text-white/60">{formatSongDuration(Math.round(displayTime * 1000))}</Text>
+        <Text className="text-xs font-medium text-white/60">-{formatSongDuration(Math.round(Math.max(playbackDuration - displayTime, 0) * 1000))}</Text>
       </View>
     </View>
   );
@@ -415,17 +417,7 @@ const PlaybackProgressBar = React.memo(({
 
 const CoverArt = React.memo(({ artwork }: { artwork?: string | null }) => (
   <View className="aspect-square w-full max-w-[400px] items-center justify-center self-center overflow-hidden rounded-3xl bg-[#2a2a2a]">
-    {artwork ? (
-      <Image
-        source={{ uri: artwork }}
-        className="h-full w-full"
-        resizeMode="cover"
-        fadeDuration={0}
-        progressiveRenderingEnabled
-      />
-    ) : (
-      <Image source={DEFAULT_MUSIC_ARTWORK} className="h-full w-full" resizeMode="cover" fadeDuration={0} />
-    )}
+    <LibraryArtwork artwork={artwork} className="h-full w-full rounded-3xl" />
   </View>
 ));
 
@@ -586,24 +578,27 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
   const [equalizerLoading, setEqualizerLoading] = useState(false);
   const [equalizerSessionId, setEqualizerSessionId] = useState<number | null>(null);
   const [relatedSongs, setRelatedSongs] = useState<RelatedSongsState>(null);
+  const [storedPlaylists, setStoredPlaylists] = useState<Array<{ id: string; name: string; songIds: string[] }>>([]);
+  const [addToPlaylistVisible, setAddToPlaylistVisible] = useState(false);
 
-  // Lazy-mount flags: each sub-modal only enters the tree when first opened,
-  // and is unmounted (not just hidden) after its close animation finishes.
-  // This prevents BlurView/LinearGradient/Icon trees from staying alive in the
-  // native view hierarchy when the user is on a different overlay.
+
+
+
+
   const [miniPlayerMounted, setMiniPlayerMounted] = useState(false);
   const [lockScreenMounted, setLockScreenMounted] = useState(false);
   const [equalizerMounted, setEqualizerMounted] = useState(false);
   const [defineAsMounted, setDefineAsMounted] = useState(false);
   const [setAsSuccessVisible, setSetAsSuccessVisible] = useState(false);
   const [setAsSuccessTone, setSetAsSuccessTone] = useState<ToneType>('ringtone');
+  const [lockScreenNow, setLockScreenNow] = useState(() => new Date());
 
-  // Track "transitioning out" so we can keep the Modal in the tree (with
-  // visible=false) while the close animation plays, then unmount it.
-  const [miniPlayerClosing, setMiniPlayerClosing] = useState(false);
-  const [lockScreenClosing, setLockScreenClosing] = useState(false);
+
+
+  const [, setMiniPlayerClosing] = useState(false);
+  const [, setLockScreenClosing] = useState(false);
   const [equalizerClosing, setEqualizerClosing] = useState(false);
-  const [defineAsClosing, setDefineAsClosing] = useState(false);
+  const [, setDefineAsClosing] = useState(false);
 
   const requestCloseMiniPlayer = useCallback(() => {
     setMiniPlayerVisible(false);
@@ -621,24 +616,34 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
     setTrackMenuVisible(false);
   }, []);
 
-  // After the parent Modal slide-in finishes, allow child modals to be shown.
-  // Setting visible=true on a nested Modal while the parent is still animating
-  // makes the child "float" over the half-rendered parent.
-  // Two requestAnimationFrame calls lets the slide-in paint at least one
-  // frame before we unmask the children.
+
+
+
+
+
   const [parentAnimationDone, setParentAnimationDone] = useState(false);
   useEffect(() => {
     let cancelled = false;
+    let second: number | null = null;
     const first = requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => {
         if (!cancelled) setParentAnimationDone(true);
       });
     });
     return () => {
       cancelled = true;
       cancelAnimationFrame(first);
+      if (second !== null) cancelAnimationFrame(second);
     };
   }, []);
+
+  useEffect(() => {
+    if (!lockScreenMounted && !lockScreenVisible) return;
+
+    setLockScreenNow(new Date());
+    const interval = setInterval(() => setLockScreenNow(new Date()), 1_000);
+    return () => clearInterval(interval);
+  }, [lockScreenMounted, lockScreenVisible]);
 
   const isScreenMountedRef = useRef(true);
   const equalizerRequestIdRef = useRef(0);
@@ -648,9 +653,9 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
   const equalizerWriteRef = useRef(Promise.resolve());
   const lastEqualizerSongIdRef = useRef<string | null>(null);
 
-  // If the song changes mid-drag of the equalizer, the native audio session
-  // is replaced by expo-audio. Reset the cached session id so the next
-  // applyEqualizerBands() re-reads the active session from the player.
+
+
+
   useEffect(() => {
     const songId = currentSong?.id ?? null;
     if (songId !== lastEqualizerSongIdRef.current) {
@@ -660,12 +665,23 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
     }
   }, [currentSong?.id]);
 
-  // Back gesture on Android: when a sub-modal is open, intercept the back
-  // button and dismiss the topmost modal in order. RN's `onRequestClose` is
-  // unreliable for transparent modals nested inside another Modal because the
-  // outer Modal's window intercepts the back event first. Registering a
-  // single BackHandler here lets us hand-dispatch the close to the correct
-  // sub-modal regardless of the render tree.
+  useEffect(() => {
+    void AsyncStorage.getItem(CUSTOM_PLAYLISTS_STORAGE_KEY).then(storedValue => {
+      const parsed = storedValue ? JSON.parse(storedValue) : [];
+      if (Array.isArray(parsed)) {
+        setStoredPlaylists(parsed);
+      }
+    }).catch(error => {
+      console.warn('No se pudieron cargar las playlists:', error);
+    });
+  }, []);
+
+
+
+
+
+
+
   useEffect(() => {
     if (Platform.OS !== 'android') return;
 
@@ -693,7 +709,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
     trackMenuVisible,
   ]);
 
-  // Stable fallback for dominant color (theme.surface from a static list, but we still keep it stable per theme id).
+
   const themeSurface = useMemo(() => theme.surface || '#252525', [theme.surface, theme.id]);
   const dominantColor = useDominantColor(currentSong?.artwork ?? null, themeSurface);
   const gradientColors = useMemo(() => getGradientColors(dominantColor), [dominantColor]);
@@ -754,11 +770,11 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
   }, [equalizerSessionId]);
 
   const applyEqualizerBands = useCallback((nextBands: EqualizerBand[], nextEnabled: boolean) => {
-    // Always try the live audio session id first: after a track change the
-    // cached ref is intentionally reset (so we re-read the new session), and
-    // before the first play the live session id is 0 on Android — in both
-    // cases we still need to push the new preset immediately instead of
-    // silently bailing out and forcing the user to toggle the EQ off/on.
+
+
+
+
+
     let sessionId = getAudioSessionId() ?? 0;
     if (sessionId > 0) {
       equalizerSessionIdRef.current = sessionId;
@@ -770,9 +786,9 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
     const levels = nextBands.map(band => Number(band.level));
 
     if (sessionId <= 0) {
-      // No native session yet — persist at module scope so loadAndPlay()
-      // re-applies automatically when expo-audio swaps the underlying audio
-      // session on first play or on the next track change.
+
+
+
       setEqualizerLevels(levels);
       return;
     }
@@ -796,13 +812,13 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
 
   const openEqualizer = useCallback(async () => {
     closeTrackMenu();
-    setEqualizerMounted(true);
 
     if (Platform.OS !== 'android') {
-      Alert.alert('Ecualizador', 'El ecualizador solo está disponible en Android.');
+      Alert.alert(t('player_equalizer', 'Equalizer'), t('equalizer_android_only', 'The equalizer is only available on Android.'));
       return;
     }
 
+    setEqualizerMounted(true);
     const sessionId = getAudioSessionId() ?? 0;
     const requestId = equalizerRequestIdRef.current + 1;
     equalizerRequestIdRef.current = requestId;
@@ -847,14 +863,14 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
       if (!isScreenMountedRef.current || requestId !== equalizerRequestIdRef.current) return;
 
       console.warn("No se pudo cargar el ecualizador:", error);
-      Alert.alert("Ecualizador", "No se pudo cargar el ecualizador del reproductor.");
+      Alert.alert(t('player_equalizer', 'Equalizer'), t('equalizer_load_error', 'Could not load the player equalizer.'));
       setEqualizerVisible(false);
     } finally {
       if (isScreenMountedRef.current && requestId === equalizerRequestIdRef.current) {
         setEqualizerLoading(false);
       }
     }
-  }, [closeTrackMenu]);
+  }, [closeTrackMenu, t]);
 
   const toggleEqualizer = useCallback(async () => {
     const nextEnabled = !equalizerEnabledRef.current;
@@ -921,12 +937,27 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
     if (!currentSong) return;
     setDefineAsVisible(false);
 
-    const setAsTone = await setAudioAsTone(currentSong.id, type);
-    if (!setAsTone) return;
+    try {
+      const setAsTone = await setAudioAsTone(currentSong.id, type);
+      if (!setAsTone) {
+        Alert.alert(
+          t('error', 'Error'),
+          t('set_as_tone_error', 'The song could not be assigned.'),
+        );
+        return;
+      }
+    } catch (error) {
+      console.warn('No se pudo definir el tono:', error);
+      Alert.alert(
+        t('error', 'Error'),
+        t('set_as_tone_error', 'The song could not be assigned.'),
+      );
+      return;
+    }
 
     setSetAsSuccessTone(type);
     setSetAsSuccessVisible(true);
-  }, [currentSong]);
+  }, [currentSong, t]);
 
   const closeSetAsSuccess = useCallback(() => {
     setSetAsSuccessVisible(false);
@@ -934,7 +965,17 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
 
   const deleteCurrentSong = useCallback(async () => {
     if (!currentSong) return;
-    const deleted = await deleteAudioFile(currentSong.id);
+    let deleted = false;
+    try {
+      deleted = await deleteAudioFile(currentSong.id);
+    } catch (error) {
+      console.warn('No se pudo eliminar la canción:', error);
+      Alert.alert(
+        t('error', 'Error'),
+        t('delete_song_error', 'The song could not be deleted.'),
+      );
+      return;
+    }
     if (!deleted) return;
     closeTrackMenu();
     const nextQueue = currentQueue.filter(song => song.id !== currentSong.id);
@@ -943,7 +984,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
       return;
     }
     onBack();
-  }, [closeTrackMenu, currentIndex, currentQueue, currentSong, onBack, playSong]);
+  }, [closeTrackMenu, currentIndex, currentQueue, currentSong, onBack, playSong, t]);
 
   const lockScreenLocale = useMemo(() => {
     const locales: Record<string, string> = {
@@ -959,23 +1000,23 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
 
   const lockScreenDate = useMemo(
     () =>
-      new Date().toLocaleDateString(lockScreenLocale, {
+      lockScreenNow.toLocaleDateString(lockScreenLocale, {
         weekday: "long",
         day: "numeric",
         month: "long",
       }),
-    [lockScreenLocale],
+    [lockScreenLocale, lockScreenNow],
   );
   const lockScreenTime = useMemo(
     () =>
-      new Date().toLocaleTimeString(lockScreenLocale, {
+      lockScreenNow.toLocaleTimeString(lockScreenLocale, {
         hour: "2-digit",
         minute: "2-digit",
       }),
-    [lockScreenLocale],
+    [lockScreenLocale, lockScreenNow],
   );
 
-  // Stable handlers passed down to memoized children.
+
   const handleOpenMiniPlayer = useCallback(() => {
     setMiniPlayerClosing(false);
     setMiniPlayerMounted(true);
@@ -1126,6 +1167,10 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
           <TrackActionMenu
             trackMenu={{ song: currentSong, x: 0, y: 0 }}
             onClose={requestCloseTrackMenu}
+            onAdd={() => {
+              requestCloseTrackMenu();
+              setAddToPlaylistVisible(true);
+            }}
             onDelete={() => {
               requestCloseTrackMenu();
               setDeleteConfirmVisible(true);
@@ -1155,6 +1200,29 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
             }}
           />
         ) : null}
+
+        <AddSongToPlaylistModal
+          visible={addToPlaylistVisible}
+          songToAdd={currentSong}
+          songsToAddCount={1}
+          playlists={storedPlaylists}
+          onClose={() => setAddToPlaylistVisible(false)}
+          onAddToPlaylist={async playlistId => {
+            const nextPlaylists = storedPlaylists.map(playlist => (
+              playlist.id === playlistId
+                ? {
+                    ...playlist,
+                    songIds: playlist.songIds.includes(currentSong.id)
+                      ? playlist.songIds
+                      : [...playlist.songIds, currentSong.id],
+                  }
+                : playlist
+            ));
+            await AsyncStorage.setItem(CUSTOM_PLAYLISTS_STORAGE_KEY, JSON.stringify(nextPlaylists));
+            setStoredPlaylists(nextPlaylists);
+            setAddToPlaylistVisible(false);
+          }}
+        />
 
         {detailsVisible ? (
           <SongDetailsModal
@@ -1236,31 +1304,23 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                 end={{ x: 1, y: 1 }}
                 style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
               />
-              {/*
-                The backdrop is the FIRST child so it covers the full screen
-                underneath the centered card. Wrapping the card content in a
-                sibling <View> (instead of mixing absolute and centered children
-                on the same parent) guarantees the Pressable receives taps
-                anywhere outside the card on Android. We also stop propagation
-                on the card container so a tap on the card never bubbles up to
-                the backdrop.
-              */}
+
               <Pressable
                 style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)' }}
                 onPress={requestCloseMiniPlayer}
                 android_disableSound
               />
               <Pressable
-                onPress={() => { /* swallow taps on the card */ }}
+                onPress={() => {}}
                 style={{ width: '100%', maxWidth: 380 }}
               >
                 <View
                   className="rounded-[36px] p-6"
                   style={{
-                    // Liquid glass: deep base with a soft tint, double outer shadow
-                    // for a "floating" curved pane. The border is split into two
-                    // layers via shadows so the top edge catches light while the
-                    // bottom edge falls into shadow.
+
+
+
+
                     backgroundColor: 'rgba(14,14,16,0.42)',
                     borderColor: 'rgba(255,255,255,0.14)',
                     borderWidth: 1,
@@ -1272,13 +1332,13 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                     overflow: 'visible',
                   }}
                 >
-                  {/* Clipped glass body — keeps the gradient/blur inside the rounded shape */}
+
                   <View
                     pointerEvents="none"
                     className="overflow-hidden rounded-[36px]"
                     style={StyleSheet.absoluteFill}
                   >
-                    {/* Base blur: provides the frosted backdrop */}
+
                     <BlurView
                       pointerEvents="none"
                       intensity={80}
@@ -1286,8 +1346,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                       style={StyleSheet.absoluteFill}
                     />
 
-                    {/* Tinted refraction: dominant color seeping through the top,
-                        fading to deep black at the bottom to suggest depth. */}
+
                     <LinearGradient
                       pointerEvents="none"
                       colors={[
@@ -1301,7 +1360,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                       style={StyleSheet.absoluteFill}
                     />
 
-                    {/* Specular highlight: bright curved sheen across the top edge */}
+
                     <LinearGradient
                       pointerEvents="none"
                       colors={[
@@ -1321,7 +1380,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                       }}
                     />
 
-                    {/* Inner highlight stroke: simulates a thin glass rim */}
+
                     <View
                       pointerEvents="none"
                       style={{
@@ -1335,9 +1394,9 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                     />
                   </View>
 
-                  {/* Content layer sits on top of the clipped glass body */}
+
                   <View style={{ position: 'relative' }}>
-                  {/* Artwork: own inset glass tile with subtle highlight */}
+
                   <View
                     className="aspect-square w-full items-center justify-center overflow-hidden rounded-[26px]"
                     style={{
@@ -1366,17 +1425,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                         style={StyleSheet.absoluteFill}
                       />
                     </View>
-                    {currentSong.artwork ? (
-                      <Image
-                        source={{ uri: currentSong.artwork }}
-                        className="h-full w-full"
-                        resizeMode="cover"
-                        fadeDuration={0}
-                        progressiveRenderingEnabled
-                      />
-                    ) : (
-                      <Image source={DEFAULT_MUSIC_ARTWORK} className="h-full w-full" resizeMode="cover" fadeDuration={0} />
-                    )}
+                    <LibraryArtwork artwork={currentSong.artwork} className="h-full w-full rounded-3xl" />
                   </View>
 
                   <View className="mt-5 flex-row items-center justify-between">
@@ -1499,13 +1548,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                 style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
               />
 
-              {/*
-                Transparent full-screen backdrop to dismiss the lock screen on
-                tap. Sits behind the clock / artwork / controls because it is
-                declared first in the parent <View flex-1>. The inner content
-                uses pointerEvents="box-none" so any tap that does NOT hit a
-                child control bubbles down to this Pressable.
-              */}
+
               <Pressable
                 style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
                 onPress={requestCloseLockScreen}
@@ -1526,17 +1569,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                 </View>
 
                 <View className="mt-10 aspect-square w-full items-center justify-center overflow-hidden rounded-[14px] bg-[#2a2a2a]">
-                  {currentSong.artwork ? (
-                    <Image
-                      source={{ uri: currentSong.artwork }}
-                      className="h-full w-full"
-                      resizeMode="cover"
-                      fadeDuration={0}
-                      progressiveRenderingEnabled
-                    />
-                  ) : (
-                    <Image source={DEFAULT_MUSIC_ARTWORK} className="h-full w-full" resizeMode="cover" fadeDuration={0} />
-                  )}
+                  <LibraryArtwork artwork={currentSong.artwork} className="h-full w-full rounded-[14px]" />
                 </View>
 
                 <View className="mt-14 rounded-[32px] border border-white/10 bg-white/10 px-5 py-5">
@@ -1570,7 +1603,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                   />
 
                   <View className="mt-5 flex-row items-center justify-center gap-9">
-                    
+
                     <Pressable onPress={handlePrevious}>
                       <BackwardIcon size={30} color="#f5f5f5" />
                     </Pressable>
@@ -1637,7 +1670,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                     accessibilityRole="button"
                     accessibilityLabel={t('close', 'Close')}
                   >
-                    <Text className="text-lg font-semibold" style={{ color: theme.accent }}>×</Text>
+                    <Ionicons name="close" size={20} color={theme.accent} />
                   </Pressable>
                 </View>
 

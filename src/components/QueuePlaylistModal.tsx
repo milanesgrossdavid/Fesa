@@ -1,21 +1,24 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
-  FlatList,
   Modal,
   PanResponder,
   Pressable,
+  ScrollView,
   Text,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Song } from '../../modules/local-music';
 import { useMusicPlayerUi } from '../audio/musicPlayer';
 import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import { getTranslation } from '../i18n/translations';
-import { formatDuration } from '../utils/time';
+import { formatSongDuration } from '../utils/time';
 import { DragHandleIcon } from '../Icons';
+import { getGradientColors, useDominantColor, withAlpha } from '../hooks/useDominantColor';
 import AudioWaveBars from './AudioWaveBars';
 import LibraryArtwork from './LibraryArtwork';
 
@@ -34,9 +37,9 @@ interface QueuePlaylistItemProps {
   index: number;
   currentIndex: number;
   playing: boolean;
-  dragActive: boolean;
-  dragStartIndex: number | null;
-  hoverIndex: number | null;
+  isDragging: boolean;
+  shift: number;
+  shiftKey: string;
   panY: Animated.Value;
   shiftAnims: Map<string, Animated.Value>;
   panHandlers: ReturnType<typeof PanResponder.create>['panHandlers'];
@@ -49,41 +52,257 @@ interface QueuePlaylistItemProps {
   };
   noTitleLabel: string;
   unknownArtistLabel: string;
+  currentlyPlayingLabel: string;
+  playSongLabel: string;
+  reorderSongLabel: string;
+  reorderHint: string;
   onSelectSong: (index: number) => void;
   beginDrag: (index: number, pageY: number) => void;
 }
 
-const QueuePlaylistItem = React.memo(function QueuePlaylistItem({
-  item,
-  index,
-  currentIndex,
-  playing,
-  dragActive,
-  dragStartIndex,
-  hoverIndex,
-  panY,
-  shiftAnims,
-  panHandlers,
-  theme,
-  noTitleLabel,
-  unknownArtistLabel,
-  onSelectSong,
-  beginDrag,
-}: QueuePlaylistItemProps) {
-  const isActive = index === currentIndex;
-  const isDragging = dragActive && dragStartIndex === index;
 
-  let shift = 0;
-  let isHiddenGhost = false;
-  if (dragActive && dragStartIndex !== null && hoverIndex !== null) {
-    if (index === dragStartIndex) {
-      isHiddenGhost = true;
-    } else if (dragStartIndex < hoverIndex) {
-      if (index > dragStartIndex && index <= hoverIndex) shift = -1;
-    } else if (dragStartIndex > hoverIndex) {
-      if (index >= hoverIndex && index < dragStartIndex) shift = 1;
+
+
+
+
+function areItemPropsEqual(prev: QueuePlaylistItemProps, next: QueuePlaylistItemProps): boolean {
+  return (
+    prev.item === next.item &&
+    prev.index === next.index &&
+    prev.currentIndex === next.currentIndex &&
+    prev.playing === next.playing &&
+    prev.isDragging === next.isDragging &&
+    prev.shift === next.shift &&
+    prev.shiftKey === next.shiftKey &&
+    prev.panY === next.panY &&
+    prev.shiftAnims === next.shiftAnims &&
+    prev.panHandlers === next.panHandlers &&
+    prev.noTitleLabel === next.noTitleLabel &&
+    prev.unknownArtistLabel === next.unknownArtistLabel &&
+    prev.currentlyPlayingLabel === next.currentlyPlayingLabel &&
+    prev.playSongLabel === next.playSongLabel &&
+    prev.reorderSongLabel === next.reorderSongLabel &&
+    prev.reorderHint === next.reorderHint &&
+    prev.onSelectSong === next.onSelectSong &&
+    prev.beginDrag === next.beginDrag &&
+    prev.theme.surface === next.theme.surface &&
+    prev.theme.border === next.theme.border &&
+    prev.theme.text === next.theme.text &&
+    prev.theme.mutedText === next.theme.mutedText &&
+    prev.theme.accent === next.theme.accent
+  );
+}
+
+
+
+const QueuePlaylistModal = ({
+  visible,
+  queue,
+  currentIndex,
+  onClose,
+  onSelectSong,
+}: QueuePlaylistModalProps) => {
+  const insets = useSafeAreaInsets();
+  const theme = useAppSettingsTheme();
+  const language = useAppSettingsLanguage();
+  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
+  const { playing, currentSong, moveQueueSong } = useMusicPlayerUi();
+  const dominantColor = useDominantColor(currentSong?.artwork ?? null, theme.background);
+  const gradientColors = useMemo(() => getGradientColors(dominantColor), [dominantColor]);
+
+  const scrollViewRef = useRef<ScrollView>(null);
+  const listContainerRef = useRef<View>(null);
+  const listTopY = useRef(0);
+  const listHeight = useRef(0);
+  const scrollOffset = useRef(0);
+  const dragStartRef = useRef<{ index: number; pageY: number; scrollY: number } | null>(null);
+  const pointerYRef = useRef(0);
+  const hoverIndexRef = useRef<number | null>(null);
+  const autoScrollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const panY = useRef(new Animated.Value(0)).current;
+  const shiftAnims = useRef(new Map<string, Animated.Value>()).current;
+
+  const [dragState, setDragState] = useState<{ from: number; to: number } | null>(null);
+  const onSelectSongRef = useRef(onSelectSong);
+  onSelectSongRef.current = onSelectSong;
+  const handleSelectSong = useCallback((index: number) => {
+    onSelectSongRef.current(index);
+  }, []);
+
+  const clearAutoScroll = useCallback(() => {
+    if (autoScrollTimer.current === null) return;
+    clearInterval(autoScrollTimer.current);
+    autoScrollTimer.current = null;
+  }, []);
+
+  useEffect(() => {
+    return () => clearAutoScroll();
+  }, [clearAutoScroll]);
+
+  useEffect(() => {
+    if (visible) return;
+    clearAutoScroll();
+    dragStartRef.current = null;
+    hoverIndexRef.current = null;
+    setDragState(null);
+    panY.setValue(0);
+  }, [visible, clearAutoScroll, panY]);
+
+  const getShift = useCallback((key: string) => {
+    let value = shiftAnims.get(key);
+    if (!value) {
+      value = new Animated.Value(0);
+      shiftAnims.set(key, value);
     }
-  }
+    return value;
+  }, [shiftAnims]);
+
+  const updateHover = useCallback((pointerY: number) => {
+    const drag = dragStartRef.current;
+    if (!drag || queue.length === 0) return;
+    const delta = pointerY - drag.pageY + scrollOffset.current - drag.scrollY;
+    const target = Math.max(0, Math.min(queue.length - 1, Math.round(drag.index + delta / ITEM_HEIGHT)));
+    if (target === hoverIndexRef.current) return;
+    hoverIndexRef.current = target;
+    setDragState({ from: drag.index, to: target });
+  }, [queue.length]);
+
+  const finishDrag = useCallback(() => {
+    const drag = dragStartRef.current;
+    const target = hoverIndexRef.current;
+    dragStartRef.current = null;
+    hoverIndexRef.current = null;
+    clearAutoScroll();
+    setDragState(null);
+    panY.setValue(0);
+    if (drag && target !== null && drag.index !== target) {
+      moveQueueSong(drag.index, target);
+    }
+  }, [clearAutoScroll, moveQueueSong, panY]);
+
+  const panResponder = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onStartShouldSetPanResponderCapture: () => true,
+    onMoveShouldSetPanResponder: (_event, gesture) =>
+      dragStartRef.current !== null && Math.abs(gesture.dy) > 2,
+    onMoveShouldSetPanResponderCapture: (_event, gesture) =>
+      dragStartRef.current !== null && Math.abs(gesture.dy) > 2,
+    onPanResponderTerminationRequest: () => false,
+    onPanResponderGrant: () => {
+      panY.setValue(0);
+      clearAutoScroll();
+      autoScrollTimer.current = setInterval(() => {
+        const pointer = pointerYRef.current;
+        const top = listTopY.current;
+        const bottom = top + listHeight.current;
+        const edge = 96;
+        const distance = pointer < top + edge
+          ? pointer - (top + edge)
+          : pointer > bottom - edge
+            ? pointer - (bottom - edge)
+            : 0;
+        if (distance === 0) return;
+        const nextOffset = Math.max(0, scrollOffset.current + Math.sign(distance) * Math.min(24, Math.max(4, Math.abs(distance) / 3)));
+        scrollOffset.current = nextOffset;
+        scrollViewRef.current?.scrollTo({ y: nextOffset, animated: false });
+        updateHover(pointer);
+      }, 16);
+    },
+    onPanResponderMove: (event, gesture) => {
+      pointerYRef.current = event.nativeEvent.pageY;
+      const drag = dragStartRef.current;
+      if (!drag) return;
+      panY.setValue(gesture.dy + scrollOffset.current - drag.scrollY);
+      updateHover(pointerYRef.current);
+    },
+    onPanResponderRelease: finishDrag,
+    onPanResponderTerminate: finishDrag,
+  }), [clearAutoScroll, finishDrag, panY, updateHover]);
+
+  const beginDragOnIndex = useCallback((index: number, pageY: number) => {
+    dragStartRef.current = { index, pageY, scrollY: scrollOffset.current };
+    pointerYRef.current = pageY;
+    hoverIndexRef.current = index;
+    panY.setValue(0);
+    setDragState({ from: index, to: index });
+  }, [panY]);
+
+  const scrollToCurrentSong = useCallback(() => {
+    if (
+      !visible ||
+      currentIndex < 0 ||
+      currentIndex >= queue.length ||
+      listHeight.current <= 0
+    ) {
+      return;
+    }
+
+    const currentItemCenter = currentIndex * ITEM_HEIGHT + ITEM_HEIGHT / 2;
+    const centeredOffset = currentItemCenter - listHeight.current / 2;
+
+    scrollViewRef.current?.scrollTo({
+      y: Math.max(0, centeredOffset),
+      animated: false,
+    });
+  }, [currentIndex, queue.length, visible]);
+
+  useEffect(() => {
+    if (!visible) {
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      requestAnimationFrame(scrollToCurrentSong);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [scrollToCurrentSong, visible]);
+
+  useEffect(() => {
+    if (!dragState) {
+      return;
+    }
+    queue.forEach((item, index) => {
+      const shift = dragState.from < dragState.to
+        ? index > dragState.from && index <= dragState.to ? -1 : 0
+        : index >= dragState.to && index < dragState.from ? 1 : 0;
+      Animated.timing(getShift(`${item.id}-${index}`), {
+        toValue: shift * ITEM_HEIGHT,
+        useNativeDriver: true,
+        duration: 70,
+      }).start();
+    });
+  }, [dragState, getShift, queue]);
+
+  const queueCountLabel = `${queue.length} ${queue.length === 1 ? t('song_count_one', 'song') : t('song_count_many', 'songs')}`;
+  const noTitleLabel = t('player_no_title', 'Untitled');
+  const unknownArtistLabel = t('player_unknown_artist', 'Unknown artist');
+  const currentlyPlayingLabel = t('currently_playing', 'Currently playing');
+  const playSongLabel = t('play_song', 'Play this song');
+  const reorderSongLabel = t('reorder_song', 'Reorder song');
+  const reorderHint = t('queue_reorder_hint', 'Drag to change the song order');
+
+  const QueuePlaylistItem = useMemo(() => React.memo(function QueuePlaylistItem({
+    item,
+    index,
+    currentIndex,
+    playing,
+    isDragging,
+    shift,
+    shiftKey,
+    panY,
+    shiftAnims,
+    panHandlers,
+    theme,
+    noTitleLabel,
+    unknownArtistLabel,
+    currentlyPlayingLabel,
+    playSongLabel,
+    reorderSongLabel,
+    reorderHint,
+    onSelectSong,
+    beginDrag,
+  }: QueuePlaylistItemProps) {
+  const isActive = index === currentIndex;
 
   let translateY: Animated.Value | number;
   let opacity = 1;
@@ -91,11 +310,8 @@ const QueuePlaylistItem = React.memo(function QueuePlaylistItem({
   if (isDragging) {
     translateY = panY;
     zIndex = 999;
-  } else if (shift !== 0 && dragActive) {
-    translateY = shiftAnims.get(item.id) ?? 0;
-  } else if (isHiddenGhost) {
-    translateY = 0;
-    opacity = 0.0001;
+  } else if (shift !== 0) {
+    translateY = shiftAnims.get(shiftKey) ?? 0;
   } else {
     translateY = 0;
   }
@@ -110,21 +326,47 @@ const QueuePlaylistItem = React.memo(function QueuePlaylistItem({
       }}
     >
       <Pressable
-        className="mx-1 mb-2 flex-row items-center rounded-[18px] border px-3 py-2.5"
+        className="mx-1 mb-2 flex-row items-center rounded-[26px] border px-3 py-2.5"
         style={{
-          backgroundColor: isActive ? `${theme.accent}12` : theme.surface,
-          borderColor: isActive ? `${theme.accent}66` : theme.border,
+          backgroundColor: isActive
+            ? withAlpha(theme.surface, 0.26)
+            : withAlpha(theme.surface, 0.58),
+          borderColor: isActive ? withAlpha(theme.accent, 0.7) : withAlpha(theme.border, 0.72),
+          shadowColor: '#000',
+          shadowOpacity: isActive ? 0.16 : 0.08,
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: 3 },
         }}
         onPress={() => {
-          if (!dragActive) onSelectSong(index);
+          if (!isDragging) onSelectSong(index);
         }}
         accessibilityRole="button"
         accessibilityLabel={`${item.title || noTitleLabel}, ${
           item.artist?.trim() || unknownArtistLabel
         }`}
-        accessibilityHint={isActive ? 'Currently playing' : 'Play this song'}
+        accessibilityHint={isActive ? currentlyPlayingLabel : playSongLabel}
         accessibilityState={{ selected: isActive }}
       >
+        <LinearGradient
+            pointerEvents="none"
+            colors={[
+              withAlpha(gradientColors[0], 0.28),
+              withAlpha(gradientColors[1], 0.24),
+              withAlpha(gradientColors[2], 0.20),
+            ]}
+            locations={[0, 0.58, 1]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              borderRadius: 24,
+            }}
+          />
+
         <View
           className="mr-2 h-12 w-10 items-center justify-center rounded-xl"
           hitSlop={{ left: 10, right: 10, top: 10, bottom: 10 }}
@@ -132,10 +374,10 @@ const QueuePlaylistItem = React.memo(function QueuePlaylistItem({
           onTouchStart={event => beginDrag(index, event.nativeEvent.pageY)}
           accessible
           accessibilityRole="button"
-          accessibilityLabel={`Reorder ${item.title || noTitleLabel}`}
-          accessibilityHint="Drag to change the song order"
+          accessibilityLabel={`${reorderSongLabel} ${item.title || noTitleLabel}`}
+          accessibilityHint={reorderHint}
         >
-          <DragHandleIcon size={22} color={theme.mutedText} />
+          <DragHandleIcon size={22} color={theme.accent} />
         </View>
 
         <LibraryArtwork
@@ -147,7 +389,7 @@ const QueuePlaylistItem = React.memo(function QueuePlaylistItem({
           <Text className="text-sm font-bold" style={{ color: theme.text }} numberOfLines={1}>
             {item.title || noTitleLabel}
           </Text>
-          <Text className="mt-1 text-xs" style={{ color: theme.mutedText }} numberOfLines={1}>
+          <Text className="mt-1 font-medium text-xs" style={{ color: `${gradientColors[2] + '95'}` }} numberOfLines={1}>
             {item.artist?.trim() || unknownArtistLabel}
           </Text>
         </View>
@@ -161,298 +403,62 @@ const QueuePlaylistItem = React.memo(function QueuePlaylistItem({
             </View>
           </View>
         ) : null}
-        <View className="ml-2 min-w-[44px] items-end">
-          <Text className="text-xs font-medium" style={{ color: theme.mutedText }}>
-            {formatDuration(item.duration)}
+        <View className=" min-w-[30px] items-end">
+          <Text className="text-xs font-medium" style={{ color: theme.text }}>
+            {formatSongDuration(item.duration)}
           </Text>
         </View>
       </Pressable>
     </Animated.View>
   );
-});
-
-const QueuePlaylistModal = ({
-  visible,
-  queue,
-  currentIndex,
-  onClose,
-  onSelectSong,
-}: QueuePlaylistModalProps) => {
-  const insets = useSafeAreaInsets();
-  const theme = useAppSettingsTheme();
-  const language = useAppSettingsLanguage();
-  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
-  const { playing, moveQueueSong } = useMusicPlayerUi();
-
-  const flatListRef = useRef<FlatList>(null);
-  const listContainerRef = useRef<View>(null);
-  const listTopY = useRef<number>(0);
-  const listHeight = useRef<number>(0);
-  const scrollOffset = useRef<number>(0);
-
-  const dragStartIndex = useRef<number | null>(null);
-  const dragStartPageY = useRef<number>(0);
-  const lastHoverRef = useRef<number>(0);
-  const lastPointerY = useRef<number>(0);
-  const autoScrollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const panY = useRef(new Animated.Value(0)).current;
-
-  const [dragActive, setDragActive] = useState(false);
-  const [dragStartIndexState, setDragStartIndexState] = useState<number | null>(null);
-  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
-  const onSelectSongRef = useRef(onSelectSong);
-  onSelectSongRef.current = onSelectSong;
-  const handleSelectSong = useCallback((index: number) => {
-    onSelectSongRef.current(index);
-  }, []);
-
-  const clearAutoScroll = useCallback(() => {
-    if (autoScrollTimer.current) {
-      clearInterval(autoScrollTimer.current);
-      autoScrollTimer.current = null;
-    }
-  }, []);
-
-  useEffect(() => {
-    return () => clearAutoScroll();
-  }, [clearAutoScroll]);
-
-  useEffect(() => {
-    if (!visible) {
-      clearAutoScroll();
-      dragStartIndex.current = null;
-      dragStartPageY.current = 0;
-      lastHoverRef.current = 0;
-      setDragActive(false);
-      setDragStartIndexState(null);
-      setHoverIndex(null);
-      panY.setValue(0);
-    }
-  }, [visible, clearAutoScroll, panY]);
-
-  // Calcula el nuevo índice objetivo:
-  // 1. Usa delta Y RELATIVO al inicio del drag (evita desviaciones)
-  // 2. Fuerza que SOLO pueda cambiar ±1 respecto al último hover aceptado (sin saltos)
-  const stepIndex = useCallback((deltaY: number, fromIdx: number, len: number): number => {
-    const targetFloat = fromIdx + deltaY / ITEM_HEIGHT;
-    const ideal = Math.round(targetFloat);
-    const clampedIdeal = Math.max(0, Math.min(len - 1, ideal));
-    const prev = lastHoverRef.current;
-    if (clampedIdeal > prev + 1) return prev + 1;
-    if (clampedIdeal < prev - 1) return prev - 1;
-    return clampedIdeal;
-  }, []);
-
-  const commitReorder = useCallback(() => {
-    const from = dragStartIndex.current;
-    const to = hoverIndex;
-    dragStartIndex.current = null;
-    dragStartPageY.current = 0;
-    setDragActive(false);
-    setDragStartIndexState(null);
-    setHoverIndex(null);
-    panY.setValue(0);
-    clearAutoScroll();
-    if (from !== null && to !== null && from !== to) {
-      moveQueueSong(from, to);
-    }
-  }, [clearAutoScroll, moveQueueSong, panY, hoverIndex]);
-
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onStartShouldSetPanResponderCapture: () => false,
-        onMoveShouldSetPanResponder: (_e, gs) => {
-          if (dragStartIndex.current === null) return false;
-          return Math.abs(gs.dy) > 3;
-        },
-        onMoveShouldSetPanResponderCapture: () => false,
-        onPanResponderTerminationRequest: () => false,
-        onShouldBlockNativeResponder: () => true,
-
-        onPanResponderGrant: () => {
-          const idx = dragStartIndex.current;
-          if (idx === null) return;
-          lastHoverRef.current = idx;
-          panY.setValue(0);
-          clearAutoScroll();
-          autoScrollTimer.current = setInterval(() => {
-            const pointerY = lastPointerY.current;
-            if (!pointerY) return;
-            const top = listTopY.current;
-            const bottom = top + (listHeight.current || 400);
-            const margin = 110;
-            let scrollStep = 0;
-            if (pointerY < top + margin) {
-              scrollStep = -Math.max(3, (top + margin - pointerY) / 4);
-            } else if (pointerY > bottom - margin) {
-              scrollStep = Math.max(3, (pointerY - (bottom - margin)) / 4);
-            }
-            if (scrollStep !== 0) {
-              const nextOff = Math.max(0, scrollOffset.current + scrollStep);
-              flatListRef.current?.scrollToOffset({ offset: nextOff, animated: false });
-              const fromIdx = dragStartIndex.current;
-              if (fromIdx !== null) {
-                // Al hacer autoscroll, el hover avanza +/- 1 por tick sin
-                // salirse del clamp de stepIndex.
-                const prev = lastHoverRef.current;
-                let stepped = prev;
-                if (scrollStep < 0 && prev > 0) stepped = prev - 1;
-                else if (scrollStep > 0 && prev < queue.length - 1) stepped = prev + 1;
-                if (stepped !== prev) {
-                  lastHoverRef.current = stepped;
-                  setHoverIndex(stepped);
-                }
-              }
-            }
-          }, 40);
-        },
-        onPanResponderMove: (evt, gs) => {
-          const fromIdx = dragStartIndex.current;
-          if (fromIdx === null) return;
-          const y = evt.nativeEvent.pageY;
-          lastPointerY.current = y;
-          panY.setValue(gs.dy);
-          const deltaFromStart = y - dragStartPageY.current;
-          const nextIdx = stepIndex(deltaFromStart, fromIdx, queue.length);
-          if (nextIdx !== lastHoverRef.current) {
-            lastHoverRef.current = nextIdx;
-            setHoverIndex(nextIdx);
-          }
-        },
-        onPanResponderRelease: () => {
-          commitReorder();
-        },
-        onPanResponderTerminate: () => {
-          commitReorder();
-        },
-      }),
-    [commitReorder, stepIndex, clearAutoScroll, panY, queue.length]
-  );
-
-  const beginDragOnIndex = useCallback((index: number, pageY: number) => {
-    dragStartIndex.current = index;
-    dragStartPageY.current = pageY;
-    lastPointerY.current = pageY;
-    lastHoverRef.current = index;
-    setDragActive(true);
-    setDragStartIndexState(index);
-    setHoverIndex(index);
-  }, []);
-
-  // Reemplaza el Animated.Value (shift) estático por springs animados por cada índice.
-  // Usamos un Map mutable ref porque FlatList recicla filas y los Animated.Values
-  // viven según el dato/índice actual.
-  const shiftAnims = useRef<Map<string, Animated.Value>>(new Map()).current;
-
-  const getShiftAnim = useCallback(
-    (key: string): Animated.Value => {
-      let anim = shiftAnims.get(key);
-      if (!anim) {
-        anim = new Animated.Value(0);
-        shiftAnims.set(key, anim);
-      }
-      return anim;
-    },
-    [shiftAnims]
-  );
-
-  const scrollToCurrentSong = useCallback(() => {
-    if (!visible || currentIndex < 0 || currentIndex >= queue.length) {
-      return;
-    }
-
-    flatListRef.current?.scrollToOffset({
-      offset: Math.max(0, currentIndex * ITEM_HEIGHT - ITEM_HEIGHT * 2),
-      animated: false,
-    });
-  }, [currentIndex, queue.length, visible]);
-
-  useEffect(() => {
-    if (!visible) {
-      return;
-    }
-
-    const frame = requestAnimationFrame(scrollToCurrentSong);
-    return () => cancelAnimationFrame(frame);
-  }, [scrollToCurrentSong, visible]);
-
-  useEffect(() => {
-    queue.forEach(item => {
-      getShiftAnim(item.id);
-    });
-  }, [getShiftAnim, queue]);
-
-  useEffect(() => {
-    if (!dragActive || dragStartIndexState === null || hoverIndex === null) {
-      return;
-    }
-
-    queue.forEach((item, index) => {
-      let shift = 0;
-      if (index !== dragStartIndexState) {
-        if (dragStartIndexState < hoverIndex && index > dragStartIndexState && index <= hoverIndex) {
-          shift = -1;
-        } else if (
-          dragStartIndexState > hoverIndex &&
-          index >= hoverIndex &&
-          index < dragStartIndexState
-        ) {
-          shift = 1;
-        }
-      }
-
-      Animated.spring(getShiftAnim(item.id), {
-        toValue: shift * ITEM_HEIGHT,
-        useNativeDriver: true,
-        stiffness: 360,
-        damping: 30,
-        mass: 0.9,
-        overshootClamping: false,
-      }).start();
-    });
-  }, [dragActive, dragStartIndexState, getShiftAnim, hoverIndex, queue]);
-
-  // Note: previously we cleared `shiftAnims` on every drag end, which
-  // invalidated Animated.Values still being read by recycled FlatList rows.
-  // They are created lazily by `getShiftAnim` and GC'd by JS when the row
-  // unmounts; an explicit clear here only caused visual artifacts on long
-  // queues.
-
-  const queueCountLabel = `${queue.length} ${queue.length === 1 ? t('song_count_one', 'song') : t('song_count_many', 'songs')}`;
-  const noTitleLabel = t('player_no_title', 'Untitled');
-  const unknownArtistLabel = t('player_unknown_artist', 'Unknown artist');
+}, areItemPropsEqual), [gradientColors]);
 
   const renderItem = useCallback(
-    ({ item, index }: { item: Song; index: number }) => (
-      <QueuePlaylistItem
-        item={item}
-        index={index}
-        currentIndex={currentIndex}
-        playing={playing}
-        dragActive={dragActive}
-        dragStartIndex={dragStartIndexState}
-        hoverIndex={hoverIndex}
-        panY={panY}
-        shiftAnims={shiftAnims}
-        panHandlers={panResponder.panHandlers}
-        theme={theme}
-        noTitleLabel={noTitleLabel}
-        unknownArtistLabel={unknownArtistLabel}
-        onSelectSong={handleSelectSong}
-        beginDrag={beginDragOnIndex}
-      />
-    ),
+    ({ item, index }: { item: Song; index: number }) => {
+      const isDragging = dragState?.from === index;
+      const shift = !dragState || index === dragState.from
+        ? 0
+        : dragState.from < dragState.to && index > dragState.from && index <= dragState.to
+          ? -1
+          : dragState.from > dragState.to && index >= dragState.to && index < dragState.from
+            ? 1
+            : 0;
+
+      return (
+        <QueuePlaylistItem
+          item={item}
+          index={index}
+          currentIndex={currentIndex}
+          playing={playing}
+          isDragging={Boolean(isDragging)}
+          shift={shift}
+          shiftKey={`${item.id}-${index}`}
+          panY={panY}
+          shiftAnims={shiftAnims}
+          panHandlers={panResponder.panHandlers}
+          theme={theme}
+          noTitleLabel={noTitleLabel}
+          unknownArtistLabel={unknownArtistLabel}
+          currentlyPlayingLabel={currentlyPlayingLabel}
+          playSongLabel={playSongLabel}
+          reorderSongLabel={reorderSongLabel}
+          reorderHint={reorderHint}
+          onSelectSong={handleSelectSong}
+          beginDrag={beginDragOnIndex}
+        />
+      );
+    },
     [
       beginDragOnIndex,
       currentIndex,
-      dragActive,
-      dragStartIndexState,
-      hoverIndex,
+      dragState,
       handleSelectSong,
       noTitleLabel,
       unknownArtistLabel,
+      currentlyPlayingLabel,
+      playSongLabel,
+      reorderSongLabel,
+      reorderHint,
       panResponder.panHandlers,
       panY,
       playing,
@@ -479,7 +485,7 @@ const QueuePlaylistModal = ({
         <View
           className="max-h-[88%] rounded-t-[28px] px-4 pt-2"
           style={{
-            backgroundColor: theme.background,
+            backgroundColor: withAlpha(theme.background, 0.92),
             paddingBottom: Math.max(insets.bottom, 16),
             shadowColor: '#000',
             shadowOpacity: 0.25,
@@ -488,6 +494,26 @@ const QueuePlaylistModal = ({
             elevation: 18,
           }}
         >
+          <LinearGradient
+            pointerEvents="none"
+            colors={[
+              withAlpha(gradientColors[0], 0.72),
+              withAlpha(gradientColors[1], 0.42),
+              withAlpha(gradientColors[2], 0.9),
+            ]}
+            locations={[0, 0.58, 1]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              borderTopLeftRadius: 28,
+              borderTopRightRadius: 28,
+            }}
+          />
           <View className="mb-2 items-center py-1">
             <View
               className="h-[5px] w-10 rounded-full"
@@ -504,33 +530,29 @@ const QueuePlaylistModal = ({
                 <Text className="text-xl font-bold tracking-[-0.4px]" style={{ color: theme.text }}>
                   {t('player_queue_title', 'Queue')}
                 </Text>
-                <Text className="mt-1 text-xs" style={{ color: theme.mutedText }}>
+                <Text className="mt-1 text-xs" style={{ color: theme.text }}>
                   {t('queue_reorder_hint', 'Drag songs to reorder')}
                 </Text>
               </View>
             </View>
             <View
-              className="mr-2 rounded-full border px-3 py-1.5"
-              style={{
-                backgroundColor: theme.surface,
-                borderColor: theme.border,
-              }}
+              className="mr-2 rounded-full px-3 py-1.5"
+
             >
-              <Text className="text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: theme.mutedText }}>
+              <Text className="text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: theme.accent }}>
                 {queueCountLabel}
               </Text>
             </View>
+
             <Pressable
               className="h-10 w-10 items-center justify-center rounded-full"
               onPress={onClose}
               accessibilityRole="button"
               accessibilityLabel={t('close', 'Close')}
-              style={({ pressed }) => ({
-                backgroundColor: theme.surface,
-                opacity: pressed ? 0.45 : 1,
-              })}
+
             >
-              <Text className="text-lg font-semibold" style={{ color: theme.accent }}>×</Text>
+
+              <Ionicons name="close" size={20} color={theme.accent} />
             </Pressable>
           </View>
 
@@ -538,35 +560,32 @@ const QueuePlaylistModal = ({
             className="overflow-hidden py-2"
             ref={listContainerRef}
             onLayout={(e) => {
-              listTopY.current = e.nativeEvent.layout.y;
               listHeight.current = e.nativeEvent.layout.height;
+              listContainerRef.current?.measureInWindow((_x, y) => {
+                listTopY.current = y;
+              });
+              requestAnimationFrame(scrollToCurrentSong);
             }}
           >
-            <FlatList
-              ref={flatListRef}
-              data={queue}
-              keyExtractor={(item, index) => `${item.id}-${index}`}
+            <ScrollView
+              ref={scrollViewRef}
+              scrollEnabled={!dragState}
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingTop: 4, paddingBottom: 8 }}
-              // Cap the per-frame work for very long queues. A 5,000-track
-              // queue would otherwise create an Animated.Value per index on
-              // every queue update, choking the JS thread on drag.
-              initialNumToRender={20}
-              maxToRenderPerBatch={12}
-              windowSize={5}
-              removeClippedSubviews
-              getItemLayout={(_data, index) => ({
-                length: ITEM_HEIGHT,
-                offset: ITEM_HEIGHT * index,
-                index,
-              })}
-              scrollEventThrottle={8}
+              contentContainerStyle={{ paddingTop: 4, paddingBottom: 62 }}
+              scrollEventThrottle={16}
               onContentSizeChange={scrollToCurrentSong}
               onScroll={(e) => {
                 scrollOffset.current = e.nativeEvent.contentOffset.y;
               }}
-              renderItem={renderItem}
-            />
+            >
+
+              {queue.map((item, index) => (
+                <React.Fragment key={`${item.id}-${index}`}>
+
+                  {renderItem({ item, index })}
+                </React.Fragment>
+              ))}
+            </ScrollView>
           </View>
         </View>
       </View>

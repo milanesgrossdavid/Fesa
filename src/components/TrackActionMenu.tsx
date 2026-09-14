@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Song } from '../../modules/local-music';
@@ -24,7 +24,7 @@ interface TrackActionMenuProps {
   onDefineAs: (song: Song) => void;
   onEqualizer?: (song: Song) => void;
   onSettings?: (song: Song) => void;
-  /** Notifies the parent that a confirm-delete was requested so it can host the ConfirmDeleteModal outside the menu (avoids nested <Modal> on Android). */
+
   onRequestDelete?: (song: Song) => void;
 }
 
@@ -69,9 +69,9 @@ const TrackActionMenu = ({
       label: t('track_action_delete', 'Delete'),
       onPress: () => {
         if (onRequestDelete) {
-          // Defer the actual delete confirmation to the parent so the
-          // ConfirmDeleteModal lives at the top of the tree, not nested
-          // inside this Modal (which crashes on some Android devices).
+
+
+
           onClose();
           onRequestDelete(song);
           return;

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
@@ -73,7 +73,7 @@ const Wheel = ({
       });
     }, 60);
     return () => clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [visible]);
 
   const selectFromOffset = (offsetY: number) => {
@@ -183,7 +183,7 @@ const CustomSleepTimerModal = ({
   const [hours, setHours] = useState(() => Math.floor(seed / 60));
   const [minutes, setMinutes] = useState(() => seed % 60);
 
-  // Reset values whenever the modal becomes visible.
+
   useEffect(() => {
     if (visible) {
       setHours(Math.floor(seed / 60));
@@ -193,7 +193,7 @@ const CustomSleepTimerModal = ({
 
   const totalMinutes = hours * 60 + minutes;
 
-  // Sheet entrance animation
+
   const slideAnim = useRef(new Animated.Value(560)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.96)).current;
@@ -246,7 +246,7 @@ const CustomSleepTimerModal = ({
       );
       return;
     }
-    setSleepTimer(totalMinutes);
+    setSleepTimer(totalMinutes, false);
     onApplied?.(totalMinutes);
     onClose();
   };
@@ -569,6 +569,29 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: "center",
     justifyContent: "center",
+  },
+  optionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+    marginTop: 16,
+  },
+  optionText: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  optionTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    lineHeight: 20,
+  },
+  optionDescription: {
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 3,
   },
   primaryButtonText: {
     fontSize: 17,

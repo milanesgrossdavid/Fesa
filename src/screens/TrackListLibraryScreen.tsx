@@ -1,9 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, GestureResponderEvent, PermissionsAndroid, Platform, RefreshControl, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, FlatList, GestureResponderEvent, RefreshControl, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { deleteAudioFile, getAudioFiles, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
+import { deleteAudioFile, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
 import { useMusicPlayerUi } from '../audio/musicPlayer';
 import { useAppSettingsHiddenSongIds, useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import AddSongToPlaylistModal from '../components/AddSongToPlaylistModal';
@@ -103,7 +102,6 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
   const [trackSortDirection, setTrackSortDirection] = useState<TrackSortDirection>('asc');
   const theme = useAppSettingsTheme();
   const language = useAppSettingsLanguage();
-  const insets = useSafeAreaInsets();
   const hiddenSongIds = useAppSettingsHiddenSongIds();
   const { t } = useTranslation(language.id);
   const {
@@ -151,7 +149,7 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
 
   useFocusEffect(
     useCallback(() => {
-      // Si no hay canciones, intentamos recargar al enfocar
+
       if (songs.length === 0 && !loading) {
         void requestPermissionsAndLoadMusic();
       }
@@ -165,7 +163,7 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
           }
         })
         .catch(error => console.warn('No se pudieron cargar las playlists:', error));
-    }, [])
+    }, [loading, requestPermissionsAndLoadMusic, songs.length])
   );
 
   const persistStoredPlaylists = async (nextPlaylists: StoredPlaylist[]) => {
@@ -174,9 +172,11 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
   };
 
   const listedSongs = useMemo(() => {
+    const songsById = new Map(songs.map(song => [song.id, song]));
+
     if (mode === 'favorites') {
       return favoriteSongIds
-        .map(songId => songs.find(song => song.id === songId))
+        .map(songId => songsById.get(songId))
         .filter(Boolean) as Song[];
     }
 
@@ -203,7 +203,12 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
   }, [listedSongs, trackSort, trackSortDirection]);
 
   const selectedSongs = useMemo(
-    () => selectedSongIds.map(songId => songs.find(song => song.id === songId)).filter(Boolean) as Song[],
+    () => {
+      const songsById = new Map(songs.map(song => [song.id, song]));
+      return selectedSongIds
+        .map(songId => songsById.get(songId))
+        .filter(Boolean) as Song[];
+    },
     [selectedSongIds, songs]
   );
   const isSelectionMode = selectedSongIds.length > 0;
@@ -243,13 +248,6 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
   const confirmDeleteSelectedSongs = () => {
     if (!selectedSongIds.length) return;
     setBulkDeleteVisible(true);
-  };
-
-  const formatDeleteSongsMessage = () => {
-    const label = selectedSongIds.length === 1 ? t('delete_song_single', 'song') : t('delete_song_plural', 'songs');
-    return t('delete_song_message', 'Do you want to delete %count% %label%? This action cannot be undone.')
-      .replace('%count%', String(selectedSongIds.length))
-      .replace('%label%', label);
   };
 
   const performBulkDelete = () => {
@@ -412,10 +410,10 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
     );
   };
 
-  // Hooks that must run on EVERY render must live before any conditional
-  // `return`. Previously this `useCallback` was declared after the early
-  // returns, which caused React's Rules of Hooks to throw when
-  // `showPlayer && currentSong` toggled.
+
+
+
+
   const renderTrackItem = useCallback(({ item, index }: { item: Song; index: number }) => {
     const isActive = currentSong?.id === item.id;
     const isSelected = selectedSongIds.includes(item.id);
@@ -450,7 +448,7 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
         <Text className="text-center text-base" style={{ color: theme.mutedText }}>
           {t('permission_required_music', 'Music permissions are required to read your library.')}
         </Text>
-        <Pressable 
+        <Pressable
           className="mt-4 rounded-xl px-6 py-3"
           style={({ pressed }) => ({ backgroundColor: theme.surface, opacity: pressed ? 0.65 : 1 })}
           onPress={() => void requestPermissionsAndLoadMusic()}
@@ -461,10 +459,6 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
         </Pressable>
       </View>
     );
-  }
-
-  if (showPlayer && currentSong) {
-    return <PlayerScreen onBack={() => setShowPlayer(false)} />;
   }
 
   const emptyMessage = mode === 'favorites'
@@ -478,6 +472,11 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
         style={{ backgroundColor: theme.background }}
         data={sortedSongs}
         keyExtractor={item => item.id}
+        initialNumToRender={12}
+        maxToRenderPerBatch={8}
+        updateCellsBatchingPeriod={50}
+        windowSize={7}
+        removeClippedSubviews
         ListHeaderComponent={renderHeader()}
         ListEmptyComponent={
           <View className="px-4 py-6">
@@ -627,6 +626,15 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
         tone={setAsSuccessPayload?.tone ?? 'ringtone'}
         onClose={closeSetAsSuccess}
       />
+
+      {showPlayer && currentSong ? (
+        <View
+          className="absolute inset-0"
+          style={{ backgroundColor: theme.background }}
+        >
+          <PlayerScreen onBack={() => setShowPlayer(false)} />
+        </View>
+      ) : null}
     </View>
   );
 };

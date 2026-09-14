@@ -1,4 +1,3 @@
-import React from 'react';
 import { FlatList, Modal, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Song } from '../../modules/local-music';
@@ -6,6 +5,7 @@ import { getTranslation } from '../i18n/translations';
 import { PlayIcon } from '../Icons';
 import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import LibraryArtwork from './LibraryArtwork';
+import { Ionicons } from '@expo/vector-icons';
 
 interface RelatedTracksModalProps {
   visible: boolean;
@@ -78,7 +78,7 @@ const RelatedTracksModal = ({
               accessibilityRole="button"
               accessibilityLabel={t('close', 'Close')}
             >
-              <Text className="text-lg font-semibold" style={{ color: theme.accent }}>×</Text>
+              <Ionicons name="close" size={20} color={theme.accent} />
             </Pressable>
           </View>
 

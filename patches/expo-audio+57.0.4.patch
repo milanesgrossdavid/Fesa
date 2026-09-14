@@ -1,0 +1,154 @@
+diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioModule.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioModule.kt
+index 992239b..8133013 100644
+--- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioModule.kt
++++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioModule.kt
+@@ -486,6 +486,12 @@ class AudioModule : Module() {
+         }
+       }
+ 
++      Function("setSleepTimer") { player: AudioPlayer, delayMs: Double, finishCurrentSong: Boolean ->
++        runOnMain {
++          player.setSleepTimer(delayMs.toLong(), finishCurrentSong)
++        }
++      }
++
+       Function("replace") { player: AudioPlayer, source: AudioSource ->
+         runOnMain {
+           if (player.ref.availableCommands.contains(Player.COMMAND_CHANGE_MEDIA_ITEMS)) {
+diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt
+index c76a9fd..11914fc 100644
+--- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt
++++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt
+@@ -20,6 +20,8 @@ import expo.modules.audio.service.AudioPlaybackServiceConnection
+ import expo.modules.audio.service.ServiceBindingState
+ import expo.modules.kotlin.AppContext
+ import expo.modules.kotlin.exception.Exceptions
++import android.os.Handler
++import android.os.Looper
+ import java.lang.ref.WeakReference
+ 
+ private const val PLAYBACK_STATUS_UPDATE = "playbackStatusUpdate"
+@@ -82,6 +84,9 @@ class AudioPlayer(
+     appContext.reactContext
+       ?: throw Exceptions.ReactContextLost()
+   }
++  private val sleepTimerHandler = Handler(Looper.getMainLooper())
++  private var sleepTimerRunnable: Runnable? = null
++  private var finishCurrentSongAfterSleepTimer = false
+ 
+   init {
+     installPlayerListeners()
+@@ -144,12 +149,39 @@ class AudioPlayer(
+     }
+   }
+ 
++  fun setSleepTimer(delayMs: Long, finishCurrentSong: Boolean) {
++    sleepTimerRunnable?.let(sleepTimerHandler::removeCallbacks)
++    sleepTimerRunnable = null
++    finishCurrentSongAfterSleepTimer = false
++
++    if (delayMs <= 0) {
++      return
++    }
++
++    val runnable = Runnable {
++      if (finishCurrentSong && ref.isPlaying) {
++        finishCurrentSongAfterSleepTimer = true
++      } else {
++        ref.pause()
++        sendStatusUpdate(mapOf("playing" to false))
++      }
++      sleepTimerRunnable = null
++    }
++    sleepTimerRunnable = runnable
++    sleepTimerHandler.postDelayed(runnable, delayMs)
++  }
++
+   override fun onPlaybackStateUpdated(playbackState: Int, justFinished: Boolean) {
+     val updateMap = mutableMapOf<String, Any?>(
+       "playbackState" to playbackStateToString(playbackState)
+     )
+     if (justFinished) {
+-      updateMap["didJustFinish"] = true
++      if (finishCurrentSongAfterSleepTimer) {
++        finishCurrentSongAfterSleepTimer = false
++        updateMap["sleepTimerFinished"] = true
++      } else {
++        updateMap["didJustFinish"] = true
++      }
+       updateMap["playing"] = false
+     }
+     sendStatusUpdate(updateMap)
+diff --git a/node_modules/expo-audio/ios/AudioModule.swift b/node_modules/expo-audio/ios/AudioModule.swift
+index d265606..09899d8 100644
+--- a/node_modules/expo-audio/ios/AudioModule.swift
++++ b/node_modules/expo-audio/ios/AudioModule.swift
+@@ -248,6 +248,10 @@ public class AudioModule: Module {
+         }
+       }
+ 
++      Function("setSleepTimer") { (player: AudioPlayer, delayMs: Double, finishCurrentSong: Bool) in
++        player.setSleepTimer(delayMs: delayMs, finishCurrentSong: finishCurrentSong)
++      }
++
+       Function("remove") { player in
+         self.registry.remove(player)
+       }
+diff --git a/node_modules/expo-audio/ios/AudioPlayer.swift b/node_modules/expo-audio/ios/AudioPlayer.swift
+index 0742943..7432895 100644
+--- a/node_modules/expo-audio/ios/AudioPlayer.swift
++++ b/node_modules/expo-audio/ios/AudioPlayer.swift
+@@ -47,6 +47,8 @@ public class AudioPlayer: SharedRef<AVPlayer>, Playable {
+   private var timeToken: Any?
+   private var cancellables = Set<AnyCancellable>()
+   private var endObserver: NSObjectProtocol?
++  private var sleepTimerWorkItem: DispatchWorkItem?
++  private var finishCurrentSongAfterSleepTimer = false
+ 
+   private var audioProcessor: AudioTapProcessor?
+   private var tapInstalled = false
+@@ -464,8 +466,10 @@ public class AudioPlayer: SharedRef<AVPlayer>, Playable {
+         self.updateStatus(with: [
+           "playing": false,
+           "currentTime": currentTime.isNaN ? 0.0 : currentTime,
+-          "didJustFinish": true
++          "didJustFinish": self.finishCurrentSongAfterSleepTimer ? false : true,
++          "sleepTimerFinished": self.finishCurrentSongAfterSleepTimer
+         ])
++        self.finishCurrentSongAfterSleepTimer = false
+         self.onPlaybackComplete?()
+       }
+     }
+@@ -499,6 +503,32 @@ public class AudioPlayer: SharedRef<AVPlayer>, Playable {
+     ref.pause()
+   }
+ 
++  func setSleepTimer(delayMs: Double, finishCurrentSong: Bool) {
++    sleepTimerWorkItem?.cancel()
++    sleepTimerWorkItem = nil
++    finishCurrentSongAfterSleepTimer = false
++
++    guard delayMs > 0 else {
++      return
++    }
++
++    let workItem = DispatchWorkItem { [weak self] in
++      guard let self else { return }
++      if finishCurrentSong && self.isPlaying {
++        self.finishCurrentSongAfterSleepTimer = true
++      } else {
++        self.ref.pause()
++        self.updateStatus(with: ["playing": false])
++      }
++      self.sleepTimerWorkItem = nil
++    }
++    sleepTimerWorkItem = workItem
++    DispatchQueue.main.asyncAfter(
++      deadline: .now() + (delayMs / 1000),
++      execute: workItem
++    )
++  }
++
+   func resumePlayback() {
+     ref.play()
+   }

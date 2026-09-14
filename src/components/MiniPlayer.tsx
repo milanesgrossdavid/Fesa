@@ -1,10 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useMusicPlayerUi } from '../audio/musicPlayer';
 import { getTranslation } from '../i18n/translations';
 import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
+import { getGradientColors, useDominantColor, withAlpha } from '../hooks/useDominantColor';
 import PlayerScreen from '../screens/PlayerScreen';
 import AutoScrollingText from './AutoScrollingText';
 import LibraryArtwork from './LibraryArtwork';
@@ -30,6 +33,8 @@ const MiniPlayer = () => {
     togglePlayPause,
     clearShowPlayerRequest,
   } = useMusicPlayerUi();
+  const dominantColor = useDominantColor(currentSong?.artwork ?? null, theme.surface);
+  const gradientColors = getGradientColors(dominantColor);
 
   useEffect(() => {
     if (!showPlayerRequested) {
@@ -63,6 +68,25 @@ const MiniPlayer = () => {
           accessibilityLabel={`${currentSong.title}, ${currentSong.artist || t('unknown_artist', 'Unknown Artist')}`}
           accessibilityHint={t('open_player', 'Open player')}
         >
+          <LinearGradient
+            pointerEvents="none"
+            colors={[
+              withAlpha(gradientColors[0], 0.7),
+              withAlpha(gradientColors[1], 0.48),
+              withAlpha(gradientColors[2], 0.72),
+            ]}
+            locations={[0, 0.58, 1]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              borderRadius: 24,
+            }}
+          />
           <LibraryArtwork
             artwork={currentSong.artwork}
             className="mr-3 h-12 w-12 rounded-[14px]"
@@ -70,15 +94,18 @@ const MiniPlayer = () => {
           />
 
           <View className="min-w-0 flex-1">
-            <AutoScrollingText className="text-sm font-bold" style={{ color: theme.text }}>
+            <AutoScrollingText className="text-sm font-bold" style={{ color: '#ffffff' }}>
               {currentSong.title}
             </AutoScrollingText>
-            <AutoScrollingText className="mt-0.5 text-xs" style={{ color: theme.mutedText }}>
+            <AutoScrollingText className="mt-0.5 text-xs font-medium" style={{ color: 'rgba(0,0,0,0.5)' }}>
               {currentSong.artist || t('unknown_artist', 'Unknown Artist')}
             </AutoScrollingText>
           </View>
 
-          <View className="ml-2 flex-row items-center gap-1">
+          <View
+            className="ml-2 flex-row items-center px-1"
+
+          >
             <Pressable
               className="h-10 w-10 items-center justify-center rounded-full"
               onPress={event => {
@@ -88,11 +115,10 @@ const MiniPlayer = () => {
               accessibilityRole="button"
               accessibilityLabel={t('previous_song', 'Previous song')}
             >
-              <Ionicons name="play-skip-back" size={18} color={theme.text} />
+              <Ionicons name="play-skip-back" size={18} color="#ffffff" />
             </Pressable>
             <Pressable
               className="h-11 w-11 items-center justify-center rounded-full"
-              style={{ backgroundColor: theme.background }}
               onPress={event => {
                 event.stopPropagation();
                 void togglePlayPause();
@@ -100,7 +126,7 @@ const MiniPlayer = () => {
               accessibilityRole="button"
               accessibilityLabel={playing ? t('pause', 'Pause') : t('play', 'Play')}
             >
-              <Ionicons name={playing ? 'pause' : 'play'} size={20} color="#ffffff" />
+              <Ionicons name={playing ? 'pause' : 'play'} size={22} color="#ffffff" />
             </Pressable>
             <Pressable
               className="h-10 w-10 items-center justify-center rounded-full"
@@ -111,12 +137,15 @@ const MiniPlayer = () => {
               accessibilityRole="button"
               accessibilityLabel={t('next_song', 'Next song')}
             >
-              <Ionicons name="play-skip-forward" size={18} color={theme.text} />
+              <Ionicons name="play-skip-forward" size={18} color="#ffffff" />
             </Pressable>
 
             <Pressable
               className="h-10 w-10 items-center justify-center rounded-full"
-              style={{ backgroundColor: theme.background }}
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.12)',
+                marginLeft: 2,
+              }}
               onPress={event => {
                 event.stopPropagation();
                 setShowQueue(true);
@@ -124,7 +153,7 @@ const MiniPlayer = () => {
               accessibilityRole="button"
               accessibilityLabel={t('queue', 'Queue')}
             >
-              <MaterialCommunityIcons name="playlist-music" size={20} color={theme.text} />
+              <MaterialCommunityIcons name="playlist-music" size={20} color="#ffffff" />
             </Pressable>
           </View>
         </MicroPressable>

@@ -1,10 +1,11 @@
-import React from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Song } from '../../modules/local-music';
 import { getTranslation } from '../i18n/translations';
+import { musicPlayer } from '../audio/musicPlayer';
 import { PlusIcon } from '../Icons';
 import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
+import { Ionicons } from '@expo/vector-icons';
 
 type PlaylistOption = {
   id: string;
@@ -20,7 +21,7 @@ interface AddSongToPlaylistModalProps {
   playlists: PlaylistOption[];
   onClose: () => void;
   onAddToPlaylist: (playlistId: string) => void;
-  onCreatePlaylist: () => void;
+  onCreatePlaylist?: () => void;
 }
 
 const AddSongToPlaylistModal = ({
@@ -38,6 +39,12 @@ const AddSongToPlaylistModal = ({
   const language = useAppSettingsLanguage();
   const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
   const selectedSongIds = songIdsToAdd.length ? songIdsToAdd : songToAdd ? [songToAdd.id] : [];
+  const addToFavorites = () => {
+    selectedSongIds.forEach(songId => {
+      void musicPlayer.addFavoriteSong(songId);
+    });
+    onClose();
+  };
 
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
@@ -83,31 +90,65 @@ const AddSongToPlaylistModal = ({
             </View>
 
             <Pressable
-              className="h-9 items-center justify-center rounded-full px-3"
+              className="h-9 items-center justify-center rounded-full px-2"
+              style={{ backgroundColor: theme.surface }}
               onPress={onClose}
               hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel={t('close', 'Close')}
             >
-              <Text className="text-sm font-bold" style={{ color: theme.accent }}>{t('close', 'Close')}</Text>
+                              <Ionicons name="close" size={20} color={theme.accent} />
+
             </Pressable>
           </View>
 
           <ScrollView className="mb-4" showsVerticalScrollIndicator={false}>
             {playlists.length === 0 ? (
-              <View
-                className="items-center rounded-[26px] border px-5 py-8"
-                style={{ backgroundColor: theme.surface, borderColor: theme.border }}
-              >
-                <Text className="text-base font-bold" style={{ color: theme.text }}>
-                  {t('no_playlists_title', 'You do not have playlists yet')}
-                </Text>
-                <Text className="mt-2 text-center text-sm leading-5" style={{ color: theme.mutedText }}>
-                  {t('no_playlists_message', 'Create a new list to save these songs.')}
-                </Text>
-              </View>
+              <>
+                <Pressable
+                  className="mb-2 rounded-[20px] border px-4 py-3.5"
+                  style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+                  onPress={addToFavorites}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('tab_favorites', 'Favorites')}
+                >
+                  <Text className="text-base font-bold" style={{ color: theme.text }}>
+                    {t('tab_favorites', 'Favorites')}
+                  </Text>
+                  <Text className="mt-1 text-sm" style={{ color: theme.mutedText }}>
+                    {t('add_to_favorites', 'Mark as favorite')}
+                  </Text>
+                </Pressable>
+                <View
+                  className="items-center rounded-[26px] border px-5 py-8"
+                  style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+                >
+                  <Text className="text-base font-bold" style={{ color: theme.text }}>
+                    {t('no_playlists_title', 'You do not have playlists yet')}
+                  </Text>
+                  <Text className="mt-2 text-center text-sm leading-5" style={{ color: theme.mutedText }}>
+                    {t('no_playlists_message', 'Create a new list to save these songs.')}
+                  </Text>
+                </View>
+              </>
             ) : (
-              playlists.map(playlist => {
+              <>
+                <Pressable
+                  className="mb-2 rounded-[20px] border px-4 py-3.5"
+                  style={{ backgroundColor: theme.surface, borderColor: theme.border }}
+                  onPress={addToFavorites}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('tab_favorites', 'Favorites')}
+                  accessibilityHint={t('add_to_playlist', 'Add to playlist')}
+                >
+                  <Text className="text-base font-bold" style={{ color: theme.text }}>
+                    {t('tab_favorites', 'Favorites')}
+                  </Text>
+                  <Text className="mt-1 text-sm" style={{ color: theme.mutedText }}>
+                    {t('add_to_favorites', 'Mark as favorite')}
+                  </Text>
+                </Pressable>
+                {playlists.map(playlist => {
                 const pendingSongCount = selectedSongIds.filter(
                   songId => !playlist.songIds.includes(songId)
                 ).length;
@@ -155,22 +196,25 @@ const AddSongToPlaylistModal = ({
                     </View>
                   </Pressable>
                 );
-              })
+                })}
+              </>
             )}
           </ScrollView>
 
-          <Pressable
-            className="flex-row items-center justify-center gap-2 rounded-[16px] py-4"
-            style={{ backgroundColor: theme.accent }}
-            onPress={onCreatePlaylist}
-            accessibilityRole="button"
-            accessibilityLabel={t('create_new_playlist', 'Create new list')}
-          >
-            <PlusIcon size={18} color={ theme.background} />
-            <Text className="text-center text-base font-bold" style={{ color: theme.background }}>
-              {t('create_new_playlist', 'Create new list')}
-            </Text>
-          </Pressable>
+          {onCreatePlaylist ? (
+            <Pressable
+              className="flex-row items-center justify-center gap-2 rounded-[16px] py-4"
+              style={{ backgroundColor: theme.accent }}
+              onPress={onCreatePlaylist}
+              accessibilityRole="button"
+              accessibilityLabel={t('create_new_playlist', 'Create new list')}
+            >
+              <PlusIcon size={18} color={theme.background} />
+              <Text className="text-center text-base font-bold" style={{ color: theme.background }}>
+                {t('create_new_playlist', 'Create new list')}
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
     </Modal>

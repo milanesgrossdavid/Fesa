@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "plugins": [
       [
         "expo-audio",
@@ -33,7 +33,8 @@
       ],
       "expo-localization",
       "expo-asset",
-      "expo-image"
+      "expo-image",
+      "./plugins/withAndroidProguard"
     ],
     "ios": {
       "supportsTablet": true
@@ -52,7 +53,10 @@
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.READ_MEDIA_VIDEO"
       ],
       "package": "com.milanesgrossdavid.fesa"
     },
@@ -61,7 +65,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "bb4fb4b7-fdbb-4e4e-a5ad-f4453aae4026"
+        "projectId": "179c750f-de21-4253-95bb-5208e075e052"
       }
     }
   }

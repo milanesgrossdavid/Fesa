@@ -1,4 +1,3 @@
-import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { DotsIcon } from '../Icons';
 import LibraryArtwork from './LibraryArtwork';
@@ -28,7 +27,7 @@ const LibraryPlaylistListItem = ({
   onActionsPress,
 }: LibraryPlaylistListItemProps) => {
    const theme = useAppSettingsTheme();
-  
+
   return (
   <Pressable
     className="mx-4 mb-3 overflow-hidden rounded-2xl border px-4 py-4"
@@ -57,7 +56,7 @@ const LibraryPlaylistListItem = ({
         />
       </View>
       <View className="min-w-0 flex-1">
-        <Text className="text-base font-extrabold " 
+        <Text className="text-base font-extrabold "
         style={{ color: isSelected ? theme.surface : theme.text }}
          numberOfLines={1}>
           {playlist.name}

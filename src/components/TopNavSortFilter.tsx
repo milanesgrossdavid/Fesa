@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FilterIcon, SortAscIcon, SortDescIcon } from '../Icons';
 import { useTranslation } from '../i18n/translations';
 import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
+import { Ionicons } from '@expo/vector-icons';
 
 export type TrackSortOption = 'name' | 'date' | 'artist' | 'albums';
 export type TrackSortDirection = 'asc' | 'desc';
@@ -115,7 +116,7 @@ const TopNavSortFilter = ({
                 accessibilityRole="button"
                 accessibilityLabel={t('close', 'Close')}
               >
-                <Text className="text-lg font-semibold" style={{ color: theme.accent }}>×</Text>
+                <Ionicons name="close" size={20} color={theme.accent} />
               </Pressable>
             </View>
 

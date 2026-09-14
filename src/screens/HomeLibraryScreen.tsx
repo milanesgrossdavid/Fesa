@@ -1,13 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   Easing,
-  FlatList,
   GestureResponderEvent,
-  PermissionsAndroid,
-  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -16,8 +12,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { deleteAudioFile, getAudioFiles, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
+import { deleteAudioFile, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
 import { musicPlayer, useMusicPlayerUi } from '../audio/musicPlayer';
 import { useAppSettingsHiddenSongIds, useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import { getTranslation, useTranslation } from '../i18n/translations';
@@ -188,7 +183,6 @@ const HomeLibraryScreen = () => {
   const [selectedSongIds, setSelectedSongIds] = useState<string[]>([]);
   const groupModalTranslateY = useRef(new Animated.Value(1)).current;
   const theme = useAppSettingsTheme();
-  const insets = useSafeAreaInsets();
   const language = useAppSettingsLanguage();
   const hiddenSongIds = useAppSettingsHiddenSongIds();
   const translationHelper = useTranslation(language.id);
@@ -220,14 +214,14 @@ const HomeLibraryScreen = () => {
     }
   }, []);
 
-  // Load music on mount
+
   useEffect(() => {
     void requestPermissionsAndLoadMusic();
   }, [requestPermissionsAndLoadMusic, hiddenSongIds]);
 
   useFocusEffect(
     useCallback(() => {
-      // Si no hay canciones, intentamos recargar al enfocar
+
       if (songs.length === 0 && !loading) {
         void requestPermissionsAndLoadMusic();
       }
@@ -282,8 +276,9 @@ const HomeLibraryScreen = () => {
     }
 
     const mostPlayedIds = await musicPlayer.getMostPlayedSongs(20);
+    const songsById = new Map(songs.map(song => [song.id, song]));
     const nextMostPlayedSongs = mostPlayedIds
-      .map(id => songs.find(song => song.id === id))
+      .map(id => songsById.get(id))
       .filter(Boolean)
       .slice(0, 20) as Song[];
 
@@ -295,11 +290,19 @@ const HomeLibraryScreen = () => {
       artistPlayCounts.set(artist, (artistPlayCounts.get(artist) ?? 0) + (nextMostPlayedSongs.length - index));
     });
 
+    const songsByArtist = new Map<string, Song[]>();
+    songs.forEach(song => {
+      const artist = normalizeValue(song.artist, UNKNOWN_ARTIST);
+      const artistSongs = songsByArtist.get(artist);
+      if (artistSongs) artistSongs.push(song);
+      else songsByArtist.set(artist, [song]);
+    });
+
     const artistGroupsFromPlayed = [...artistPlayCounts.keys()]
       .sort((a, b) => (artistPlayCounts.get(b) ?? 0) - (artistPlayCounts.get(a) ?? 0))
       .map(artistName => {
         const normalized = normalizeValue(artistName, UNKNOWN_ARTIST);
-        const artistSongs = songs.filter(s => normalizeValue(s.artist, UNKNOWN_ARTIST) === normalized);
+        const artistSongs = songsByArtist.get(normalized) ?? [];
         return {
           id: normalized,
           name: normalized,
@@ -338,13 +341,14 @@ const HomeLibraryScreen = () => {
       albums: shuffleList(albumGroups).slice(0, 6),
       artists: shuffleList(artistGroups).slice(0, 4),
     };
+    const sameIds = <T extends { id: string }>(left: T[], right: T[]) =>
+      left.length === right.length && left.every((item, index) => item.id === right[index]?.id);
 
-    // Only update if the data actually changed
     if (
       !recommendedItemsRef.current
-      || recommendedItemsRef.current.songs.length !== newRecommended.songs.length
-      || recommendedItemsRef.current.albums.length !== newRecommended.albums.length
-      || recommendedItemsRef.current.artists.length !== newRecommended.artists.length
+      || !sameIds(recommendedItemsRef.current.songs, newRecommended.songs)
+      || !sameIds(recommendedItemsRef.current.albums, newRecommended.albums)
+      || !sameIds(recommendedItemsRef.current.artists, newRecommended.artists)
     ) {
       recommendedItemsRef.current = newRecommended;
       setRecommendedSongs(newRecommended.songs);
@@ -633,8 +637,8 @@ const HomeLibraryScreen = () => {
         <Text className="text-center text-base" style={{ color: theme.mutedText }}>
           {t('permission_required_music', 'Music permissions are required to read your library.')}
         </Text>
-        <Pressable 
-          className="mt-4 rounded-full px-6 py-2" 
+        <Pressable
+          className="mt-4 rounded-full px-6 py-2"
           style={{ backgroundColor: theme.surface }}
           onPress={() => void requestPermissionsAndLoadMusic()}
         >

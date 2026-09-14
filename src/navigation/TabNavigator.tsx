@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Text, View } from 'react-native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
@@ -137,11 +137,8 @@ const TabNavigator = () => {
                   minWidth: 72,
                   paddingHorizontal: 14,
                   paddingVertical: 8,
-                  shadowColor: '#000',
                   shadowOpacity: focused ? 0.08 : 0,
                   shadowRadius: 6,
-                  shadowOffset: { width: 0, height: 2 },
-                  elevation: focused ? 2 : 0,
                 }}
               >
                 <Text
@@ -167,13 +164,13 @@ const TabNavigator = () => {
             },
             tabBarActiveTintColor: theme.text,
             tabBarInactiveTintColor: theme.mutedText,
-            // Avoid forcing a remount when the visible-tabs list reorders:
-            // change of order no longer wipes the scroll/state of each tab.
+
+
             lazy: true,
-            // react-native-screens freezeOnBlur is enabled globally via
-            // `enableFreeze(true)`; the per-screen prop isn't accepted on
-            // Material Top Tabs options, but the global freeze still
-            // suspends off-screen tabs.
+
+
+
+
           }}
         >
           {renderedTabs.map(tab => (

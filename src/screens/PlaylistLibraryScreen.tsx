@@ -1,20 +1,17 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   Easing,
   FlatList,
   GestureResponderEvent,
-  PermissionsAndroid,
-  Platform,
   Pressable,
   Text,
   View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import { deleteAudioFile, getAudioFiles, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
+import { deleteAudioFile, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
 import { musicPlayer, useMusicPlayerUi } from '../audio/musicPlayer';
 import { useAppSettingsHiddenSongIds, useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import AddSongToPlaylistModal from '../components/AddSongToPlaylistModal';
@@ -45,6 +42,7 @@ type SongGroup = {
   subtitle: string;
   songs: Song[];
   artwork?: string | null;
+  fallbackArtwork?: number;
 };
 
 type TrackMenuState = {
@@ -66,6 +64,7 @@ const UNKNOWN_ARTIST = 'Artista Desconocido';
 const UNKNOWN_FOLDER = 'Carpeta Desconocida';
 const CUSTOM_PLAYLISTS_STORAGE_KEY = '@fesa:custom-playlists';
 const MOST_PLAYED_HOME_LIMIT = 7;
+const DEFAULT_MUSIC_ARTWORK = require('../../assets/musicNotFound.jpg');
 
 const normalizeValue = (value: string | null | undefined, fallback: string) => {
   const cleanValue = value?.trim();
@@ -176,7 +175,10 @@ const PlaylistLibraryScreen = () => {
   const theme = useAppSettingsTheme();
   const language = useAppSettingsLanguage();
   const hiddenSongIds = useAppSettingsHiddenSongIds();
-  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
+  const t = useCallback(
+    (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback),
+    [language.id],
+  );
   const { currentSong, playing, playSong, togglePlayPause, setSelectionModeActive } = useMusicPlayerUi();
 
   const requestPermissionsAndLoadMusic = useCallback(async () => {
@@ -228,7 +230,7 @@ const PlaylistLibraryScreen = () => {
 
   useFocusEffect(
     useCallback(() => {
-      // Si no hay canciones, intentamos recargar al enfocar
+
       if (songs.length === 0 && !loading) {
         void requestPermissionsAndLoadMusic();
       }
@@ -254,34 +256,34 @@ const PlaylistLibraryScreen = () => {
     void refreshMostPlayed();
   }, [songs]);
 
-  // Track the currently rendered group id so the entry animation only fires on
-  // a real "open" transition (closed → open, or a different group while
-  // closed). It must NOT fire when `selectedGroup` is refreshed in place by
-  // the deletion sync, otherwise the modal would replay its entry animation
-  // on every removed song.
+
+
+
+
+
   const lastRenderedGroupIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const nextId = selectedGroup?.id ?? null;
     const prevId = lastRenderedGroupIdRef.current;
 
-    // Update the ref for the next render unconditionally.
+
     lastRenderedGroupIdRef.current = nextId;
 
     if (!nextId) {
       return;
     }
 
-    // If the same group is still rendered, the modal is already open. Do
-    // nothing — this is the in-place update path (e.g. song removed from
-    // playlist). The modal stays stable and the entry animation does not
-    // replay.
+
+
+
+
     if (nextId === prevId) {
       return;
     }
 
-    // Different group id: the user is opening a new group. Play the entry
-    // animation.
+
+
     setGroupModalVisible(true);
     groupModalTranslateY.setValue(1);
     Animated.timing(groupModalTranslateY, {
@@ -317,6 +319,7 @@ const PlaylistLibraryScreen = () => {
         subtitle: '',
         songs: homeMostPlayedSongs,
         artwork: homeMostPlayedSongs[0]?.artwork,
+        fallbackArtwork: homeMostPlayedSongs.length === 0 ? DEFAULT_MUSIC_ARTWORK : undefined,
       },
     ];
   }, [mostPlayedSongs, songs]);
@@ -355,11 +358,12 @@ const PlaylistLibraryScreen = () => {
 
   const sortedCustomPlaylists = useMemo(() => {
     const directionMultiplier = trackSortDirection === 'asc' ? 1 : -1;
+    const playlistsById = new Map(storedPlaylists.map(playlist => [playlist.id, playlist]));
 
     return [...customPlaylists].sort((a, b) => {
       if (trackSort === 'date') {
-        const playlistA = storedPlaylists.find(playlist => playlist.id === a.id);
-        const playlistB = storedPlaylists.find(playlist => playlist.id === b.id);
+        const playlistA = playlistsById.get(a.id);
+        const playlistB = playlistsById.get(b.id);
 
         return directionMultiplier * ((playlistA?.updatedAt ?? 0) - (playlistB?.updatedAt ?? 0) || a.name.localeCompare(b.name));
       }
@@ -572,10 +576,10 @@ const PlaylistLibraryScreen = () => {
     });
   };
 
-  // Re-derives `selectedGroup` from the freshly persisted `nextPlaylists`
-  // so the open Edit-Playlist modal updates in real time after any mutation
-  // (remove-from-playlist, delete-track, bulk delete) without the user having
-  // to close and reopen the modal.
+
+
+
+
   const syncSelectedGroupWithPlaylists = (nextPlaylists: StoredPlaylist[]) => {
     if (!selectedGroup) {
       return;
@@ -858,7 +862,7 @@ const PlaylistLibraryScreen = () => {
         <Text className="text-center text-base" style={{ color: theme.mutedText }}>
           {t('permission_required_music', 'Music permissions are required to read your library.')}
         </Text>
-        <Pressable 
+        <Pressable
           className="mt-4 rounded-xl px-6 py-3"
           style={({ pressed }) => ({ backgroundColor: theme.surface, opacity: pressed ? 0.65 : 1 })}
           onPress={() => void requestPermissionsAndLoadMusic()}
@@ -984,6 +988,7 @@ const PlaylistLibraryScreen = () => {
         onTabChange={setPlaylistSelectionTab}
         onToggleSong={togglePlaylistDraftSong}
         onToggleGroup={togglePlaylistDraftGroup}
+        onDeselectAll={() => setPlaylistDraftSongIds([])}
         onSave={() => { void savePlaylist(); }}
       />
 

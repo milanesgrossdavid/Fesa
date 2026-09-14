@@ -1,8 +1,6 @@
-import React from 'react';
-import { GestureResponderEvent, Text, View } from 'react-native';
+import { GestureResponderEvent, View } from 'react-native';
 import { Song } from '../../modules/local-music';
 import SongListItem from './SongListItem';
-import { useAppSettingsTheme } from '../settings/appSettings';
 
 type SongGroup = {
   id: string;
@@ -28,20 +26,17 @@ interface HomeRecentlyAddedSectionProps {
 }
 
 const HomeRecentlyAddedSection = ({
-  group,
   songs,
   currentSongId,
   playing,
   selectedSongIds = [],
   isSelectionMode = false,
-  onOpenGroup,
   onPlaySong,
   onTogglePlayPause,
   onToggleSongSelection,
   onStartSongSelection,
   onOpenTrackMenu,
 }: HomeRecentlyAddedSectionProps) => {
-  const theme = useAppSettingsTheme();
 
   return (
     <View className="py-2">

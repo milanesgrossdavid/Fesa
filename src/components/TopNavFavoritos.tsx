@@ -1,4 +1,3 @@
-import React from 'react';
 import { useTranslation } from '../i18n/translations';
 import { useAppSettingsLanguage } from '../settings/appSettings';
 import TopNavSortFilter, { TrackSortDirection, TrackSortOption } from './TopNavSortFilter';

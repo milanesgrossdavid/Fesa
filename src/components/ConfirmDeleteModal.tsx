@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from 'react';
 import {
   Animated,
   Easing,
@@ -15,19 +15,8 @@ import { getTranslation } from "../i18n/translations";
 import { useAppSettingsLanguage, useAppSettingsTheme } from "../settings/appSettings";
 import LibraryArtwork from "./LibraryArtwork";
 
-/**
- * ConfirmDeleteModal — the project's in-app confirmation dialog.
- *
- * Brand voice: calm, intentional, warm. Destructive actions are highlighted
- * with a soft rose-tinted background and a measured red label — not a
- * screaming iOS alert. Layout follows iOS Settings-app grouping:
- *
- *   count chip  →  icon  →  title  →  message  →  item card  →  actions
- *
- * Backwards compatible: every existing call site keeps working with the
- * same prop shape (`visible`, `title`, `message`, `itemName`, `artwork`,
- * `confirmLabel`, `accent`, `onClose`, `onConfirm`).
- */
+
+
 
 type AccentTone = "white" | "danger";
 
@@ -38,13 +27,10 @@ interface ConfirmDeleteModalProps {
   itemName?: string;
   artwork?: string | null;
   confirmLabel?: string;
-  /**
-   * "white"  — neutral destructive (default; matches brand voice).
-   * "danger" — saturated red theme, reserved for permanent/irreversible
-   *            actions (file deletion, account removal).
-   */
+
+
   accent?: AccentTone;
-  /** Optional leading number to render as a small count chip (e.g. "3"). */
+
   count?: number;
   onClose: () => void;
   onConfirm: () => void;
@@ -78,14 +64,14 @@ const ConfirmDeleteModal = ({
   const resolvedTitle = title ?? t("remove", "Remove");
   const resolvedConfirmLabel = confirmLabel ?? t("delete", "Delete");
 
-  // Soft (brand) palette: a measured, warm red for white-accent variant.
+
   const iconBg = isWhiteAccent ? SOFT_DANGER_TINT : HARD_DANGER_TINT;
   const iconColor = isWhiteAccent ? SOFT_DANGER_TEXT : HARD_DANGER_TEXT;
   const topGradient = isWhiteAccent
     ? ["rgba(244, 63, 94, 0.10)", "rgba(244, 63, 94, 0)"]
     : ["rgba(255, 82, 82, 0.16)", "rgba(255, 82, 82, 0)"];
 
-  // Action button colors.
+
   const confirmButtonBackground = isWhiteAccent
     ? theme.text
     : HARD_DANGER_TEXT;
@@ -94,7 +80,7 @@ const ConfirmDeleteModal = ({
     ? theme.text
     : "rgba(255, 82, 82, 0.5)";
 
-  // Entry / exit animations.
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.96)).current;
   const translateY = useRef(new Animated.Value(16)).current;
@@ -127,7 +113,7 @@ const ConfirmDeleteModal = ({
     }
   }, [visible, fadeAnim, scaleAnim, translateY]);
 
-  // Press feedback for action buttons.
+
   const confirmScale = useRef(new Animated.Value(1)).current;
   const cancelScale = useRef(new Animated.Value(1)).current;
 
@@ -148,10 +134,8 @@ const ConfirmDeleteModal = ({
       onRequestClose={onClose}
     >
       <View style={styles.root}>
-        {/* Backdrop is mounted only once the entry animation finishes so the
-            user can't accidentally tap-dismiss the modal during the first
-            220 ms while it's still invisible. This also prevents the
-            modal from being "swallowed" on first paint on slow devices. */}
+
+
         <Animated.View
           style={[
             styles.backdrop,
@@ -189,8 +173,8 @@ const ConfirmDeleteModal = ({
             <View style={styles.handleWrapper} pointerEvents="none">
               <View style={[styles.handle, { backgroundColor: theme.mutedText }]} />
             </View>
-            {/* Top-edge danger gradient for the strong (danger) variant only.
-                The brand-voice (white) variant stays clean and minimal. */}
+
+
             {!isWhiteAccent ? (
               <LinearGradient
                 pointerEvents="none"
@@ -199,9 +183,8 @@ const ConfirmDeleteModal = ({
               />
             ) : null}
 
-            {/* Icon header with optional count chip — placed inside the
-                iconCircle on Android to avoid clipping. The chip sits on the
-                upper-right of the circle, fully within the card bounds. */}
+
+
             <View style={styles.header}>
               <View
                 style={[
@@ -249,7 +232,7 @@ const ConfirmDeleteModal = ({
               </View>
             </View>
 
-            {/* Title */}
+
             <Text
               style={[styles.title, { color: theme.text }]}
               numberOfLines={2}
@@ -257,7 +240,7 @@ const ConfirmDeleteModal = ({
               {resolvedTitle}
             </Text>
 
-            {/* Message — single paragraph, max 3 lines. */}
+
             <Text
               style={[styles.message, { color: theme.mutedText }]}
               numberOfLines={4}
@@ -265,8 +248,7 @@ const ConfirmDeleteModal = ({
               {message}
             </Text>
 
-            {/* Item preview card (optional). HIG: confirmation dialogs should
-                make the target unambiguous. */}
+
             {itemName ? (
               <View
                 style={[
@@ -309,9 +291,7 @@ const ConfirmDeleteModal = ({
               </View>
             ) : null}
 
-            {/* Action stack. Cancel on top, destructive on bottom — keeps
-                Cancel easy to reach with the thumb and visually separates
-                the safe action from the irreversible one. */}
+
             <View style={styles.actions}>
               <Animated.View style={{ transform: [{ scale: cancelScale }] }}>
                 <Pressable
@@ -408,10 +388,10 @@ const styles = StyleSheet.create({
     shadowRadius: 22,
     shadowOffset: { width: 0, height: -8 },
     elevation: 18,
-    // The card itself does not clip its children so the count chip can
-    // extend slightly beyond the icon circle bounds. The top gradient is
-    // positioned absolutely inside the card and gets the same radius
-    // treatment.
+
+
+
+
     overflow: "hidden",
   },
   topGradient: {

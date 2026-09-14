@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   Animated,
-  FlatList,
+  Easing,
   Modal,
   View,
   Text,
@@ -12,7 +12,6 @@ import {
   Alert,
   Image,
   PanResponder,
-  Share,
 } from "react-native";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -43,10 +42,10 @@ import { FontAwesome5 } from "@expo/vector-icons";
 const DEFAULT_MUSIC_ARTWORK = require("../../assets/musicNotFound.jpg");
 const FESA_LOGO = require("../../assets/icon-foreground.png");
 
-// Fixed line height for the lyrics FlatList. Matches fontSize 22/16 + the
-// internal Text line height so `getItemLayout` produces correct offsets
-// (avoids the per-line onLayout scroll jank).
-const LYRIC_LINE_HEIGHT = 44;
+
+
+
+const LYRIC_LINE_HEIGHT = 70;
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
@@ -153,7 +152,15 @@ const SHARE_THEMES = [
   },
 ] as const;
 
-type ShareTheme = (typeof SHARE_THEMES)[number];
+type ShareTheme = {
+  id: string;
+  name: string;
+  background: string;
+  card: string;
+  text: string;
+  muted: string;
+  accent: string;
+};
 
 const buildDynamicShareTheme = (baseHex: string): ShareTheme => {
   if (!/^#[0-9A-Fa-f]{6}$/.test(baseHex)) {
@@ -217,7 +224,9 @@ const parseLRC = (text: string) => {
       const t = min * 60 + sec;
       const txt = m[3].trim();
 
-      lines.push({ time: t, text: txt });
+      if (txt.length > 0) {
+        lines.push({ time: t, text: txt });
+      }
     }
   }
 
@@ -246,16 +255,34 @@ const toFallbackLines = (text: string) =>
     .filter((line: string) => line.trim().length > 0)
     .map((line: string, index: number) => ({
       time: index,
-      text: line,
+      text: line.trim(),
     }));
 
-// Helper functions for local lyrics storage
 
-const getLyricsStorageKey = (songId: string) => `@lyrics:${songId}`;
 
-const getLocalLyrics = async (songId: string): Promise<string | null> => {
+const normalizeLyricsLookupValue = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+
+const getLyricsStorageKey = (song: Pick<Song, "id" | "title" | "artist" | "album">) => {
+  const stableMetadataKey = [
+    normalizeLyricsLookupValue(song.artist || ""),
+    normalizeLyricsLookupValue(song.title || ""),
+    normalizeLyricsLookupValue(song.album || ""),
+  ].filter(Boolean).join(":");
+
+  return `@fesa:lyrics:${stableMetadataKey || song.id}`;
+};
+
+const getLocalLyrics = async (song: Pick<Song, "id" | "title" | "artist" | "album">): Promise<string | null> => {
   try {
-    const lyrics = await AsyncStorage.getItem(getLyricsStorageKey(songId));
+    const lyrics =
+      (await AsyncStorage.getItem(getLyricsStorageKey(song))) ??
+      (await AsyncStorage.getItem(`@lyrics:${song.id}`));
 
     return lyrics;
   } catch (e) {
@@ -266,27 +293,18 @@ const getLocalLyrics = async (songId: string): Promise<string | null> => {
 };
 
 const saveLocalLyrics = async (
-  songId: string,
+  song: Pick<Song, "id" | "title" | "artist" | "album">,
   lyrics: string,
 ): Promise<void> => {
   try {
-    await AsyncStorage.setItem(getLyricsStorageKey(songId), lyrics);
+    await AsyncStorage.setItem(getLyricsStorageKey(song), lyrics);
   } catch (e) {
     console.error("Error saving local lyrics:", e);
   }
 };
 
-/**
- * SwipeableLyricRow
- *
- * A lyric line that the user can remove by swiping it horizontally
- * (left or right) past a small threshold. A short tap still fires the
- * `onPress` callback (so the row can be selected / deselected like before).
- *
- * Internally uses `PanResponder` + an `Animated.Value` for the swipe
- * translation. The row is dismissed off-screen with a short spring
- * animation, then the parent is notified via `onRemove`.
- */
+
+
 const SWIPE_THRESHOLD = 80;
 const SWIPE_VELOCITY = 0.4;
 const SCREEN_WIDTH_FOR_SWIPE = 480;
@@ -302,6 +320,76 @@ interface SwipeableLyricRowProps {
   onPress: () => void;
   onRemove: () => void;
 }
+
+interface AnimatedLyricLineProps {
+  line: { time: number; text: string };
+  isActive: boolean;
+}
+
+const AnimatedLyricLine = memo(({ line, isActive }: AnimatedLyricLineProps) => {
+  const activeProgress = useRef(new Animated.Value(isActive ? 1 : 0)).current;
+
+  useEffect(() => {
+    activeProgress.stopAnimation();
+    Animated.timing(activeProgress, {
+      toValue: isActive ? 1 : 0,
+      duration: 380,
+      easing: Easing.inOut(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [activeProgress, isActive]);
+
+  return (
+    <Animated.View
+      style={{
+        opacity: activeProgress.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0.5, 1],
+        }),
+        transform: [
+          {
+            translateY: activeProgress.interpolate({
+              inputRange: [0, 1],
+              outputRange: [4, 0],
+            }),
+          },
+          {
+            scale: activeProgress.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0.98, 1.04],
+            }),
+          },
+        ],
+        paddingVertical: 8,
+        paddingHorizontal: 18,
+        alignItems: "center",
+        justifyContent: "center",
+        width: "100%",
+      }}
+    >
+      <Text
+        style={{
+          color: "#ffffff",
+          fontSize: 20,
+          fontWeight: "700",
+          letterSpacing: 0.35,
+          textAlign: "center",
+          lineHeight: 28,
+          width: "100%",
+          maxWidth: 320,
+          flexShrink: 1,
+          textShadowColor: "rgba(255,255,255,0.3)",
+          textShadowOffset: { width: 0, height: 0 },
+          textShadowRadius: 8,
+        }}
+      >
+        {line.text || " "}
+      </Text>
+    </Animated.View>
+  );
+});
+
+AnimatedLyricLine.displayName = "AnimatedLyricLine";
 
 const SwipeableLyricRow = ({
   text,
@@ -322,8 +410,8 @@ const SwipeableLyricRow = ({
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_event, gestureState) => {
-        // Only claim the gesture when the user moves primarily horizontally.
-        // This keeps vertical scroll inside the ScrollView fluid.
+
+
         return (
           Math.abs(gestureState.dx) > 12 &&
           Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.5
@@ -429,7 +517,10 @@ const SwipeableLyricRow = ({
 const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
   const theme = useAppSettingsTheme();
   const language = useAppSettingsLanguage();
-  const t = (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback);
+  const t = useCallback(
+    (key: string, fallback?: string) => getTranslation(language.id as any, key, fallback),
+    [language.id],
+  );
 
   const {
     playing,
@@ -444,8 +535,6 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
 
   const dominantColor = useDominantColor(visible && song ? (song.artwork ?? null) : null, "#1c1c1c");
 
-  const [lyricsRaw, setLyricsRaw] = useState<string | null>(null);
-
   const [loading, setLoading] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
@@ -455,6 +544,7 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
   );
 
   const [activeIndex, setActiveIndex] = useState<number>(-1);
+  const [lyricsListReady, setLyricsListReady] = useState(false);
 
   const [shareSelectionVisible, setShareSelectionVisible] = useState(false);
   const [sharePreviewVisible, setSharePreviewVisible] = useState(false);
@@ -478,9 +568,13 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
       ? []
       : lines.slice(Math.min(shareStart, shareEnd), Math.max(shareStart, shareEnd) + 1);
 
-  const shareText = selectedShareLines.map((line) => line.text).join("\n") || "";
+  const shareText =
+    selectedShareLines
+      .map((line) => line.text.trim())
+      .filter((text) => text.length > 0)
+      .join("\n") || "";
 
-  // Progress scrub state
+
 
   const [scrubTime, setScrubTime] = useState<number | null>(null);
 
@@ -491,22 +585,20 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
     width: 0,
   });
 
-  const scrollRef = useRef<FlatList<{ time: number; text: string }> | null>(null);
+  const scrollRef = useRef<ScrollView | null>(null);
   const selectionScrollRef = useRef<ScrollView | null>(null);
   const shareCardRef = useRef<View | null>(null);
 
-  const lineLayouts = useRef<Array<{ y: number; height: number }>>([]);
-
-  const containerHeight = useRef<number>(0);
-
   useEffect(() => {
     let aborted = false;
+    const activeControllers = new Set<AbortController>();
+    const activeTimeouts = new Set<ReturnType<typeof setTimeout>>();
 
     if (!visible || !song) {
-      setLyricsRaw(null);
       setLines([]);
       setError(null);
       setLoading(false);
+      setLyricsListReady(false);
 
       return;
     }
@@ -514,18 +606,17 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
     const fetchLyrics = async () => {
       setLoading(true);
       setError(null);
-      setLyricsRaw(null);
       setLines([]);
+      setLyricsListReady(false);
 
       try {
         const artist = song.artist || "";
         const title = song.title || "";
         const album = song.album || "";
 
-        const localLyrics = await getLocalLyrics(song.id);
+        const localLyrics = await getLocalLyrics(song);
 
         if (localLyrics) {
-          setLyricsRaw(localLyrics);
 
           const parsed = parseLRC(localLyrics);
 
@@ -541,7 +632,7 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
           return;
         }
 
-        // Normalize artist name
+
         const normalizeArtist = (a: string) =>
           a
             .replace(/\s*\/\s*/g, ", ")
@@ -550,7 +641,7 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
 
         const normalizedArtist = normalizeArtist(artist);
 
-        // Try different variations
+
         const primaryArtist =
           artist.split(/[\/]/)[0].trim() || normalizedArtist;
 
@@ -593,8 +684,10 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
             const url = `https://lrclib.net/api/get?${params.toString()}`;
 
             const controller = new AbortController();
+            activeControllers.add(controller);
 
             const timeoutId = setTimeout(() => controller.abort(), 10000);
+            activeTimeouts.add(timeoutId);
 
             const res = await fetch(url, {
               signal: controller.signal,
@@ -607,6 +700,8 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
             });
 
             clearTimeout(timeoutId);
+            activeTimeouts.delete(timeoutId);
+            activeControllers.delete(controller);
 
             if (res.ok) {
               const data = await res.json();
@@ -616,9 +711,8 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
               const lyrics = getLyricsText(data);
 
               if (lyrics) {
-                await saveLocalLyrics(song.id, lyrics);
+                await saveLocalLyrics(song, lyrics);
 
-                setLyricsRaw(lyrics);
 
                 const parsed = parseLRC(lyrics);
 
@@ -635,7 +729,11 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
               }
             }
           } catch {
-            // Try the next attempt on any network/parse error.
+            activeControllers.forEach(controller => controller.abort());
+            activeControllers.clear();
+            activeTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+            activeTimeouts.clear();
+
           }
         }
 
@@ -649,8 +747,10 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
           const searchUrl = `https://lrclib.net/api/search?${searchParams.toString()}`;
 
           const controller = new AbortController();
+          activeControllers.add(controller);
 
           const timeoutId = setTimeout(() => controller.abort(), 10000);
+          activeTimeouts.add(timeoutId);
 
           const res = await fetch(searchUrl, {
             signal: controller.signal,
@@ -662,6 +762,8 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
           });
 
           clearTimeout(timeoutId);
+          activeTimeouts.delete(timeoutId);
+          activeControllers.delete(controller);
 
           if (res.ok) {
             const data = await res.json();
@@ -672,9 +774,8 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
               const lyrics = getLyricsText(first);
 
               if (lyrics) {
-                await saveLocalLyrics(song.id, lyrics);
+                await saveLocalLyrics(song, lyrics);
 
-                setLyricsRaw(lyrics);
 
                 const parsed = parseLRC(lyrics);
 
@@ -692,7 +793,11 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
             }
           }
         } catch {
-          // Fall through to the not-found state below.
+          activeControllers.forEach(controller => controller.abort());
+          activeControllers.clear();
+          activeTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+          activeTimeouts.clear();
+
         }
 
         if (aborted) return;
@@ -719,14 +824,15 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
 
     return () => {
       aborted = true;
-
-      lineLayouts.current = [];
-
+      activeControllers.forEach(controller => controller.abort());
+      activeControllers.clear();
+      activeTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+      activeTimeouts.clear();
       setActiveIndex(-1);
     };
-  }, [visible, song]);
+  }, [language.id, song?.album, song?.artist, song?.id, song?.title, visible]);
 
-  // Update active index when currentTime or lines change
+
 
   useEffect(() => {
     if (!lines || lines.length === 0) {
@@ -749,7 +855,7 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
       return;
     }
 
-    // Binary search for better performance
+
 
     let left = 0;
     let right = lines.length - 1;
@@ -771,41 +877,21 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
     }
   }, [currentTime, lines, activeIndex]);
 
-  // Scroll to active line
 
   useEffect(() => {
-    if (activeIndex < 0) return;
-
-    const layout = lineLayouts.current[activeIndex];
-
-    if (!layout || !scrollRef.current || !containerHeight.current) {
+    if (!lyricsListReady || activeIndex < 0 || lines.length === 0) {
       return;
     }
 
-    const targetY = Math.max(
-      0,
-      layout.y -
-        containerHeight.current / 2 +
-        layout.height / 2,
-    );
-
-    scrollRef.current?.scrollToOffset({
-      offset: Math.max(0, targetY),
-      animated: false,
+    const frame = requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({
+        y: Math.max(0, activeIndex * LYRIC_LINE_HEIGHT - 111),
+        animated: true,
+      });
     });
-  }, [activeIndex]);
 
-  const onLineLayout = (
-    index: number,
-    y: number,
-    height: number,
-  ) => {
-    lineLayouts.current[index] = { y, height };
-  };
-
-  const onScrollViewLayout = (e: any) => {
-    containerHeight.current = e.nativeEvent.layout.height;
-  };
+    return () => cancelAnimationFrame(frame);
+  }, [activeIndex, lines.length, lyricsListReady]);
 
   const openShareSelection = () => {
     if (activeIndex >= 0) {
@@ -819,24 +905,29 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
     setShareSelectionVisible(true);
   };
 
-  // Default to the color-based theme every time the share preview opens,
-  // and whenever the playing track changes. The user's manual override is
-  // still respected for the duration of that preview session.
+
+
+
   useEffect(() => {
     if (sharePreviewVisible) {
       setShareThemeId("dynamic");
     }
   }, [sharePreviewVisible, song?.id]);
 
+
   useEffect(() => {
-    if (!shareSelectionVisible || activeIndex < 0 || !selectionScrollRef.current) {
+    if (!shareSelectionVisible || activeIndex < 0) {
       return;
     }
 
-    selectionScrollRef.current.scrollTo({
-      y: Math.max(0, activeIndex * 42),
-      animated: false,
+    const frame = requestAnimationFrame(() => {
+      selectionScrollRef.current?.scrollTo({
+        y: Math.max(0, activeIndex * 50 - 120),
+        animated: false,
+      });
     });
+
+    return () => cancelAnimationFrame(frame);
   }, [shareSelectionVisible]);
 
   const deselectAll = () => {
@@ -844,9 +935,9 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
     setShareEnd(null);
   };
 
-  // Remove a single lyric line by index. The selection range is shifted
-  // to stay valid after the removal, and a fully-cleared selection is
-  // collapsed back to `null`.
+
+
+
   const removeLyricLineAt = (index: number) => {
     if (index < 0 || index >= lines.length) {
       return;
@@ -866,7 +957,7 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
       setShareStart(shareStart - 1);
       setShareEnd(shareEnd - 1);
     } else if (index > maxIndex) {
-      // Selection stays the same.
+
     } else if (minIndex === maxIndex && index === minIndex) {
       setShareStart(null);
       setShareEnd(null);
@@ -896,23 +987,6 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
     setShareEnd(nextEnd);
   };
 
-  const shareSelectedLyrics = async () => {
-    if (!shareText.trim()) {
-      return;
-    }
-
-    const preview = `${song?.title ?? "Canción"}\n${song?.artist ?? "Artista"}\n\n${shareText}`;
-
-    try {
-      await Share.share({
-        message: preview,
-        title: song?.title ?? "Letra de la canción",
-      });
-    } catch (error) {
-      console.error("Error sharing lyrics:", error);
-    }
-  };
-
   const saveLyricsCard = async () => {
     if (!shareCardRef.current || !shareText.trim()) {
       return;
@@ -940,6 +1014,35 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
       setSaveFeedback("error");
     }
   };
+
+  const renderLyricLine = useCallback(
+    ({ item: line, index: i }: { item: { time: number; text: string }; index: number }) => {
+      const isActive = i === activeIndex;
+
+      return (
+        <View
+          style={{
+            height: LYRIC_LINE_HEIGHT,
+            alignItems: "center",
+            justifyContent: "center",
+            overflow: "visible",
+            width: "100%",
+          }}
+        >
+          <AnimatedLyricLine line={line} isActive={isActive} />
+        </View>
+      );
+    },
+    [activeIndex],
+  );
+
+  const lyricContentContainerStyle = useMemo(
+    () => ({
+      paddingVertical: 34,
+      paddingHorizontal: 16,
+    }),
+    [],
+  );
 
   return (
     <>
@@ -979,7 +1082,7 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
             }}
           />
 
-          {/* Don't close on backdrop tap; only on hardware back */}
+
 
           <View
             style={{
@@ -1119,7 +1222,6 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
 
                 <View
                   style={{ height: 360 }}
-                  onLayout={onScrollViewLayout}
                 >
                   {loading ? (
                     <View className="flex-1 items-center justify-center px-4">
@@ -1151,59 +1253,18 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
                       </Text>
                     </View>
                   ) : lines && lines.length ? (
-                    <FlatList
-                      ref={(ref) => {
-                        scrollRef.current = ref;
-                      }}
-                      data={lines}
-                      keyExtractor={(item, index) => `${index}-${item.time}`}
-                      // stable keyExtractor prevents re-mount when `lines` is
-                      // re-assigned during the multi-attempt fetch.
-                      initialNumToRender={20}
-                      maxToRenderPerBatch={15}
-                      windowSize={5}
-                      removeClippedSubviews
-                      getItemLayout={(_data, index) => ({
-                        length: LYRIC_LINE_HEIGHT,
-                        offset: LYRIC_LINE_HEIGHT * index,
-                        index,
-                      })}
-                      contentContainerStyle={{ paddingVertical: 40 }}
-                      renderItem={({ item: line, index: i }) => {
-                        const isActive = i === activeIndex;
-                        return (
-                          <View
-                            onLayout={(e) =>
-                              onLineLayout(
-                                i,
-                                e.nativeEvent.layout.y,
-                                e.nativeEvent.layout.height,
-                              )
-                            }
-                            style={{
-                              height: LYRIC_LINE_HEIGHT,
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <Text
-                              style={{
-                                color: isActive
-                                  ? "#ffffff"
-                                  : "rgba(255,255,255,0.6)",
-                                fontSize: isActive ? 22 : 16,
-                                fontWeight: isActive
-                                  ? "800"
-                                  : "500",
-                                textAlign: "center",
-                              }}
-                            >
-                              {line.text || " "}
-                            </Text>
-                          </View>
-                        );
-                      }}
-                    />
+                    <ScrollView
+                      ref={scrollRef}
+                      showsVerticalScrollIndicator={false}
+                      onLayout={() => setLyricsListReady(true)}
+                      contentContainerStyle={lyricContentContainerStyle}
+                    >
+                      {lines.map((line, index) => (
+                        <View key={`${index}-${line.time}`}>
+                          {renderLyricLine({ item: line, index })}
+                        </View>
+                      ))}
+                    </ScrollView>
                   ) : (
                     <View className="flex-1 items-center justify-center px-4">
                       <Text style={{ color: theme.mutedText }}>
@@ -1214,7 +1275,7 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
                 </View>
               </View>
 
-              {/* Bottom controls: progress + playback controls */}
+
 
               <View
                 style={{
@@ -1698,9 +1759,7 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
             </View>
 
             <View className="mt-auto rounded-[20px] border px-3 py-3" style={{ backgroundColor: `${shareTheme.card}cc`, borderColor: `${shareTheme.text}18` }}>
-              <Text className="mb-2 text-xs font-semibold uppercase tracking-[1px]" style={{ color: shareTheme.muted }}>
-                {t("lyrics_share_theme_label", "Style")}
-              </Text>
+
               <View className="flex-row flex-wrap items-center justify-center gap-2">
                 {SHARE_THEMES.map((themeOption) => {
                 const isSelected = themeOption.id === shareThemeId;

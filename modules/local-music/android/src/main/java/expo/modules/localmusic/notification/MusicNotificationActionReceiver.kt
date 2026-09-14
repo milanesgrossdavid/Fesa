@@ -7,13 +7,18 @@ import android.content.Intent
 class MusicNotificationActionReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
     val action = intent.action ?: return
-    val callback = actionCallback ?: return
+    val callback = actionCallback
+    if (callback == null) {
+      return
+    }
     when (action) {
       MusicNotificationService.ACTION_PREVIOUS,
       MusicNotificationService.ACTION_NEXT,
       MusicNotificationService.ACTION_TOGGLE,
       MusicNotificationService.ACTION_REWIND,
-      MusicNotificationService.ACTION_FORWARD -> callback(action, null)
+      MusicNotificationService.ACTION_FORWARD,
+      MusicNotificationService.ACTION_SHUFFLE,
+      MusicNotificationService.ACTION_REPEAT -> callback(action, null)
       MusicNotificationService.ACTION_SEEK -> callback(
         action,
         intent.getLongExtra(MusicNotificationService.EXTRA_SEEK_POSITION_MS, 0L)

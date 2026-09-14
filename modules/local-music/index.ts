@@ -18,7 +18,7 @@ export type Song = {
 
 export type ToneType = 'ringtone' | 'contact' | 'alarm';
 
-export type MusicNotificationAction = 'previous' | 'next' | 'toggle' | 'seek' | 'rewind' | 'forward';
+export type MusicNotificationAction = 'previous' | 'next' | 'toggle' | 'seek' | 'rewind' | 'forward' | 'shuffle' | 'repeat';
 
 export type MusicNotificationState = {
   title: string;
@@ -27,6 +27,10 @@ export type MusicNotificationState = {
   playing: boolean;
   positionMs: number;
   durationMs: number;
+};
+
+export type SystemVolumeChange = {
+  volume: number;
 };
 
 const LocalMusic = requireNativeModule('LocalMusic');
@@ -38,6 +42,32 @@ let audioFilesLoadRequest: Promise<Song[]> | null = null;
 let audioFilesCache: Song[] | null = null;
 let audioFilesCacheTimestamp = 0;
 let metadataWritePermissionStatus: 'unknown' | 'granted' | 'denied' = 'unknown';
+let audioReadPermissionGranted = false;
+
+export async function getSystemVolume(): Promise<number | null> {
+  if (typeof LocalMusic.getSystemVolume !== 'function') {
+    return null;
+  }
+
+  return LocalMusic.getSystemVolume();
+}
+
+export async function setSystemVolume(volume: number): Promise<void> {
+  if (typeof LocalMusic.setSystemVolume !== 'function') {
+    return;
+  }
+
+  await LocalMusic.setSystemVolume(Math.min(Math.max(volume, 0), 1));
+}
+
+export function addSystemVolumeListener(listener: (event: SystemVolumeChange) => void) {
+  const subscription = (localMusicEmitter.addListener as any)('onSystemVolumeChange', listener);
+  return {
+    remove: () => {
+      subscription?.remove?.();
+    },
+  };
+}
 
 const AUDIO_FILES_CACHE_TTL_MS = 30_000;
 
@@ -84,9 +114,9 @@ export async function getAudioFilesWithPermission(includeHidden = false): Promis
   audioFilesRequestIncludeHidden = includeHidden;
   audioFilesRequest = (async () => {
     try {
-      let granted = false;
+      let granted = audioReadPermissionGranted;
 
-      if (Platform.OS === 'android') {
+      if (!granted && Platform.OS === 'android') {
         const version = typeof Platform.Version === 'string'
           ? parseInt(Platform.Version, 10)
           : Platform.Version;
@@ -97,11 +127,12 @@ export async function getAudioFilesWithPermission(includeHidden = false): Promis
 
         const result = await PermissionsAndroid.request(permission);
         granted = result === PermissionsAndroid.RESULTS.GRANTED;
-      } else {
+      } else if (!granted) {
         granted = true;
       }
 
       if (granted) {
+        audioReadPermissionGranted = true;
         return await getAudioFiles(includeHidden);
       }
       return [];

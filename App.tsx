@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Text as RNText } from 'react-native';
 import * as Font from 'expo-font';
@@ -13,7 +13,7 @@ import TabNavigator from './src/navigation/TabNavigator';
 import { useAppSettingsTheme } from './src/settings/appSettings';
 import "./global.css"
 
-export const SF_PRO_FONT_FAMILY = 'SF Pro Text';
+export const APP_FONT_FAMILY = 'SF Pro Text';
 export const FESA_LOCK_DATE_FONT_FAMILY = 'Fesa-LockDate';
 
 const ICON_FONT_FAMILIES = [
@@ -28,10 +28,10 @@ export default function App() {
   const [fontsReady, setFontsReady] = useState(false);
 
   useEffect(() => {
-    // Preload all icon font files so the first time each family is rendered
-    // (typically inside a Modal) we don't pay the expo-font decode cost on
-    // the JS thread. This eliminates the "icons load late on first open"
-    // jank that compounds with modal animations.
+
+
+
+
     let cancelled = false;
     const fontMap: Record<string, number> = {};
     for (const family of ICON_FONT_FAMILIES) {
@@ -39,7 +39,7 @@ export default function App() {
     }
     Font.loadAsync({
       ...fontMap,
-      [SF_PRO_FONT_FAMILY]: require('./assets/fonts/SFNSText-Regular.otf'),
+      [APP_FONT_FAMILY]: require('./assets/fonts/SFNSText-Regular.otf'),
       [FESA_LOCK_DATE_FONT_FAMILY]: require('./assets/fonts/SFNSText-Regular.otf'),
     }).then(() => {
       if (cancelled) return;
@@ -49,9 +49,16 @@ export default function App() {
       textComponent.defaultProps = textComponent.defaultProps || {};
       textComponent.defaultProps.style = [
         textComponent.defaultProps.style,
-        { fontFamily: SF_PRO_FONT_FAMILY },
+        { fontFamily: APP_FONT_FAMILY },
       ];
-      setFontsReady(true);
+    }).catch(error => {
+      if (!cancelled) {
+        console.warn('No se pudieron cargar las fuentes personalizadas:', error);
+      }
+    }).finally(() => {
+      if (!cancelled) {
+        setFontsReady(true);
+      }
     });
     return () => {
       cancelled = true;

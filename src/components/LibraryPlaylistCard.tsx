@@ -1,4 +1,3 @@
-import React from 'react';
 import { Text, View } from 'react-native';
 import LibraryArtwork from './LibraryArtwork';
 import { useAppSettingsTheme } from '../settings/appSettings';
@@ -9,6 +8,7 @@ type PlaylistCardData = {
   name: string;
   subtitle: string;
   songs: { artwork?: string | null }[];
+  fallbackArtwork?: number;
 };
 
 interface LibraryPlaylistCardProps {
@@ -36,6 +36,7 @@ const LibraryPlaylistCard = ({ playlist, onPress }: LibraryPlaylistCardProps) =>
       >
         <LibraryArtwork
           artwork={playlist.songs[0]?.artwork}
+          fallbackArtwork={playlist.fallbackArtwork}
           className="aspect-square w-full rounded-xl"
           fallbackTextClassName="text-4xl font-bold text-white"
           fallbackTextStyle={{ color: theme.text }}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useSyncExternalStore } from 'react';
+import { Appearance } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Localization from 'expo-localization';
 
@@ -38,6 +39,7 @@ export type TabPreference = {
 
 type PersistedAppSettings = {
   sleepTimerEndsAt: number | null;
+  sleepTimerFinishCurrentSong: boolean;
   playbackRate: number;
   lockScreenControlsEnabled: boolean;
   skipSilenceBetweenTracks: boolean;
@@ -156,12 +158,15 @@ export const APP_LANGUAGES: AppLanguage[] = [
   { id: 'it', label: 'Italiano', nativeName: 'Italiano' },
 ];
 
+const resolveDeviceThemeId = (): AppThemeId => Appearance.getColorScheme() === 'light' ? 'light' : 'dark';
+
 const DEFAULT_SETTINGS: PersistedAppSettings = {
   sleepTimerEndsAt: null,
+  sleepTimerFinishCurrentSong: false,
   playbackRate: 1,
   lockScreenControlsEnabled: true,
   skipSilenceBetweenTracks: true,
-  themeId: 'dark',
+  themeId: resolveDeviceThemeId(),
   languageId: 'es',
   tabs: DEFAULT_TABS,
   termsAcceptedAt: null,
@@ -177,6 +182,8 @@ const getLanguageById = (languageId: AppLanguageId) => APP_LANGUAGES.find(langua
 const VALID_TAB_IDS = new Set<TabId>(DEFAULT_TABS.map(tab => tab.id));
 
 let hydrated = false;
+let hydrationPromise: Promise<void> | null = null;
+let persistQueue = Promise.resolve();
 let sleepTimerId: ReturnType<typeof setTimeout> | null = null;
 let persistedState: PersistedAppSettings = DEFAULT_SETTINGS;
 let snapshot: AppSettingsSnapshot = {
@@ -240,13 +247,14 @@ const updateSnapshot = () => {
   const theme = getThemeById(persistedState.themeId);
   const language = getLanguageById(persistedState.languageId);
 
-  // Reuse the same snapshot reference when nothing observable changed so
-  // useSyncExternalStore doesn't trigger re-renders in every consumer.
+
+
   if (
     snapshot.tabs === tabs
     && snapshot.theme === theme
     && snapshot.language === language
     && snapshot.sleepTimerEndsAt === persistedState.sleepTimerEndsAt
+    && snapshot.sleepTimerFinishCurrentSong === persistedState.sleepTimerFinishCurrentSong
     && snapshot.playbackRate === persistedState.playbackRate
     && snapshot.lockScreenControlsEnabled === persistedState.lockScreenControlsEnabled
     && snapshot.skipSilenceBetweenTracks === persistedState.skipSilenceBetweenTracks
@@ -271,12 +279,15 @@ const emit = () => {
   listeners.forEach(listener => listener());
 };
 
-const persist = async () => {
-  try {
-    await AsyncStorage.setItem(APP_SETTINGS_STORAGE_KEY, JSON.stringify(persistedState));
-  } catch (error) {
-    console.warn('No se pudieron guardar los ajustes:', error);
-  }
+const persist = () => {
+  const serializedState = JSON.stringify(persistedState);
+  persistQueue = persistQueue
+    .then(() => AsyncStorage.setItem(APP_SETTINGS_STORAGE_KEY, serializedState))
+    .catch(error => {
+      console.warn('No se pudieron guardar los ajustes:', error);
+    });
+
+  return persistQueue;
 };
 
 const clearSleepTimer = () => {
@@ -290,6 +301,7 @@ const notifySleepTimerExpired = () => {
   persistedState = {
     ...persistedState,
     sleepTimerEndsAt: null,
+    sleepTimerFinishCurrentSong: false,
   };
   emit();
   void persist();
@@ -326,15 +338,19 @@ export const subscribeAppSettings = (listener: () => void) => {
 export const getAppSettingsSnapshot = () => snapshot;
 
 export const hydrateAppSettings = async () => {
+  if (hydrationPromise) {
+    return hydrationPromise;
+  }
   if (hydrated) {
     return;
   }
 
   hydrated = true;
 
-  let shouldPersistDetectedLanguage = false;
+  hydrationPromise = (async () => {
+    let shouldPersistDetectedLanguage = false;
 
-  try {
+    try {
     const storedValue = await AsyncStorage.getItem(APP_SETTINGS_STORAGE_KEY);
 
     if (storedValue) {
@@ -361,21 +377,24 @@ export const hydrateAppSettings = async () => {
       };
       shouldPersistDetectedLanguage = detectedLanguageId !== DEFAULT_SETTINGS.languageId;
     }
-  } catch (error) {
-    console.warn('No se pudieron cargar los ajustes:', error);
-    persistedState = {
-      ...DEFAULT_SETTINGS,
-      languageId: resolveDeviceLanguageId(),
-    };
-    shouldPersistDetectedLanguage = true;
-  }
+    } catch (error) {
+      console.warn('No se pudieron cargar los ajustes:', error);
+      persistedState = {
+        ...DEFAULT_SETTINGS,
+        languageId: resolveDeviceLanguageId(),
+      };
+      shouldPersistDetectedLanguage = true;
+    }
 
-  emit();
-  scheduleSleepTimer();
+    emit();
+    scheduleSleepTimer();
 
-  if (shouldPersistDetectedLanguage) {
-    void persist();
-  }
+    if (shouldPersistDetectedLanguage) {
+      await persist();
+    }
+  })();
+
+  return hydrationPromise;
 };
 
 const updatePersistedState = (partialState: Partial<PersistedAppSettings>) => {
@@ -386,6 +405,7 @@ const updatePersistedState = (partialState: Partial<PersistedAppSettings>) => {
 
   if (
     persistedState.sleepTimerEndsAt === nextState.sleepTimerEndsAt
+    && persistedState.sleepTimerFinishCurrentSong === nextState.sleepTimerFinishCurrentSong
     && persistedState.playbackRate === nextState.playbackRate
     && persistedState.lockScreenControlsEnabled === nextState.lockScreenControlsEnabled
     && persistedState.skipSilenceBetweenTracks === nextState.skipSilenceBetweenTracks
@@ -403,9 +423,10 @@ const updatePersistedState = (partialState: Partial<PersistedAppSettings>) => {
   void persist();
 };
 
-export const setSleepTimer = (minutes: number | null) => {
+export const setSleepTimer = (minutes: number | null, finishCurrentSong = false) => {
   updatePersistedState({
     sleepTimerEndsAt: minutes ? Date.now() + minutes * 60 * 1000 : null,
+    sleepTimerFinishCurrentSong: minutes ? finishCurrentSong : false,
   });
   scheduleSleepTimer();
 };
@@ -541,6 +562,10 @@ const useSettingsSlice = <T,>(selector: (s: AppSettingsSnapshot) => T): T => {
     sliceRef.current = next;
     return next;
   };
+  useEffect(() => {
+    void hydrateAppSettings();
+  }, []);
+
   return useSyncExternalStore(subscribeWithSelector, getSelected, getSelected);
 };
 
@@ -550,6 +575,7 @@ export const useAppSettingsTabs = () => useSettingsSlice(s => s.tabs);
 export const useAppSettingsHiddenSongIds = () => useSettingsSlice(s => s.hiddenSongIds);
 export const useAppSettingsPlaybackRate = () => useSettingsSlice(s => s.playbackRate);
 export const useAppSettingsSleepTimerEndsAt = () => useSettingsSlice(s => s.sleepTimerEndsAt);
+export const useAppSettingsSleepTimerFinishCurrentSong = () => useSettingsSlice(s => s.sleepTimerFinishCurrentSong);
 export const useAppSettingsLockScreenControls = () => useSettingsSlice(s => s.lockScreenControlsEnabled);
 export const useAppSettingsSkipSilence = () => useSettingsSlice(s => s.skipSilenceBetweenTracks);
 export const useAppSettingsTermsAccepted = () => useSettingsSlice(s => s.termsAcceptedAt);

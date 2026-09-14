@@ -1,4 +1,3 @@
-import React from 'react';
 import GroupedLibraryScreen from './GroupedLibraryScreen';
 import { getTranslation } from '../i18n/translations';
 import { useAppSettingsLanguage } from '../settings/appSettings';

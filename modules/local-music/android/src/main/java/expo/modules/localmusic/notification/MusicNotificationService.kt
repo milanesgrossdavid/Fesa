@@ -154,6 +154,13 @@ class MusicNotificationService : Service() {
       )
       .addAction(
         NotificationCompat.Action(
+          R.drawable.ic_notif_shuffle,
+          "Aleatorio",
+          actionPendingIntent(ACTION_SHUFFLE)
+        )
+      )
+      .addAction(
+        NotificationCompat.Action(
           R.drawable.ic_notif_prev,
           "Anterior",
           actionPendingIntent(ACTION_PREVIOUS)
@@ -171,6 +178,13 @@ class MusicNotificationService : Service() {
           R.drawable.ic_notif_next,
           "Siguiente",
           actionPendingIntent(ACTION_NEXT)
+        )
+      )
+      .addAction(
+        NotificationCompat.Action(
+          R.drawable.ic_notif_repeat,
+          "Repetir",
+          actionPendingIntent(ACTION_REPEAT)
         )
       )
 
@@ -205,17 +219,17 @@ class MusicNotificationService : Service() {
       rv.setImageViewResource(R.id.notif_artwork, R.drawable.notif_artwork_placeholder)
     }
 
-    // Play / Pause icon toggle
     rv.setImageViewResource(
       R.id.notif_btn_play,
       if (state.playing) R.drawable.ic_notif_pause else R.drawable.ic_notif_play
     )
 
     rv.setOnClickPendingIntent(R.id.notif_btn_prev, actionPendingIntent(ACTION_PREVIOUS))
+    rv.setOnClickPendingIntent(R.id.notif_btn_shuffle, actionPendingIntent(ACTION_SHUFFLE))
     rv.setOnClickPendingIntent(R.id.notif_btn_play, actionPendingIntent(ACTION_TOGGLE))
     rv.setOnClickPendingIntent(R.id.notif_btn_next, actionPendingIntent(ACTION_NEXT))
+    rv.setOnClickPendingIntent(R.id.notif_btn_repeat, actionPendingIntent(ACTION_REPEAT))
 
-    // Only the big view has the seekbar and timestamps.
     if (layoutRes == R.layout.notif_music_big) {
       rv.setOnClickPendingIntent(R.id.notif_btn_rewind, actionPendingIntent(ACTION_REWIND))
       rv.setOnClickPendingIntent(R.id.notif_btn_forward, actionPendingIntent(ACTION_FORWARD))
@@ -287,7 +301,6 @@ class MusicNotificationService : Service() {
           (conn.getInputStream() as? InputStream)?.use { BitmapFactory.decodeStream(it, null, options) }
         }
         null -> {
-          // Absolute file path fallback
           BitmapFactory.decodeFile(uriString, options)
         }
         else -> null
@@ -468,6 +481,8 @@ class MusicNotificationService : Service() {
     const val ACTION_SEEK = "expo.modules.localmusic.action.SEEK"
     const val ACTION_REWIND = "expo.modules.localmusic.action.REWIND_10"
     const val ACTION_FORWARD = "expo.modules.localmusic.action.FORWARD_10"
+    const val ACTION_SHUFFLE = "expo.modules.localmusic.action.SHUFFLE"
+    const val ACTION_REPEAT = "expo.modules.localmusic.action.REPEAT"
 
     const val EXTRA_TITLE = "title"
     const val EXTRA_ARTIST = "artist"

@@ -1,15 +1,14 @@
-import React, { memo, useCallback } from 'react';
+import { memo, useCallback } from 'react';
 import { GestureResponderEvent, Pressable, View, Text } from 'react-native';
-import { Image as ExpoImage } from 'expo-image';
 import { Song } from '../../modules/local-music';
 import { getTranslation } from '../i18n/translations';
 import { CheckIcon, DotsIcon } from '../Icons';
-import { formatDuration } from '../utils/time';
+import { formatSongDuration } from '../utils/time';
 import AudioWaveBars from './AudioWaveBars';
 import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import MicroPressable from './MicroPressable';
-
-const DEFAULT_MUSIC_ARTWORK = require('../../assets/musicNotFound.jpg');
+import LibraryArtwork from './LibraryArtwork';
+import AutoScrollingText from './AutoScrollingText';
 
 interface SongListItemProps {
   item: Song;
@@ -81,35 +80,23 @@ const SongListItem = ({
         style={{ backgroundColor: isActive ? theme.surface : theme.background }}
         onPress={handleArtworkPress}
       >
-        {item.artwork ? (
-          <ExpoImage
-            source={{ uri: item.artwork }}
-            style={{ width: '100%', height: '100%', borderRadius: 8 }}
-            contentFit="cover"
-            cachePolicy="memory-disk"
-            recyclingKey={item.artwork}
-            transition={80}
-          />
-        ) : (
-          <ExpoImage
-            source={DEFAULT_MUSIC_ARTWORK}
-            style={{ width: '100%', height: '100%', borderRadius: 8 }}
-            contentFit="cover"
-          />
-        )}
+        <LibraryArtwork
+          artwork={item.artwork}
+          className="h-full w-full rounded-lg"
+        />
       </Pressable>
       <View className="flex-1 pr-3">
-        <Text className={`mb-1 text-base ${isActive ? 'font-extrabold' : 'font-semibold'}`} style={{ color: theme.text }} numberOfLines={1}>
+        <AutoScrollingText className={`mb-1 text-base ${isActive ? 'font-extrabold' : 'font-semibold'}`} style={{ color: theme.text }} >
           {item.title}
-        </Text>
-        <Text className="text-sm" style={{ color: theme.mutedText }} numberOfLines={1}>
-          {item.artist || unknownArtistLabel} • {item.album || unknownAlbumLabel}
-        </Text>
+        </AutoScrollingText>
+        <AutoScrollingText className="text-sm" style={{ color: theme.mutedText }}>
+          {`${item.artist || unknownArtistLabel} • ${item.album || unknownAlbumLabel}`}
+        </AutoScrollingText>
       </View>
       <View className="flex-row items-center gap-3">
         {showDuration ? (
           <Text className="text-sm font-medium" style={{ color: isActive ? theme.text : theme.mutedText }}>
-            {formatDuration(item.duration)}
+            {formatSongDuration(item.duration)}
           </Text>
         ) : null}
         {isPlaying ? <AudioWaveBars playing color={theme.text} /> : null}
