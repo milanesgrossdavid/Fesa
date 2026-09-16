@@ -186,6 +186,8 @@ let hydrationPromise: Promise<void> | null = null;
 let persistQueue = Promise.resolve();
 let sleepTimerId: ReturnType<typeof setTimeout> | null = null;
 let persistedState: PersistedAppSettings = DEFAULT_SETTINGS;
+let normalizedTabsSource: TabPreference[] | undefined;
+let normalizedTabsSnapshot = DEFAULT_TABS;
 let snapshot: AppSettingsSnapshot = {
   ...DEFAULT_SETTINGS,
   theme: getThemeById(DEFAULT_SETTINGS.themeId),
@@ -243,7 +245,12 @@ const normalizeTabs = (tabs?: TabPreference[]) => {
 };
 
 const updateSnapshot = () => {
-  const tabs = normalizeTabs(persistedState.tabs);
+  if (normalizedTabsSource !== persistedState.tabs) {
+    normalizedTabsSource = persistedState.tabs;
+    normalizedTabsSnapshot = normalizeTabs(persistedState.tabs);
+  }
+
+  const tabs = normalizedTabsSnapshot;
   const theme = getThemeById(persistedState.themeId);
   const language = getLanguageById(persistedState.languageId);
 

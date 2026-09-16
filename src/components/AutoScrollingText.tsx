@@ -5,12 +5,14 @@ interface AutoScrollingTextProps {
   children: string;
   className?: string;
   style?: object;
+  animate?: boolean;
 }
 
 const AutoScrollingText = React.memo(function AutoScrollingText({
   children,
   className,
   style,
+  animate = true,
 }: AutoScrollingTextProps) {
   const offset = useRef(new Animated.Value(0)).current;
   const [containerWidth, setContainerWidth] = useState(0);
@@ -28,9 +30,11 @@ const AutoScrollingText = React.memo(function AutoScrollingText({
   }, [children, offset]);
 
   useEffect(() => {
-
-
-
+    if (!animate) {
+      offset.stopAnimation();
+      offset.setValue(0);
+      return;
+    }
 
     if (!textWidth || !containerWidth) {
       return;
@@ -66,7 +70,7 @@ const AutoScrollingText = React.memo(function AutoScrollingText({
     animation.start();
     return () => animation.stop();
 
-  }, [children, textWidth, containerWidth]);
+  }, [animate, children, textWidth, containerWidth]);
 
   const hiddenTextStyle = useMemo(
     () => ({
@@ -100,29 +104,32 @@ const AutoScrollingText = React.memo(function AutoScrollingText({
         numberOfLines={1}
         style={[
           style,
+          !animate && { flexShrink: 1 },
           {
-            width: textWidth || undefined,
+            width: animate ? textWidth || undefined : undefined,
             transform: [{ translateX: offset }],
           },
         ]}
       >
         {children}
       </Animated.Text>
-      <Text
-        className={className}
-        numberOfLines={1}
-        accessible={false}
-        onTextLayout={({ nativeEvent }) => {
-          const nextWidth = nativeEvent.lines[0]?.width ?? 0;
-          if (nextWidth > 0 && nextWidth !== lastTextWidthRef.current) {
-            lastTextWidthRef.current = nextWidth;
-            setTextWidth(nextWidth);
-          }
-        }}
-        style={[style, hiddenTextStyle]}
-      >
-        {children}
-      </Text>
+      {animate ? (
+        <Text
+          className={className}
+          numberOfLines={1}
+          accessible={false}
+          onTextLayout={({ nativeEvent }) => {
+            const nextWidth = nativeEvent.lines[0]?.width ?? 0;
+            if (nextWidth > 0 && nextWidth !== lastTextWidthRef.current) {
+              lastTextWidthRef.current = nextWidth;
+              setTextWidth(nextWidth);
+            }
+          }}
+          style={[style, hiddenTextStyle]}
+        >
+          {children}
+        </Text>
+      ) : null}
     </View>
   );
 });

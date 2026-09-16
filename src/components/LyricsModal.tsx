@@ -588,6 +588,7 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
   const scrollRef = useRef<ScrollView | null>(null);
   const selectionScrollRef = useRef<ScrollView | null>(null);
   const shareCardRef = useRef<View | null>(null);
+  const sharePreviewCaptureRef = useRef<View | null>(null);
 
   useEffect(() => {
     let aborted = false;
@@ -988,7 +989,7 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
   };
 
   const saveLyricsCard = async () => {
-    if (!shareCardRef.current || !shareText.trim()) {
+    if (!sharePreviewCaptureRef.current || !shareText.trim()) {
       return;
     }
 
@@ -1002,7 +1003,7 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
         return;
       }
 
-      const uri = await captureRef(shareCardRef, {
+      const uri = await captureRef(sharePreviewCaptureRef, {
         format: "png",
         quality: 1,
         result: "tmpfile",
@@ -1708,14 +1709,20 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
 
             <View className="flex-1 justify-center">
               <View
-                ref={shareCardRef}
+                ref={sharePreviewCaptureRef}
                 collapsable={false}
-                className="rounded-[20px] border p-5"
-                style={{
-                  backgroundColor: shareTheme.card,
-                  borderColor: "rgba(255,255,255,0.12)",
-                }}
+                className="rounded-[24px] p-5"
+                style={{ backgroundColor: shareTheme.background }}
               >
+                <View
+                  ref={shareCardRef}
+                  collapsable={false}
+                  className="rounded-[20px] border p-5"
+                  style={{
+                    backgroundColor: shareTheme.card,
+                    borderColor: "rgba(255,255,255,0.12)",
+                  }}
+                >
                 <View className="mb-4 flex-row items-center">
                   <View
                     className="mr-4 overflow-hidden rounded-[12px]"
@@ -1756,6 +1763,7 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
                   <Text style={{ color: shareTheme.muted, fontSize: 16, fontWeight: "700" }}>FESA</Text>
                 </View>
               </View>
+            </View>
             </View>
 
             <View className="mt-auto rounded-[20px] border px-3 py-3" style={{ backgroundColor: `${shareTheme.card}cc`, borderColor: `${shareTheme.text}18` }}>
@@ -1833,9 +1841,23 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
               accessibilityRole="button"
               accessibilityLabel={t("lyrics_save_action", "Guardar")}
             >
-              <Text style={{ color: shareText.trim() ? theme.background : theme.mutedText, fontSize: 18, fontWeight: "800" }}>
-                {t("lyrics_save_action", "Guardar")}
-              </Text>
+              <View className="flex-row items-center justify-center">
+                <Ionicons
+                  name="download-outline"
+                  size={20}
+                  color={shareText.trim() ? theme.background : theme.mutedText}
+                />
+                <Text
+                  className="ml-2"
+                  style={{
+                    color: shareText.trim() ? theme.background : theme.mutedText,
+                    fontSize: 18,
+                    fontWeight: "800",
+                  }}
+                >
+                  {t("lyrics_download_action", "Descargar vista previa")}
+                </Text>
+              </View>
             </Pressable>
           </View>
         </View>

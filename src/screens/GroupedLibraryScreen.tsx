@@ -34,6 +34,7 @@ import { TrackSortDirection, TrackSortOption } from '../components/TopNavPistas'
 import { MINI_PLAYER_BOTTOM_INSET, SELECTION_BAR_BOTTOM_INSET } from '../utils/layout';
 import { loadSortPreference, saveSortPreference } from '../utils/sortPreferences';
 import PlayerScreen from './PlayerScreen';
+import { getUnknownAlbum, getUnknownArtist, getUnknownFolder } from '../utils/text';
 
 type GroupedLibraryMode = 'albums' | 'artists' | 'folders';
 
@@ -64,9 +65,6 @@ interface GroupedLibraryScreenProps {
   title: string;
 }
 
-const UNKNOWN_ALBUM = 'Álbum Desconocido';
-const UNKNOWN_ARTIST = 'Artista Desconocido';
-const UNKNOWN_FOLDER = 'Carpeta Desconocida';
 const CUSTOM_PLAYLISTS_STORAGE_KEY = '@fesa:custom-playlists';
 
 const normalizeValue = (value: string | null | undefined, fallback: string) => {
@@ -77,17 +75,17 @@ const normalizeValue = (value: string | null | undefined, fallback: string) => {
 
 const getFolderName = (url: string) => {
   if (!url) {
-    return UNKNOWN_FOLDER;
+    return getUnknownFolder();
   }
 
   const cleanUrl = decodeURIComponent(url.split('?')[0].replace('file://', ''));
   const parts = cleanUrl.split(/[\\/]/).filter(Boolean);
 
   if (parts.length < 2) {
-    return UNKNOWN_FOLDER;
+    return getUnknownFolder();
   }
 
-  return parts[parts.length - 2] || UNKNOWN_FOLDER;
+  return parts[parts.length - 2] || getUnknownFolder();
 };
 
 const getSongFolderName = (song: Song) => {
@@ -98,11 +96,11 @@ const getSongFolderName = (song: Song) => {
 
 const getGroupName = (song: Song, mode: GroupedLibraryMode) => {
   if (mode === 'albums') {
-    return normalizeValue(song.album, UNKNOWN_ALBUM);
+    return normalizeValue(song.album, getUnknownAlbum());
   }
 
   if (mode === 'artists') {
-    return normalizeValue(song.artist, UNKNOWN_ARTIST);
+    return normalizeValue(song.artist, getUnknownArtist());
   }
 
   return getSongFolderName(song);
@@ -285,11 +283,11 @@ const GroupedLibraryScreen = ({ mode }: GroupedLibraryScreenProps) => {
       }
 
       if (trackSort === 'artist') {
-        return directionMultiplier * (compareText(firstSongA?.artist, firstSongB?.artist, UNKNOWN_ARTIST) || a.name.localeCompare(b.name));
+        return directionMultiplier * (compareText(firstSongA?.artist, firstSongB?.artist, getUnknownArtist()) || a.name.localeCompare(b.name));
       }
 
       if (trackSort === 'albums') {
-        return directionMultiplier * (compareText(firstSongA?.album, firstSongB?.album, UNKNOWN_ALBUM) || a.name.localeCompare(b.name));
+        return directionMultiplier * (compareText(firstSongA?.album, firstSongB?.album, getUnknownAlbum()) || a.name.localeCompare(b.name));
       }
 
       return directionMultiplier * a.name.localeCompare(b.name);
@@ -383,7 +381,7 @@ const GroupedLibraryScreen = ({ mode }: GroupedLibraryScreenProps) => {
 
   const openTrackMenuGroup = (song: Song, groupMode: 'albums' | 'artists') => {
     closeTrackMenu();
-    const groupName = groupMode === 'albums' ? normalizeValue(song.album, UNKNOWN_ALBUM) : normalizeValue(song.artist, UNKNOWN_ARTIST);
+    const groupName = groupMode === 'albums' ? normalizeValue(song.album, getUnknownAlbum()) : normalizeValue(song.artist, getUnknownArtist());
     const targetGroup = (groupMode === 'albums' ? albumGroups : artistGroups).find(group => group.name === groupName);
 
     if (targetGroup) openGroup(targetGroup);

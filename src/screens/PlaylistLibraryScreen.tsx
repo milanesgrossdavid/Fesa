@@ -35,6 +35,7 @@ import { MINI_PLAYER_BOTTOM_INSET, SELECTION_BAR_BOTTOM_INSET } from '../utils/l
 import PlayerScreen from './PlayerScreen';
 import { getTranslation } from '../i18n/translations';
 import { Ionicons } from '@expo/vector-icons';
+import { getUnknownAlbum, getUnknownArtist, getUnknownFolder } from '../utils/text';
 
 type SongGroup = {
   id: string;
@@ -59,9 +60,6 @@ type StoredPlaylist = {
   updatedAt: number;
 };
 
-const UNKNOWN_ALBUM = 'Álbum Desconocido';
-const UNKNOWN_ARTIST = 'Artista Desconocido';
-const UNKNOWN_FOLDER = 'Carpeta Desconocida';
 const CUSTOM_PLAYLISTS_STORAGE_KEY = '@fesa:custom-playlists';
 const MOST_PLAYED_HOME_LIMIT = 7;
 const DEFAULT_MUSIC_ARTWORK = require('../../assets/musicNotFound.jpg');
@@ -76,17 +74,17 @@ const getSongDate = (song: Song) => song.dateModified ?? song.dateAdded ?? 0;
 
 const getFolderName = (url: string) => {
   if (!url) {
-    return UNKNOWN_FOLDER;
+    return getUnknownFolder();
   }
 
   const cleanUrl = decodeURIComponent(url.split('?')[0].replace('file://', ''));
   const parts = cleanUrl.split(/[\\/]/).filter(Boolean);
 
   if (parts.length < 2) {
-    return UNKNOWN_FOLDER;
+    return getUnknownFolder();
   }
 
-  return parts[parts.length - 2] || UNKNOWN_FOLDER;
+  return parts[parts.length - 2] || getUnknownFolder();
 };
 
 const getSongFolderName = (song: Song) => {
@@ -685,8 +683,8 @@ const PlaylistLibraryScreen = () => {
   const openTrackMenuGroup = (song: Song, groupMode: 'albums' | 'artists') => {
     closeTrackMenu();
     const groupName = groupMode === 'albums'
-      ? normalizeValue(song.album, UNKNOWN_ALBUM)
-      : normalizeValue(song.artist, UNKNOWN_ARTIST);
+      ? normalizeValue(song.album, getUnknownAlbum())
+      : normalizeValue(song.artist, getUnknownArtist());
     const targetGroup = (groupMode === 'albums' ? albumGroups : artistGroups).find(group => group.name === groupName);
 
     if (targetGroup) {

@@ -98,32 +98,36 @@
 
     <ImageButton
         android:id="@+id/notif_btn_rewind"
-        android:layout_width="48dp"
+        android:layout_width="0dp"
         android:layout_height="48dp"
+        android:layout_weight="1"
         android:background="?android:attr/selectableItemBackgroundBorderless"
         android:src="@drawable/ic_notif_rewind"
         android:contentDescription="Retroceder 10 segundos" />
 
     <ImageButton
         android:id="@+id/notif_btn_shuffle"
-        android:layout_width="48dp"
+        android:layout_width="0dp"
         android:layout_height="48dp"
+        android:layout_weight="1"
         android:background="?android:attr/selectableItemBackgroundBorderless"
         android:src="@drawable/ic_notif_shuffle"
         android:contentDescription="Aleatorio" />
 
     <ImageButton
         android:id="@+id/notif_btn_prev"
-        android:layout_width="56dp"
+        android:layout_width="0dp"
         android:layout_height="48dp"
+        android:layout_weight="1"
         android:background="?android:attr/selectableItemBackgroundBorderless"
         android:src="@drawable/ic_notif_prev"
         android:contentDescription="Anterior" />
 
     <ImageButton
         android:id="@+id/notif_btn_play"
-        android:layout_width="72dp"
+        android:layout_width="0dp"
         android:layout_height="48dp"
+        android:layout_weight="1"
         android:background="?android:attr/selectableItemBackgroundBorderless"
         android:src="@drawable/ic_notif_play"
         android:contentDescription="Reproducir/Pausar" />
@@ -131,24 +135,27 @@
 
     <ImageButton
         android:id="@+id/notif_btn_next"
-        android:layout_width="56dp"
+        android:layout_width="0dp"
         android:layout_height="48dp"
+        android:layout_weight="1"
         android:background="?android:attr/selectableItemBackgroundBorderless"
         android:src="@drawable/ic_notif_next"
         android:contentDescription="Siguiente" />
 
     <ImageButton
         android:id="@+id/notif_btn_repeat"
-        android:layout_width="48dp"
+        android:layout_width="0dp"
         android:layout_height="48dp"
+        android:layout_weight="1"
         android:background="?android:attr/selectableItemBackgroundBorderless"
         android:src="@drawable/ic_notif_repeat"
         android:contentDescription="Cambiar modo de repetición" />
         
     <ImageButton
         android:id="@+id/notif_btn_forward"
-        android:layout_width="48dp"
+        android:layout_width="0dp"
         android:layout_height="48dp"
+        android:layout_weight="1"
         android:background="?android:attr/selectableItemBackgroundBorderless"
         android:src="@drawable/ic_notif_forward"
         android:contentDescription="Adelantar 10 segundos" />

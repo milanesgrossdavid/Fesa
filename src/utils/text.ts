@@ -1,13 +1,19 @@
-export const UNKNOWN_ALBUM = 'Álbum Desconocido';
-export const UNKNOWN_ARTIST = 'Artista Desconocido';
-export const UNKNOWN_FOLDER = 'Carpeta Desconocida';
+import { getTranslation } from '../i18n/translations';
+import { getAppSettingsSnapshot } from '../settings/appSettings';
+
+const getLocalizedFallback = (key: string, fallback: string) =>
+  getTranslation(getAppSettingsSnapshot().languageId, key, fallback);
+
+export const getUnknownAlbum = () => getLocalizedFallback('unknown_album', 'Unknown Album');
+export const getUnknownArtist = () => getLocalizedFallback('unknown_artist', 'Unknown Artist');
+export const getUnknownFolder = () => getLocalizedFallback('unknown_folder', 'Unknown Folder');
 
 export const normalizeValue = (value: string | null | undefined, fallback: string) => {
   const cleanValue = value?.trim();
   return cleanValue || fallback;
 };
 
-export const formatDateValue = (value?: number | string | null, fallbackLabel = 'No disponible') => {
+export const formatDateValue = (value?: number | string | null, fallbackLabel = getLocalizedFallback('not_available', 'Not available')) => {
   if (value == null || value === '') {
     return fallbackLabel;
   }

@@ -98,8 +98,8 @@ const Header = () => {
     setQuery('');
   };
 
-  const playSearchResult = async (index: number) => {
-    await playSong(filteredSongs, index);
+  const playSearchResult = (index: number) => {
+    void playSong(filteredSongs, index);
     requestShowPlayer();
     closeSearch();
   };

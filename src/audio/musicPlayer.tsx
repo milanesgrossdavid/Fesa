@@ -24,6 +24,7 @@ import {
   subscribeAppSettings,
 } from '../settings/appSettings';
 import { getTranslation } from '../i18n/translations';
+import { getUnknownArtist } from '../utils/text';
 
 type PatchedAudioMetadata = {
   title?: string;
@@ -106,6 +107,7 @@ let listeningStatsVersion = 0;
 let selectionModeActive = false;
 let showPlayerRequested = false;
 let restoredPositionSeconds: number | null = null;
+let playRequestId = 0;
 let proactivelySkippedTrackKey: string | null = null;
 let playbackHistory: string[] = [];
 let shuffleRemainingSongIds: string[] = [];
@@ -348,12 +350,14 @@ const publishAndroidNotification = (song: Song, positionSeconds: number, isPlayi
     playing: isPlaying,
     positionMs: Math.floor(Math.max(0, positionSeconds) * 1000),
     durationMs: song.duration > 0 ? song.duration : Math.floor(durationSeconds * 1000),
+    shuffleEnabled,
+    repeatMode: playbackMode,
   });
 };
 
 let lastPlaybackPersistMs = 0;
-let playbackPersistRevision = 0;
 let playbackPersistInFlight = false;
+let pendingPlaybackState: PersistedPlaybackState | null = null;
 const persistPlaybackState = async (
   force = false,
   override?: { currentIndex: number; currentTime: number },
@@ -368,24 +372,32 @@ const persistPlaybackState = async (
     return;
   }
   lastPlaybackPersistMs = now;
-  const persistRevision = ++playbackPersistRevision;
 
-  const playbackState: PersistedPlaybackState = {
+  pendingPlaybackState = {
     queue,
     currentIndex: stateIndex,
     currentTime: override?.currentTime ?? currentTime,
   };
 
+  if (playbackPersistInFlight) {
+    return;
+  }
 
-
-
-  if (playbackPersistInFlight) return;
   playbackPersistInFlight = true;
   try {
-    await AsyncStorage.setItem(LAST_PLAYBACK_STORAGE_KEY, JSON.stringify(playbackState));
-    if (persistRevision === playbackPersistRevision) return;
-  } catch (error) {
-    console.warn('No se pudo guardar la última canción:', error);
+    while (pendingPlaybackState) {
+      const nextPlaybackState = pendingPlaybackState;
+      pendingPlaybackState = null;
+
+      try {
+        await AsyncStorage.setItem(
+          LAST_PLAYBACK_STORAGE_KEY,
+          JSON.stringify(nextPlaybackState),
+        );
+      } catch (error) {
+        console.warn('No se pudo guardar la última canción:', error);
+      }
+    }
   } finally {
     playbackPersistInFlight = false;
   }
@@ -562,10 +574,6 @@ const loadAndPlay = async (index: number, recordHistory = true) => {
   currentIndex = index;
   proactivelySkippedTrackKey = null;
 
-
-
-
-  emit();
   const song = prepareCurrentSong();
 
   if (!song) {
@@ -607,8 +615,7 @@ const loadAndPlay = async (index: number, recordHistory = true) => {
     void persistPlaybackState();
   });
 
-
-
+  emit();
 };
 
 
@@ -738,14 +745,20 @@ const handlePlaybackStatus = (status: any, sourcePlayer: PatchedAudioPlayer) => 
 
   const nextPlaying = Boolean(status?.playing);
   const currentSong = getCurrentSong();
-  const nextCurrentTime = Number.isFinite(status?.currentTime)
+  const reportedCurrentTime = Number.isFinite(status?.currentTime)
     ? Math.max(status.currentTime, 0)
     : currentTime;
-  const nextDurationSeconds = status?.duration > 0
-    ? status.duration
-    : currentSong?.duration
-      ? currentSong.duration / 1000
+  const metadataDurationSeconds = currentSong?.duration
+    ? currentSong.duration / 1000
+    : 0;
+  const nextDurationSeconds = metadataDurationSeconds > 0
+    ? metadataDurationSeconds
+    : status?.duration > 0
+      ? status.duration
       : durationSeconds;
+  const nextCurrentTime = nextDurationSeconds > 0
+    ? Math.min(reportedCurrentTime, nextDurationSeconds)
+    : reportedCurrentTime;
   const progressChanged =
     Math.abs(nextCurrentTime - currentTime) >= 0.5 ||
     Math.abs(nextDurationSeconds - durationSeconds) >= 0.2;
@@ -1041,11 +1054,14 @@ const restoreLastSession = async () => {
 };
 
 const playSong = async (songs: Song[], index: number) => {
-  await ensureInitialized();
-
   const selectedSong = songs[index];
+  if (!selectedSong) {
+    return;
+  }
+
+  const requestId = ++playRequestId;
   const currentSong = getCurrentSong();
-  if (sourceLoaded && selectedSong?.id === currentSong?.id) {
+  if (sourceLoaded && selectedSong.id === currentSong?.id) {
     queue = songs;
     currentIndex = index;
     if (shuffleEnabled) {
@@ -1062,10 +1078,16 @@ const playSong = async (songs: Song[], index: number) => {
     resetShuffleCycle();
   }
 
-  emit();
-  if (selectedSong?.id !== currentSong?.id || restoredPositionSeconds === null) {
+  if (selectedSong.id !== currentSong?.id || restoredPositionSeconds === null) {
     restoredPositionSeconds = null;
   }
+
+  emit();
+  await ensureInitialized();
+  if (requestId !== playRequestId) {
+    return;
+  }
+
   await loadAndPlay(index);
 };
 
@@ -1148,6 +1170,7 @@ const setShuffleEnabled = (enabled: boolean) => {
   } else {
     shuffleRemainingSongIds = [];
   }
+  updateAndroidNotification(true);
   emit();
 };
 
@@ -1158,6 +1181,7 @@ const toggleShuffle = () => {
 const setPlaybackMode = (mode: PlaybackMode) => {
   playbackMode = mode;
   player.loop = mode === 'repeat-one';
+  updateAndroidNotification(true);
   emit();
 };
 
@@ -1219,7 +1243,7 @@ const getMostPlayedArtists = async (limit: number) => {
 
     const artistPlayCounts = queue.reduce((acc, song) => {
       if (parsedMostPlayedSongs[song.id]) {
-        const artist = song.artist || 'Artista Desconocido';
+        const artist = song.artist || getUnknownArtist();
         acc[artist] = (acc[artist] || 0) + parsedMostPlayedSongs[song.id];
       }
       return acc;

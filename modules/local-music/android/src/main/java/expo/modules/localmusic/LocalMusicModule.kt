@@ -471,7 +471,7 @@ class LocalMusicModule : Module() {
       return@AsyncFunction true
     }
 
-    Function("showMusicNotification") { title: String, artist: String, artworkUri: String?, playing: Boolean, positionMs: Double, durationMs: Double ->
+    Function("showMusicNotification") { title: String, artist: String, artworkUri: String?, playing: Boolean, positionMs: Double, durationMs: Double, shuffleEnabled: Boolean, repeatMode: String ->
       val context = appContext.reactContext ?: return@Function null
       MusicNotificationService.start(
         context,
@@ -481,7 +481,9 @@ class LocalMusicModule : Module() {
           artworkUri = artworkUri,
           playing = playing,
           positionMs = positionMs.toLong(),
-          durationMs = durationMs.toLong()
+          durationMs = durationMs.toLong(),
+          shuffleEnabled = shuffleEnabled,
+          repeatMode = repeatMode
         )
       )
     }

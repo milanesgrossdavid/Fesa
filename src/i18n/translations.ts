@@ -38,6 +38,7 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'search_empty_title': 'Busca en tu música',
     'search_empty_description': 'Encuentra canciones, artistas y álbumes de tu biblioteca local.',
     'unknown_album': 'Álbum Desconocido',
+    'unknown_folder': 'Carpeta Desconocida',
 
 
     'play': 'Reproducir',
@@ -111,6 +112,7 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'lyrics_share_prompt': 'Selecciona una sección de la letra.',
     'lyrics_share_action': 'Compartir',
     'lyrics_save_action': 'Guardar',
+    'lyrics_download_action': 'Descargar vista previa',
     'lyrics_save_permission_title': 'Permiso necesario',
     'lyrics_save_permission_message': 'Permite el acceso a fotos para guardar la letra.',
     'lyrics_save_success_title': 'Guardado',
@@ -394,6 +396,7 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'search_empty_title': 'Search your music',
     'search_empty_description': 'Find songs, artists and albums from your local library.',
     'unknown_album': 'Unknown Album',
+    'unknown_folder': 'Unknown Folder',
 
 
     'play': 'Play',
@@ -467,6 +470,7 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'lyrics_share_prompt': 'Select a section of the lyrics.',
     'lyrics_share_action': 'Share',
     'lyrics_save_action': 'Save',
+    'lyrics_download_action': 'Download preview',
     'lyrics_save_permission_title': 'Permission required',
     'lyrics_save_permission_message': 'Allow photo access to save the lyrics.',
     'lyrics_save_success_title': 'Saved',
@@ -750,6 +754,7 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'search_empty_title': 'Busque na sua música',
     'search_empty_description': 'Encontre músicas, artistas e álbuns da sua biblioteca local.',
     'unknown_album': 'Álbum Desconhecido',
+    'unknown_folder': 'Pasta Desconhecida',
 
 
     'play': 'Reproduzir',
@@ -815,6 +820,7 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'player_lyrics_loading': 'Buscando letra da música...',
     'player_lyrics_unavailable': 'Nenhuma letra disponível.',
     'lyrics_save_action': 'Salvar',
+    'lyrics_download_action': 'Baixar prévia',
     'lyrics_save_permission_title': 'Permissão necessária',
     'lyrics_save_permission_message': 'Permita o acesso às fotos para salvar a letra.',
     'lyrics_save_success_title': 'Salvo',
@@ -1106,6 +1112,7 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'search_empty_title': 'Rechercher dans votre musique',
     'search_empty_description': 'Trouvez des chansons, artistes et albums de votre bibliothèque locale.',
     'unknown_album': 'Album Inconnu',
+    'unknown_folder': 'Dossier Inconnu',
 
 
     'play': 'Lire',
@@ -1179,6 +1186,7 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'lyrics_share_prompt': 'Sélectionnez une section des paroles.',
     'lyrics_share_action': 'Partager',
     'lyrics_save_action': 'Enregistrer',
+    'lyrics_download_action': "Télécharger l’aperçu",
     'lyrics_save_permission_title': 'Autorisation nécessaire',
     'lyrics_save_permission_message': 'Autorisez l’accès aux photos pour enregistrer les paroles.',
     'lyrics_save_success_title': 'Enregistré',
@@ -1462,6 +1470,7 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'search_empty_title': 'Cerca nella tua musica',
     'search_empty_description': 'Trova brani, artisti e album della tua libreria locale.',
     'unknown_album': 'Album Sconosciuto',
+    'unknown_folder': 'Cartella Sconosciuta',
 
 
     'play': 'Riproduci',
@@ -1535,6 +1544,7 @@ export const translations: Record<AppLanguageId, Record<string, string>> = {
     'lyrics_share_prompt': 'Seleziona una sezione del testo.',
     'lyrics_share_action': 'Condividi',
     'lyrics_save_action': 'Salva',
+    'lyrics_download_action': 'Scarica anteprima',
     'lyrics_save_permission_title': 'Autorizzazione necessaria',
     'lyrics_save_permission_message': 'Consenti l’accesso alle foto per salvare il testo.',
     'lyrics_save_success_title': 'Salvato',

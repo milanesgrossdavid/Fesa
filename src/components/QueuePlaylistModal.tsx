@@ -330,7 +330,7 @@ const QueuePlaylistModal = ({
         style={{
           backgroundColor: isActive
             ? withAlpha(theme.surface, 0.26)
-            : withAlpha(theme.surface, 0.58),
+            : withAlpha(theme.surface, 0.48),
           borderColor: isActive ? withAlpha(theme.accent, 0.7) : withAlpha(theme.border, 0.72),
           shadowColor: '#000',
           shadowOpacity: isActive ? 0.16 : 0.08,
@@ -389,7 +389,7 @@ const QueuePlaylistModal = ({
           <Text className="text-sm font-bold" style={{ color: theme.text }} numberOfLines={1}>
             {item.title || noTitleLabel}
           </Text>
-          <Text className="mt-1 font-medium text-xs" style={{ color: `${gradientColors[2] + '95'}` }} numberOfLines={1}>
+          <Text className="mt-1 font-medium text-xs" style={{ color: theme.text }} numberOfLines={1}>
             {item.artist?.trim() || unknownArtistLabel}
           </Text>
         </View>

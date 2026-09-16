@@ -34,7 +34,8 @@
       "expo-localization",
       "expo-asset",
       "expo-image",
-      "./plugins/withAndroidProguard"
+      "./plugins/withAndroidProguard",
+      "expo-font"
     ],
     "ios": {
       "supportsTablet": true

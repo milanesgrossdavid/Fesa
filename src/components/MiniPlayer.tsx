@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useMusicPlayerUi } from '../audio/musicPlayer';
 import { getTranslation } from '../i18n/translations';
@@ -97,7 +96,7 @@ const MiniPlayer = () => {
             <AutoScrollingText className="text-sm font-bold" style={{ color: '#ffffff' }}>
               {currentSong.title}
             </AutoScrollingText>
-            <AutoScrollingText className="mt-0.5 text-xs font-medium" style={{ color: 'rgba(0,0,0,0.5)' }}>
+            <AutoScrollingText className="mt-0.5 text-xs font-medium" style={{ color: '#ffffff' }}>
               {currentSong.artist || t('unknown_artist', 'Unknown Artist')}
             </AutoScrollingText>
           </View>

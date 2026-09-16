@@ -14,7 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { deleteAudioFile, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
 import { musicPlayer, useMusicPlayerUi } from '../audio/musicPlayer';
-import { useAppSettingsHiddenSongIds, useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
+import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import { getTranslation, useTranslation } from '../i18n/translations';
 import AddSongToPlaylistModal from '../components/AddSongToPlaylistModal';
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
@@ -34,6 +34,7 @@ import SongListItem from '../components/SongListItem';
 import TrackActionMenu from '../components/TrackActionMenu';
 import { MINI_PLAYER_BOTTOM_INSET, SELECTION_BAR_BOTTOM_INSET } from '../utils/layout';
 import PlayerScreen from './PlayerScreen';
+import { getUnknownAlbum, getUnknownArtist } from '../utils/text';
 
 type SongGroup = {
   id: string;
@@ -59,8 +60,6 @@ type TrackMenuState = {
   y: number;
 };
 
-const UNKNOWN_ALBUM = 'Álbum Desconocido';
-const UNKNOWN_ARTIST = 'Artista Desconocido';
 const CUSTOM_PLAYLISTS_STORAGE_KEY = '@fesa:custom-playlists';
 const MOST_PLAYED_HOME_LIMIT = 7;
 
@@ -85,10 +84,10 @@ const shuffleList = <T,>(list: T[]) => {
 
 const getGroupName = (song: Song, mode: LibraryGroupMode) => {
   if (mode === 'albums') {
-    return normalizeValue(song.album, UNKNOWN_ALBUM);
+    return normalizeValue(song.album, getUnknownAlbum());
   }
 
-  return normalizeValue(song.artist, UNKNOWN_ARTIST);
+  return normalizeValue(song.artist, getUnknownArtist());
 };
 
 const buildGroups = (songs: Song[], mode: LibraryGroupMode, t: (key: string, fallback?: string) => string) => {
@@ -184,7 +183,6 @@ const HomeLibraryScreen = () => {
   const groupModalTranslateY = useRef(new Animated.Value(1)).current;
   const theme = useAppSettingsTheme();
   const language = useAppSettingsLanguage();
-  const hiddenSongIds = useAppSettingsHiddenSongIds();
   const translationHelper = useTranslation(language.id);
   const t = useCallback(
     (key: string, fallback?: string) => translationHelper.t(key, fallback),
@@ -217,7 +215,7 @@ const HomeLibraryScreen = () => {
 
   useEffect(() => {
     void requestPermissionsAndLoadMusic();
-  }, [requestPermissionsAndLoadMusic, hiddenSongIds]);
+  }, [requestPermissionsAndLoadMusic]);
 
   useFocusEffect(
     useCallback(() => {
@@ -286,13 +284,13 @@ const HomeLibraryScreen = () => {
 
     const artistPlayCounts = new Map<string, number>();
     nextMostPlayedSongs.forEach((song, index) => {
-      const artist = normalizeValue(song.artist, UNKNOWN_ARTIST);
+      const artist = normalizeValue(song.artist, getUnknownArtist());
       artistPlayCounts.set(artist, (artistPlayCounts.get(artist) ?? 0) + (nextMostPlayedSongs.length - index));
     });
 
     const songsByArtist = new Map<string, Song[]>();
     songs.forEach(song => {
-      const artist = normalizeValue(song.artist, UNKNOWN_ARTIST);
+      const artist = normalizeValue(song.artist, getUnknownArtist());
       const artistSongs = songsByArtist.get(artist);
       if (artistSongs) artistSongs.push(song);
       else songsByArtist.set(artist, [song]);
@@ -301,7 +299,7 @@ const HomeLibraryScreen = () => {
     const artistGroupsFromPlayed = [...artistPlayCounts.keys()]
       .sort((a, b) => (artistPlayCounts.get(b) ?? 0) - (artistPlayCounts.get(a) ?? 0))
       .map(artistName => {
-        const normalized = normalizeValue(artistName, UNKNOWN_ARTIST);
+        const normalized = normalizeValue(artistName, getUnknownArtist());
         const artistSongs = songsByArtist.get(normalized) ?? [];
         return {
           id: normalized,
@@ -324,14 +322,6 @@ const HomeLibraryScreen = () => {
 
     void refreshHomeListeningStats();
   }, [refreshHomeListeningStats, listeningStatsVersion, loading, permissionGranted]);
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!loading && permissionGranted) {
-        void refreshHomeListeningStats();
-      }
-    }, [refreshHomeListeningStats, loading, permissionGranted])
-  );
 
   const recommendedItemsRef = useRef<{ songs: Song[]; albums: SongGroup[]; artists: SongGroup[] } | null>(null);
 
@@ -419,10 +409,7 @@ const HomeLibraryScreen = () => {
   const playFromList = (list: Song[], index: number) => {
     void playSong(list, index);
     setShowPlayer(true);
-
-    setTimeout(() => {
-      void refreshHomeListeningStats();
-    }, 500);
+    void refreshHomeListeningStats();
   };
 
   const openTrackMenu = (song: Song, event: GestureResponderEvent) => {
@@ -443,6 +430,7 @@ const HomeLibraryScreen = () => {
     void playSong(selectedSongs, 0);
     clearSelectedSongs();
     setShowPlayer(true);
+    void refreshHomeListeningStats();
   };
 
   const shareSelectedSongs = () => {

@@ -27,6 +27,8 @@ export type MusicNotificationState = {
   playing: boolean;
   positionMs: number;
   durationMs: number;
+  shuffleEnabled: boolean;
+  repeatMode: 'linear' | 'repeat-all' | 'repeat-one';
 };
 
 export type SystemVolumeChange = {
@@ -260,7 +262,9 @@ export function showMusicNotification(state: MusicNotificationState): void {
     state.artworkUri ?? null,
     state.playing,
     Math.max(0, Math.floor(state.positionMs)),
-    Math.max(0, Math.floor(state.durationMs))
+    Math.max(0, Math.floor(state.durationMs)),
+    state.shuffleEnabled,
+    state.repeatMode
   );
 }
 

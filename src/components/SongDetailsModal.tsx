@@ -5,7 +5,7 @@ import { Song } from '../../modules/local-music';
 import { getTranslation } from '../i18n/translations';
 import { formatSongDuration } from '../utils/time';
 import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
-import { formatDateValue, normalizeValue, UNKNOWN_ALBUM } from '../utils/text';
+import { formatDateValue, getUnknownAlbum, normalizeValue } from '../utils/text';
 import LibraryArtwork from './LibraryArtwork';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -140,7 +140,7 @@ const SongDetailsModal = ({ song, visible, onClose }: SongDetailsModalProps) => 
               >
                 <DetailRow
                   label={t('song_detail_album', 'Album')}
-                  value={normalizeValue(visibleSong.album, UNKNOWN_ALBUM)}
+                  value={normalizeValue(visibleSong.album, getUnknownAlbum())}
                   mutedColor={theme.mutedText}
                   textColor={theme.text}
                   borderColor={theme.border}

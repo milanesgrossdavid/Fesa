@@ -86,10 +86,14 @@ const SongListItem = ({
         />
       </Pressable>
       <View className="flex-1 pr-3">
-        <AutoScrollingText className={`mb-1 text-base ${isActive ? 'font-extrabold' : 'font-semibold'}`} style={{ color: theme.text }} >
+        <AutoScrollingText
+          animate={isActive}
+          className={`mb-1 text-base ${isActive ? 'font-extrabold' : 'font-semibold'}`}
+          style={{ color: theme.text }}
+        >
           {item.title}
         </AutoScrollingText>
-        <AutoScrollingText className="text-sm" style={{ color: theme.mutedText }}>
+        <AutoScrollingText animate={isActive} className="text-sm" style={{ color: theme.mutedText }}>
           {`${item.artist || unknownArtistLabel} • ${item.album || unknownAlbumLabel}`}
         </AutoScrollingText>
       </View>

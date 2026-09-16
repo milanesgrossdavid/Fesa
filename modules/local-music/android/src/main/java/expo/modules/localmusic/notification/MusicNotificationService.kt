@@ -33,6 +33,7 @@ class MusicNotificationService : Service() {
   private var mediaSession: MediaSessionCompat? = null
   private var lastState: NotificationState? = null
   private var lastRenderedSignature: String? = null
+  private var foregroundStarted = false
 
   private fun notificationSignature(state: NotificationState): String {
     return listOf(
@@ -41,7 +42,9 @@ class MusicNotificationService : Service() {
       state.artworkUri ?: "",
       state.playing.toString(),
       state.positionMs.toString(),
-      state.durationMs.toString()
+      state.durationMs.toString(),
+      state.shuffleEnabled.toString(),
+      state.repeatMode
     ).joinToString("|")
   }
 
@@ -57,13 +60,16 @@ class MusicNotificationService : Service() {
       previous.artworkUri != current.artworkUri ||
       previous.playing != current.playing ||
       positionDelta >= 1_000L ||
-      previous.durationMs != current.durationMs
+      previous.durationMs != current.durationMs ||
+      previous.shuffleEnabled != current.shuffleEnabled ||
+      previous.repeatMode != current.repeatMode
   }
 
   override fun onBind(intent: Intent?): IBinder? = null
 
   override fun onCreate() {
     super.onCreate()
+    runningService = this
     ensureMediaSession()
   }
 
@@ -73,6 +79,7 @@ class MusicNotificationService : Service() {
       ACTION_STOP -> {
         releaseMediaSession()
         stopForeground(STOP_FOREGROUND_REMOVE)
+        foregroundStarted = false
         stopSelf()
         return START_NOT_STICKY
       }
@@ -128,10 +135,9 @@ class MusicNotificationService : Service() {
     }
     lastRenderedSignature = signature
 
-    val small = buildRemoteViews(R.layout.notif_music_small, state)
-    val big = buildRemoteViews(R.layout.notif_music_big, state)
-
     val contentIntent = launchAppIntent()
+    val compactViews = buildNotificationViews(R.layout.notif_music_small, state)
+    val expandedViews = buildNotificationViews(R.layout.notif_music_big, state)
 
     val builder = NotificationCompat.Builder(this, CHANNEL_ID)
       .setSmallIcon(R.drawable.ic_notif_music)
@@ -144,18 +150,19 @@ class MusicNotificationService : Service() {
       .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
       .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
       .setPriority(NotificationCompat.PRIORITY_LOW)
-      .setCustomContentView(small)
-      .setCustomBigContentView(big)
-      .setCustomHeadsUpContentView(small)
+      .setLargeIcon(currentArtworkBitmap)
+      .setCustomContentView(compactViews)
+      .setCustomBigContentView(expandedViews)
       .setStyle(
         MediaStyle()
           .setMediaSession(mediaSession?.sessionToken)
-          .setShowActionsInCompactView(0, 1, 2)
+          // Keep the app's mode controls visible in the collapsed notification.
+          .setShowActionsInCompactView(0, 2, 4)
       )
       .addAction(
         NotificationCompat.Action(
           R.drawable.ic_notif_shuffle,
-          "Aleatorio",
+          if (state.shuffleEnabled) "Desactivar aleatorio" else "Activar aleatorio",
           actionPendingIntent(ACTION_SHUFFLE)
         )
       )
@@ -183,7 +190,11 @@ class MusicNotificationService : Service() {
       .addAction(
         NotificationCompat.Action(
           R.drawable.ic_notif_repeat,
-          "Repetir",
+          when (state.repeatMode) {
+            "repeat-all" -> "Repetir lista"
+            "repeat-one" -> "Repetir canción"
+            else -> "Activar repetición"
+          },
           actionPendingIntent(ACTION_REPEAT)
         )
       )
@@ -191,14 +202,20 @@ class MusicNotificationService : Service() {
     val notification = builder.build()
 
     try {
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        startForeground(
-          NOTIFICATION_ID,
-          notification,
-          android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-        )
+      if (!foregroundStarted) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+          startForeground(
+            NOTIFICATION_ID,
+            notification,
+            android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+          )
+        } else {
+          startForeground(NOTIFICATION_ID, notification)
+        }
+        foregroundStarted = true
       } else {
-        startForeground(NOTIFICATION_ID, notification)
+        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.notify(NOTIFICATION_ID, notification)
       }
     } catch (e: Exception) {
       Log.w(TAG, "startForeground failed, posting via NotificationManager", e)
@@ -207,47 +224,46 @@ class MusicNotificationService : Service() {
     }
   }
 
-  private fun buildRemoteViews(layoutRes: Int, state: NotificationState): RemoteViews {
-    val rv = RemoteViews(packageName, layoutRes)
-    rv.setTextViewText(R.id.notif_title, state.title)
-    rv.setTextViewText(R.id.notif_artist, state.artist)
-
-    val bmp = currentArtworkBitmap
-    if (bmp != null) {
-      rv.setImageViewBitmap(R.id.notif_artwork, bmp)
-    } else {
-      rv.setImageViewResource(R.id.notif_artwork, R.drawable.notif_artwork_placeholder)
-    }
-
-    rv.setImageViewResource(
-      R.id.notif_btn_play,
-      if (state.playing) R.drawable.ic_notif_pause else R.drawable.ic_notif_play
-    )
-
-    rv.setOnClickPendingIntent(R.id.notif_btn_prev, actionPendingIntent(ACTION_PREVIOUS))
-    rv.setOnClickPendingIntent(R.id.notif_btn_shuffle, actionPendingIntent(ACTION_SHUFFLE))
-    rv.setOnClickPendingIntent(R.id.notif_btn_play, actionPendingIntent(ACTION_TOGGLE))
-    rv.setOnClickPendingIntent(R.id.notif_btn_next, actionPendingIntent(ACTION_NEXT))
-    rv.setOnClickPendingIntent(R.id.notif_btn_repeat, actionPendingIntent(ACTION_REPEAT))
-
-    if (layoutRes == R.layout.notif_music_big) {
-      rv.setOnClickPendingIntent(R.id.notif_btn_rewind, actionPendingIntent(ACTION_REWIND))
-      rv.setOnClickPendingIntent(R.id.notif_btn_forward, actionPendingIntent(ACTION_FORWARD))
-      val durationMs = state.durationMs.coerceAtLeast(0L)
-      val positionMs = state.positionMs.coerceIn(0L, if (durationMs > 0) durationMs else Long.MAX_VALUE)
-      val progress = if (durationMs > 0) {
-        ((positionMs * 1000L) / durationMs).toInt().coerceIn(0, 1000)
-      } else 0
-
-      rv.setProgressBar(R.id.notif_seekbar, 1000, progress, false)
-      rv.setTextViewText(R.id.notif_time_elapsed, formatMs(positionMs))
-      rv.setTextViewText(
-        R.id.notif_time_remaining,
-        "-" + formatMs((durationMs - positionMs).coerceAtLeast(0L))
+  private fun buildNotificationViews(layoutId: Int, state: NotificationState): RemoteViews {
+    return RemoteViews(packageName, layoutId).apply {
+      setTextViewText(R.id.notif_title, state.title)
+      setTextViewText(R.id.notif_artist, state.artist)
+      setImageViewResource(
+        R.id.notif_btn_play,
+        if (state.playing) R.drawable.ic_notif_pause else R.drawable.ic_notif_play
       )
-    }
+      setOnClickPendingIntent(R.id.notif_btn_shuffle, actionPendingIntent(ACTION_SHUFFLE))
+      setOnClickPendingIntent(R.id.notif_btn_prev, actionPendingIntent(ACTION_PREVIOUS))
+      setOnClickPendingIntent(R.id.notif_btn_play, actionPendingIntent(ACTION_TOGGLE))
+      setOnClickPendingIntent(R.id.notif_btn_next, actionPendingIntent(ACTION_NEXT))
+      setOnClickPendingIntent(R.id.notif_btn_repeat, actionPendingIntent(ACTION_REPEAT))
 
-    return rv
+      if (currentArtworkBitmap != null) {
+        setImageViewBitmap(R.id.notif_artwork, currentArtworkBitmap)
+      } else {
+        setImageViewResource(R.id.notif_artwork, R.drawable.notif_artwork_placeholder)
+      }
+
+      if (layoutId == R.layout.notif_music_big) {
+        val duration = state.durationMs.coerceAtLeast(0L)
+        val position = state.positionMs.coerceIn(0L, duration)
+        val progress = if (duration > 0L) {
+          ((position.toDouble() / duration.toDouble()) * 1000).toInt()
+        } else {
+          0
+        }
+        setProgressBar(R.id.notif_seekbar, 1000, progress, false)
+        setTextViewText(R.id.notif_time_elapsed, formatNotificationTime(position))
+        setTextViewText(R.id.notif_time_remaining, formatNotificationTime((duration - position).coerceAtLeast(0L)))
+        setOnClickPendingIntent(R.id.notif_btn_rewind, actionPendingIntent(ACTION_REWIND))
+        setOnClickPendingIntent(R.id.notif_btn_forward, actionPendingIntent(ACTION_FORWARD))
+      }
+    }
+  }
+
+  private fun formatNotificationTime(milliseconds: Long): String {
+    val totalSeconds = (milliseconds / 1000L).coerceAtLeast(0L)
+    return "${totalSeconds / 60}:${(totalSeconds % 60).toString().padStart(2, '0')}"
   }
 
   private fun actionPendingIntent(action: String): PendingIntent {
@@ -375,6 +391,29 @@ class MusicNotificationService : Service() {
         override fun onSeekTo(pos: Long) {
           dispatchAction(ACTION_SEEK, pos)
         }
+        override fun onSetShuffleMode(shuffleMode: Int) {
+          val shouldEnable = shuffleMode == PlaybackStateCompat.SHUFFLE_MODE_ALL
+          if (lastState?.shuffleEnabled != shouldEnable) {
+            dispatchAction(ACTION_SHUFFLE)
+          }
+        }
+        override fun onSetRepeatMode(repeatMode: Int) {
+          val currentMode = repeatModeToCompat(lastState?.repeatMode)
+          if (currentMode == repeatMode) {
+            return
+          }
+
+          val currentIndex = repeatModeOrder.indexOf(currentMode)
+          val targetIndex = repeatModeOrder.indexOf(repeatMode)
+          if (currentIndex < 0 || targetIndex < 0) {
+            return
+          }
+
+          val steps = (targetIndex - currentIndex + repeatModeOrder.size) % repeatModeOrder.size
+          repeat(steps) {
+            dispatchAction(ACTION_REPEAT)
+          }
+        }
         override fun onStop() {
           val state = lastState
           if (state?.playing == true) {
@@ -426,6 +465,8 @@ class MusicNotificationService : Service() {
           or PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
           or PlaybackStateCompat.ACTION_SKIP_TO_NEXT
           or PlaybackStateCompat.ACTION_SEEK_TO
+          or PlaybackStateCompat.ACTION_SET_SHUFFLE_MODE
+          or PlaybackStateCompat.ACTION_SET_REPEAT_MODE
           or PlaybackStateCompat.ACTION_STOP
       )
       .setState(
@@ -437,6 +478,14 @@ class MusicNotificationService : Service() {
       .setBufferedPosition(durationMs)
       .build()
     session.setPlaybackState(playbackState)
+    session.setShuffleMode(
+      if (state.shuffleEnabled) {
+        PlaybackStateCompat.SHUFFLE_MODE_ALL
+      } else {
+        PlaybackStateCompat.SHUFFLE_MODE_NONE
+      }
+    )
+    session.setRepeatMode(repeatModeToCompat(state.repeatMode))
 
     val metadata = MediaMetadataCompat.Builder()
       .putString(MediaMetadataCompat.METADATA_KEY_TITLE, state.title)
@@ -453,21 +502,19 @@ class MusicNotificationService : Service() {
     session.setMetadata(metadata)
   }
 
-  private fun formatMs(ms: Long): String {
-    val totalSeconds = ms / 1000L
-    val minutes = totalSeconds / 60
-    val seconds = totalSeconds % 60
-    return String.format("%d:%02d", minutes, seconds)
-  }
-
   override fun onDestroy() {
     releaseMediaSession()
     ioExecutor.shutdownNow()
     currentArtworkBitmap = null
+    foregroundStarted = false
+    runningService = null
     super.onDestroy()
   }
 
   companion object {
+    @Volatile
+    private var runningService: MusicNotificationService? = null
+
     private const val TAG = "MusicNotifService"
     const val CHANNEL_ID = "fesa_music_playback"
     const val NOTIFICATION_ID = 8421
@@ -490,7 +537,23 @@ class MusicNotificationService : Service() {
     const val EXTRA_PLAYING = "playing"
     const val EXTRA_POSITION_MS = "positionMs"
     const val EXTRA_DURATION_MS = "durationMs"
+    const val EXTRA_SHUFFLE_ENABLED = "shuffleEnabled"
+    const val EXTRA_REPEAT_MODE = "repeatMode"
     const val EXTRA_SEEK_POSITION_MS = "seekPositionMs"
+
+    private val repeatModeOrder = intArrayOf(
+      PlaybackStateCompat.REPEAT_MODE_NONE,
+      PlaybackStateCompat.REPEAT_MODE_ALL,
+      PlaybackStateCompat.REPEAT_MODE_ONE
+    )
+
+    private fun repeatModeToCompat(mode: String?): Int {
+      return when (mode) {
+        "repeat-all" -> PlaybackStateCompat.REPEAT_MODE_ALL
+        "repeat-one" -> PlaybackStateCompat.REPEAT_MODE_ONE
+        else -> PlaybackStateCompat.REPEAT_MODE_NONE
+      }
+    }
 
     fun start(context: Context, state: NotificationState) {
       val intent = Intent(context, MusicNotificationService::class.java).apply {
@@ -501,8 +564,12 @@ class MusicNotificationService : Service() {
         putExtra(EXTRA_PLAYING, state.playing)
         putExtra(EXTRA_POSITION_MS, state.positionMs)
         putExtra(EXTRA_DURATION_MS, state.durationMs)
+        putExtra(EXTRA_SHUFFLE_ENABLED, state.shuffleEnabled)
+        putExtra(EXTRA_REPEAT_MODE, state.repeatMode)
       }
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      if (runningService != null) {
+        context.startService(intent)
+      } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         context.startForegroundService(intent)
       } else {
         context.startService(intent)
@@ -524,7 +591,9 @@ data class NotificationState(
   val artworkUri: String?,
   val playing: Boolean,
   val positionMs: Long,
-  val durationMs: Long
+  val durationMs: Long,
+  val shuffleEnabled: Boolean,
+  val repeatMode: String
 ) {
   companion object {
     fun fromIntent(intent: Intent?): NotificationState {
@@ -534,7 +603,9 @@ data class NotificationState(
         artworkUri = intent?.getStringExtra(MusicNotificationService.EXTRA_ARTWORK),
         playing = intent?.getBooleanExtra(MusicNotificationService.EXTRA_PLAYING, false) ?: false,
         positionMs = intent?.getLongExtra(MusicNotificationService.EXTRA_POSITION_MS, 0L) ?: 0L,
-        durationMs = intent?.getLongExtra(MusicNotificationService.EXTRA_DURATION_MS, 0L) ?: 0L
+        durationMs = intent?.getLongExtra(MusicNotificationService.EXTRA_DURATION_MS, 0L) ?: 0L,
+        shuffleEnabled = intent?.getBooleanExtra(MusicNotificationService.EXTRA_SHUFFLE_ENABLED, false) ?: false,
+        repeatMode = intent?.getStringExtra(MusicNotificationService.EXTRA_REPEAT_MODE) ?: "linear"
       )
     }
   }

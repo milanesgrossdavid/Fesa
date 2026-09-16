@@ -65,10 +65,11 @@ import {
   VolumeHighIcon,
   VolumeLowIcon,
 } from "../Icons";
-import { formatSongDuration } from "../utils/time";
+import { formatDuration } from "../utils/time";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import { useAppSettingsLanguage, useAppSettingsTheme } from "../settings/appSettings";
 import { getTranslation } from "../i18n/translations";
+import { getUnknownAlbum, getUnknownArtist } from "../utils/text";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { getGradientColors, useDominantColor, withAlpha } from "../hooks/useDominantColor";
@@ -114,8 +115,6 @@ const equalizerPresetLabels: Record<string, string> = {
 };
 
 const LOCK_DATE_FONT = "Fesa-LockDate";
-const UNKNOWN_ALBUM = "Álbum Desconocido";
-const UNKNOWN_ARTIST = "Artista Desconocido";
 const CUSTOM_PLAYLISTS_STORAGE_KEY = "@fesa:custom-playlists";
 let lockFontPromise: Promise<void> | null = null;
 
@@ -280,6 +279,15 @@ const VolumeSlider = React.memo(({ setVolume }: { setVolume: (value: number) => 
   const volume = usePlayerVolume();
   const volumeBarRef = useRef<View>(null);
   const volumeBarLayoutRef = useRef({ x: 0, width: 0 });
+  const lastSentVolumeRef = useRef(volume);
+  const pendingVolumeRef = useRef<number | null>(null);
+  const updateFrameRef = useRef<number | null>(null);
+
+  useEffect(() => () => {
+    if (updateFrameRef.current !== null) {
+      cancelAnimationFrame(updateFrameRef.current);
+    }
+  }, []);
 
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
     const { width } = event.nativeEvent.layout;
@@ -295,7 +303,23 @@ const VolumeSlider = React.memo(({ setVolume }: { setVolume: (value: number) => 
       const { x, width } = volumeBarLayoutRef.current;
       if (!width) return;
       const touchX = x ? event.nativeEvent.pageX - x : event.nativeEvent.locationX;
-      setVolume(Math.min(Math.max(touchX / width, 0), 1));
+      const nextVolume = Math.min(Math.max(touchX / width, 0), 1);
+      pendingVolumeRef.current = nextVolume;
+
+      if (updateFrameRef.current !== null) {
+        return;
+      }
+
+      updateFrameRef.current = requestAnimationFrame(() => {
+        updateFrameRef.current = null;
+        const pendingVolume = pendingVolumeRef.current;
+        if (pendingVolume === null || Math.abs(pendingVolume - lastSentVolumeRef.current) < 0.01) {
+          return;
+        }
+
+        lastSentVolumeRef.current = pendingVolume;
+        setVolume(pendingVolume);
+      });
     },
     [setVolume],
   );
@@ -408,8 +432,8 @@ const PlaybackProgressBar = React.memo(({
         </View>
       </View>
       <View className="-mt-1 flex-row items-center justify-between">
-        <Text className="text-xs font-medium text-white/60">{formatSongDuration(Math.round(displayTime * 1000))}</Text>
-        <Text className="text-xs font-medium text-white/60">-{formatSongDuration(Math.round(Math.max(playbackDuration - displayTime, 0) * 1000))}</Text>
+        <Text className="text-xs font-medium text-white/60">{formatDuration(Math.round(displayTime * 1000))}</Text>
+        <Text className="text-xs font-medium text-white/60">-{formatDuration(Math.round(Math.max(playbackDuration - displayTime, 0) * 1000))}</Text>
       </View>
     </View>
   );
@@ -501,7 +525,7 @@ const PlaybackControls = React.memo((props: PlaybackControlsProps) => {
         <Pressable className="h-12 w-12 items-center justify-center rounded-full" onPress={onToggleShuffle}>
           <ShuffleIcon
             size={24}
-            color={shuffleEnabled ? shuffleColor : inactiveColor}
+            color={shuffleEnabled ? '#f5f5f5' : '#b2b2b2'}
           />
         </Pressable>
         <Pressable className="h-12 w-12 items-center justify-center" onPress={onPrevious}>
@@ -521,7 +545,7 @@ const PlaybackControls = React.memo((props: PlaybackControlsProps) => {
         <Pressable className="h-12 w-12 items-center justify-center rounded-full" onPress={onCycleRepeat}>
           <RepeatIcon
             size={24}
-            color={repeatActive ? shuffleColor : inactiveColor}
+            color={repeatActive ? '#f5f5f5' : '#b2b2b2'}
           />
         </Pressable>
       </View>
@@ -734,6 +758,9 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
     () => (queue.length ? queue : currentSong ? [currentSong] : []),
     [queue, currentSong],
   );
+  const currentQueueIndex = currentIndex >= 0 && currentIndex < currentQueue.length
+    ? currentIndex
+    : 0;
 
   const isCurrentSongFavorite = useMemo(
     () => (currentSong ? favoriteSongIds.includes(currentSong.id) : false),
@@ -919,15 +946,15 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
 
     const target =
       type === "album"
-        ? normalizeValue(currentSong.album, UNKNOWN_ALBUM)
-        : normalizeValue(currentSong.artist, UNKNOWN_ARTIST);
+        ? normalizeValue(currentSong.album, getUnknownAlbum())
+        : normalizeValue(currentSong.artist, getUnknownArtist());
     setRelatedSongs({
       title: target,
       type,
       songs: songs.filter(song =>
         normalizeValue(
           type === "album" ? song.album : song.artist,
-          type === "album" ? UNKNOWN_ALBUM : UNKNOWN_ARTIST,
+          type === "album" ? getUnknownAlbum() : getUnknownArtist(),
         ) === target,
       ),
     });
@@ -1054,8 +1081,9 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
     return (
       <Modal
         visible
-        animationType="slide"
+        animationType={Platform.OS === "android" ? "fade" : "slide"}
         presentationStyle="fullScreen"
+        hardwareAccelerated
         statusBarTranslucent
         navigationBarTranslucent
         onRequestClose={onBack}
@@ -1086,8 +1114,9 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
   return (
     <Modal
       visible
-      animationType="slide"
+      animationType={Platform.OS === "android" ? "fade" : "slide"}
       presentationStyle="fullScreen"
+      hardwareAccelerated
       statusBarTranslucent
       navigationBarTranslucent
       onRequestClose={onBack}
@@ -1121,7 +1150,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
           <View>
             <SongInfo
               title={currentSong.title}
-              artist={normalizeValue(currentSong.artist, UNKNOWN_ARTIST)}
+              artist={normalizeValue(currentSong.artist, getUnknownArtist())}
               isFavorite={isCurrentSongFavorite}
               onOpenQueue={handleOpenQueue}
               onToggleFavorite={handleToggleFavorite}
@@ -1154,7 +1183,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
           <QueuePlaylistModal
             visible={queueVisible && parentAnimationDone}
             queue={currentQueue}
-            currentIndex={currentIndex}
+            currentIndex={currentQueueIndex}
             onClose={() => setQueueVisible(false)}
             onSelectSong={index => {
               setQueueVisible(false);
@@ -1440,7 +1469,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                         className="mt-1 text-xs"
                         style={{ color: 'rgba(255,255,255,0.62)' }}
                       >
-                        {normalizeValue(currentSong.artist, UNKNOWN_ARTIST)}
+                        {normalizeValue(currentSong.artist, getUnknownArtist())}
                       </AutoScrollingText>
                     </View>
                     <Pressable
@@ -1579,7 +1608,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                         {currentSong.title}
                       </AutoScrollingText>
                       <AutoScrollingText className="mt-1 text-sm text-white/60">
-                        {normalizeValue(currentSong.artist, UNKNOWN_ARTIST)}
+                        {normalizeValue(currentSong.artist, getUnknownArtist())}
                       </AutoScrollingText>
                     </View>
                     <View className="flex-row items-center gap-5">

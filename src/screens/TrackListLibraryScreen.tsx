@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { deleteAudioFile, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
 import { useMusicPlayerUi } from '../audio/musicPlayer';
-import { useAppSettingsHiddenSongIds, useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
+import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import AddSongToPlaylistModal from '../components/AddSongToPlaylistModal';
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
 import CreatePlaylistModal from '../components/CreatePlaylistModal';
@@ -23,6 +23,7 @@ import PlayerScreen from './PlayerScreen';
 import { Pressable } from 'react-native';
 import { FavoritedIcon } from '../Icons';
 import { useTranslation } from '../i18n/translations';
+import { getUnknownAlbum, getUnknownArtist } from '../utils/text';
 
 type TrackListMode = 'tracks' | 'favorites';
 
@@ -44,8 +45,6 @@ interface TrackListLibraryScreenProps {
   mode: TrackListMode;
 }
 
-const UNKNOWN_ALBUM = 'Álbum Desconocido';
-const UNKNOWN_ARTIST = 'Artista Desconocido';
 const CUSTOM_PLAYLISTS_STORAGE_KEY = '@fesa:custom-playlists';
 
 const normalizeValue = (value: string | null | undefined, fallback: string) => {
@@ -102,7 +101,6 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
   const [trackSortDirection, setTrackSortDirection] = useState<TrackSortDirection>('asc');
   const theme = useAppSettingsTheme();
   const language = useAppSettingsLanguage();
-  const hiddenSongIds = useAppSettingsHiddenSongIds();
   const { t } = useTranslation(language.id);
   const {
     currentSong,
@@ -130,7 +128,7 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
 
   useEffect(() => {
     void requestPermissionsAndLoadMusic();
-  }, [requestPermissionsAndLoadMusic, hiddenSongIds]);
+  }, [requestPermissionsAndLoadMusic]);
 
   useEffect(() => {
     let mounted = true;
@@ -192,11 +190,11 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
     }
 
     if (trackSort === 'artist') {
-      return nextSongs.sort((a, b) => directionMultiplier * (compareText(a.artist, b.artist, UNKNOWN_ARTIST) || a.title.localeCompare(b.title)));
+      return nextSongs.sort((a, b) => directionMultiplier * (compareText(a.artist, b.artist, getUnknownArtist()) || a.title.localeCompare(b.title)));
     }
 
     if (trackSort === 'albums') {
-      return nextSongs.sort((a, b) => directionMultiplier * (compareText(a.album, b.album, UNKNOWN_ALBUM) || a.title.localeCompare(b.title)));
+      return nextSongs.sort((a, b) => directionMultiplier * (compareText(a.album, b.album, getUnknownAlbum()) || a.title.localeCompare(b.title)));
     }
 
     return nextSongs.sort((a, b) => directionMultiplier * a.title.localeCompare(b.title));
@@ -326,12 +324,12 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
   const showTrackGroup = (song: Song, groupMode: 'albums' | 'artists') => {
     closeTrackMenu();
     const groupName = groupMode === 'albums'
-      ? normalizeValue(song.album, UNKNOWN_ALBUM)
-      : normalizeValue(song.artist, UNKNOWN_ARTIST);
+      ? normalizeValue(song.album, getUnknownAlbum())
+      : normalizeValue(song.artist, getUnknownArtist());
     const relatedSongs = songs.filter(item => (
       groupMode === 'albums'
-        ? normalizeValue(item.album, UNKNOWN_ALBUM) === groupName
-        : normalizeValue(item.artist, UNKNOWN_ARTIST) === groupName
+        ? normalizeValue(item.album, getUnknownAlbum()) === groupName
+        : normalizeValue(item.artist, getUnknownArtist()) === groupName
     ));
 
     setRelatedTracks({
