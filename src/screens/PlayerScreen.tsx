@@ -1324,9 +1324,9 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
               <LinearGradient
                 pointerEvents="none"
                 colors={[
-                  withAlpha(gradientColors[0], 0.86),
-                  withAlpha(gradientColors[1], 0.90),
-                  withAlpha(gradientColors[2], 0.94),
+                  withAlpha(gradientColors[0], 0.90),
+                  withAlpha(gradientColors[1], 0.94),
+                  withAlpha(gradientColors[2], 0.98),
                 ]}
                 locations={[0, 0.5, 1]}
                 start={{ x: 0, y: 0 }}
@@ -1341,7 +1341,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
               />
               <Pressable
                 onPress={() => {}}
-                style={{ width: '100%', maxWidth: 380 }}
+                style={{ width: '100%', maxWidth: 350 }}
               >
                 <View
                   className="rounded-[36px] p-6"
@@ -1357,7 +1357,6 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                     shadowOpacity: 0.55,
                     shadowOffset: { width: 0, height: 18 },
                     shadowRadius: 32,
-                    elevation: 18,
                     overflow: 'visible',
                   }}
                 >
@@ -1370,8 +1369,8 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
 
                     <BlurView
                       pointerEvents="none"
-                      intensity={80}
-                      tint="dark"
+                      intensity={10}
+                      tint="prominent"
                       style={StyleSheet.absoluteFill}
                     />
 
@@ -1379,11 +1378,11 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                     <LinearGradient
                       pointerEvents="none"
                       colors={[
-                        withAlpha(dominantColor, 0.42),
-                        withAlpha(dominantColor, 0.18),
-                        'rgba(0,0,0,0.55)',
+                        'rgba(225, 238, 255, 0.18)',
+                        'rgba(255, 255, 255, 0.07)',
+                        'rgba(255, 255, 255, 0.015)',
                       ]}
-                      locations={[0, 0.45, 1]}
+                      locations={[0, 0.42, 1]}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 1 }}
                       style={StyleSheet.absoluteFill}
@@ -1460,7 +1459,7 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                   <View className="mt-5 flex-row items-center justify-between">
                     <View className="flex-1 pr-3">
                       <AutoScrollingText
-                        className="text-base font-bold"
+                        className="text-lg font-bold"
                         style={{ color: 'rgba(255,255,255,0.98)' }}
                       >
                         {currentSong.title}
@@ -1601,23 +1600,23 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
                   <LibraryArtwork artwork={currentSong.artwork} className="h-full w-full rounded-[14px]" />
                 </View>
 
-                <View className="mt-14 rounded-[32px] border border-white/10 bg-white/10 px-5 py-5">
+                <View className="mt-14 rounded-[32px] border border-white/10 bg-white/10 px-5 py-4">
                   <View className="flex-row items-center justify-between">
                     <View className="flex-1 pr-4">
-                      <AutoScrollingText className="text-lg font-bold text-white">
+                      <AutoScrollingText className="text-base font-bold text-white">
                         {currentSong.title}
                       </AutoScrollingText>
-                      <AutoScrollingText className="mt-1 text-sm text-white/60">
+                      <AutoScrollingText className="mt-1 text-xs text-white/60">
                         {normalizeValue(currentSong.artist, getUnknownArtist())}
                       </AutoScrollingText>
                     </View>
-                    <View className="flex-row items-center gap-5">
+                    <View className="flex-row items-center gap-2">
                       <AudioWaveBars playing={playing} color="#f5f5f5" size="md" />
                       <Pressable onPress={handleToggleFavorite}>
                         {isCurrentSongFavorite ? (
-                          <FavoritedIcon size={24} color="#f5f5f5" />
+                          <FavoritedIcon size={18} color="#f5f5f5" />
                         ) : (
-                          <UnfavoritedIcon size={24} color="#f5f5f5" />
+                          <UnfavoritedIcon size={18} color="#f5f5f5" />
                         )}
                       </Pressable>
                     </View>
@@ -1625,22 +1624,22 @@ const PlayerScreen = ({ onBack }: PlayerScreenProps) => {
 
                   <PlaybackProgressBar
                     seekTo={seekTo}
-                    containerClassName="mt-5"
+                    containerClassName="mt-2"
                     trackBackgroundColor="rgba(255,255,255,0.25)"
                     barClassName="relative h-2 justify-center rounded-full bg-white/25"
                     thumbClassName="absolute h-4 w-4 rounded-full bg-white"
                   />
 
-                  <View className="mt-5 flex-row items-center justify-center gap-9">
+                  <View className="mt-2 flex-row items-center justify-center gap-8">
 
                     <Pressable onPress={handlePrevious}>
-                      <BackwardIcon size={30} color="#f5f5f5" />
+                      <BackwardIcon size={26} color="#f5f5f5" />
                     </Pressable>
                     <Pressable onPress={handlePlayPause}>
-                      <Ionicons name={playing ? "pause" : "play"} size={44} color="#f5f5f5" />
+                      <Ionicons name={playing ? "pause" : "play"} size={40} color="#f5f5f5" />
                     </Pressable>
                     <Pressable onPress={handleNext}>
-                      <ForwardIcon size={30} color="#f5f5f5" />
+                      <ForwardIcon size={26} color="#f5f5f5" />
                     </Pressable>
                   </View>
                 </View>

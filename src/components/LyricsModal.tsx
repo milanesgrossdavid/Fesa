@@ -22,7 +22,7 @@ import { captureRef } from "react-native-view-shot";
 
 import { LinearGradient } from "expo-linear-gradient";
 
-import { useDominantColor, withAlpha, hexToHsl, hslToHex } from "../hooks/useDominantColor";
+import { useDominantColor, withAlpha, hexToHsl, hslToHex, getGradientColors } from "../hooks/useDominantColor";
 
 import Ionicons from "@expo/vector-icons/Ionicons";
 
@@ -167,6 +167,22 @@ const buildDynamicShareTheme = (baseHex: string): ShareTheme => {
     return SHARE_THEMES[0];
   }
   const { hue, saturation, lightness } = hexToHsl(baseHex);
+  if (saturation < 0.08) {
+    const card = hslToHex(0, 0, clamp(lightness + 0.08, 0.16, 0.46));
+    const text = hslToHex(0, 0, 0.96);
+    const muted = hslToHex(0, 0, 0.78);
+
+    return {
+      id: "dynamic",
+      name: "Color de la canción",
+      background: baseHex,
+      card,
+      text,
+      muted,
+      accent: text,
+    };
+  }
+
   const background = hslToHex(
     hue,
     clamp(saturation, 0.55, 0.85),
@@ -552,6 +568,7 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
   const [shareEnd, setShareEnd] = useState<number | null>(null);
   const [shareThemeId, setShareThemeId] = useState<(typeof SHARE_THEMES)[number]["id"]>("dynamic");
   const [saveFeedback, setSaveFeedback] = useState<"success" | "error" | null>(null);
+  
 
   const dynamicShareTheme = useMemo(
     () => buildDynamicShareTheme(dominantColor),
@@ -1055,8 +1072,8 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
       >
         <View className="flex-1">
           <BlurView
-            intensity={60}
-            tint="dark"
+            intensity={90}
+            tint="prominent"
             style={{
               position: "absolute",
               top: 0,
@@ -1079,7 +1096,7 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
               left: 0,
               right: 0,
               bottom: 0,
-              opacity: 0.98,
+              opacity: 1,
             }}
           />
 
@@ -1698,6 +1715,8 @@ const LyricsModal = ({ song, visible, onClose }: LyricsModalProps) => {
               </View>
               <Pressable
                 className="h-10 w-10 items-center justify-center rounded-full"
+                style={{ backgroundColor: theme.surface }}
+
                 onPress={() => setSharePreviewVisible(false)}
                 accessibilityRole="button"
                 accessibilityLabel={t('close', 'Close')}

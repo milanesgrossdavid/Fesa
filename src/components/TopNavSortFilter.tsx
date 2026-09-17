@@ -126,7 +126,7 @@ const TopNavSortFilter = ({
               return (
                 <Pressable
                   key={option.value}
-                  className="mx-1 flex-row items-center justify-between rounded-[20px] border px-4 py-3.5"
+                  className="mx-1 my-0.5 flex-row items-center justify-between rounded-[20px] border px-4 py-3.5"
                   style={{
                     backgroundColor: isSelected ? theme.surface : 'transparent',
                     borderColor: isSelected ? theme.accent : theme.border,
