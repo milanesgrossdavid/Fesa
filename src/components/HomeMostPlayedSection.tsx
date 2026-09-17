@@ -110,7 +110,7 @@ const HomeMostPlayedSection = ({
           ) : null}
         </>
       ) : (
-        <Text className="px-5 py-6 text-center text-sm" style={{ color: theme.mutedText }}>
+        <Text className="px-4 py-5 text-center text-sm" style={{ backgroundColor: theme.surface, color: theme.mutedText }}>
           {t('most_played_empty')}
         </Text>
       )}
