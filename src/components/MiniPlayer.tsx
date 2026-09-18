@@ -54,7 +54,7 @@ const MiniPlayer = () => {
         <MicroPressable
           className="flex-row items-center rounded-[24px] border px-3 py-2.5 shadow-lg"
           style={{
-            backgroundColor: theme.surface,
+            backgroundColor: gradientColors[0],
             borderColor: theme.border,
             shadowColor: '#000',
             shadowOpacity: 0.18,
@@ -66,17 +66,17 @@ const MiniPlayer = () => {
           accessibilityRole="button"
           accessibilityLabel={`${currentSong.title}, ${currentSong.artist || t('unknown_artist', 'Unknown Artist')}`}
           accessibilityHint={t('open_player', 'Open player')}
-        >
+        > 
           <LinearGradient
             pointerEvents="none"
             colors={[
               withAlpha(gradientColors[0], 0.7),
-              withAlpha(gradientColors[1], 0.48),
-              withAlpha(gradientColors[2], 0.72),
+              withAlpha(gradientColors[1], 0.58),
+              withAlpha(gradientColors[1], 0.58),
             ]}
-            locations={[0, 0.58, 1]}
+            locations={[0, 0.7, 1]}
             start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+            end={{ x: 0, y: 1 }}
             style={{
               position: 'absolute',
               top: 0,

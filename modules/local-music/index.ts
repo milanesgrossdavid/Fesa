@@ -163,6 +163,25 @@ export async function deleteAudioFile(songId: string): Promise<boolean> {
   return deleted;
 }
 
+export async function deleteAudioFiles(songIds: string[]): Promise<boolean> {
+  if (!songIds.length) {
+    return false;
+  }
+
+  if (typeof LocalMusic.deleteAudioFiles === 'function') {
+    const deleted = await LocalMusic.deleteAudioFiles(songIds);
+
+    if (deleted) {
+      invalidateAudioFilesCache();
+    }
+
+    return deleted;
+  }
+
+  const results = await Promise.all(songIds.map(songId => deleteAudioFile(songId)));
+  return results.every(Boolean);
+}
+
 export type EqualizerBandState = {
   index: number;
   frequency: number;

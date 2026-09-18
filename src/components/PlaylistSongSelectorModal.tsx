@@ -3,9 +3,9 @@ import { FlatList, Modal, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Song } from '../../modules/local-music';
 import { getTranslation } from '../i18n/translations';
-import { CheckIcon } from '../Icons';
 import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import LibraryArtwork from './LibraryArtwork';
+import SelectionRadioButton from './SelectionRadioButton';
 
 export type PlaylistSelectionTab = 'tracks' | 'artists' | 'albums' | 'folders';
 
@@ -198,15 +198,8 @@ const PlaylistSongSelectorModal = ({
                   accessibilityLabel={`${song.title}, ${normalizeValue(song.artist, t('unknown_artist', 'Unknown Artist'))}`}
                   accessibilityState={{ checked: isSelected }}
                 >
-                  <View
-                    className="mr-3 h-7 w-7 items-center justify-center rounded-full"
-                    style={{
-                      borderColor: isSelected ? 'transparent' : theme.mutedText,
-                      borderWidth: isSelected ? 0 : 1,
-                      backgroundColor: isSelected ? theme.accent : 'transparent',
-                    }}
-                  >
-                    {isSelected ? <CheckIcon size={18} color="#ffffff" /> : null}
+                  <View className="mr-3">
+                    <SelectionRadioButton selected={isSelected} />
                   </View>
                   <LibraryArtwork
                     artwork={song.artwork}
@@ -245,15 +238,8 @@ const PlaylistSongSelectorModal = ({
                   accessibilityLabel={`${group.name}, ${selectedCount}/${group.songs.length} ${t('selection_selected_many', 'selected')}`}
                   accessibilityState={{ checked: isSelected }}
                 >
-                  <View
-                    className="mr-3 h-7 w-7 items-center justify-center rounded-full"
-                    style={{
-                      borderColor: isSelected ? 'transparent' : theme.mutedText,
-                      borderWidth: isSelected ? 0 : 1,
-                      backgroundColor: isSelected ? theme.accent : 'transparent',
-                    }}
-                  >
-                    {isSelected ? <CheckIcon size={18} color="#ffffff" /> : null}
+                  <View className="mr-3">
+                    <SelectionRadioButton selected={isSelected} />
                   </View>
                   <LibraryArtwork
                     artwork={group.artwork}

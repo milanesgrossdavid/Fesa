@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, GestureResponderEvent, RefreshControl, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import { deleteAudioFile, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
+import { deleteAudioFile, deleteAudioFiles, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
 import { useMusicPlayerUi } from '../audio/musicPlayer';
 import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import AddSongToPlaylistModal from '../components/AddSongToPlaylistModal';
@@ -161,6 +161,11 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
           }
         })
         .catch(error => console.warn('No se pudieron cargar las playlists:', error));
+
+      return () => {
+        setSelectedSongIds([]);
+        setSelectionModeActive(false);
+      };
     }, [loading, requestPermissionsAndLoadMusic, songs.length])
   );
 
@@ -210,6 +215,15 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
     [selectedSongIds, songs]
   );
   const isSelectionMode = selectedSongIds.length > 0;
+  const allSongsSelected = sortedSongs.length > 0 && sortedSongs.every(song => selectedSongIds.includes(song.id));
+
+  const toggleSelectAllSongs = () => {
+    const songIds = sortedSongs.map(song => song.id);
+    setSelectedSongIds(currentIds => allSongsSelected
+      ? currentIds.filter(songId => !songIds.includes(songId))
+      : [...currentIds, ...songIds.filter(songId => !currentIds.includes(songId))]
+    );
+  };
 
   useEffect(() => {
     setSelectionModeActive(isSelectionMode);
@@ -248,9 +262,9 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
     setBulkDeleteVisible(true);
   };
 
-  const performBulkDelete = () => {
+  const performBulkDelete = async () => {
     const idsToDelete = [...selectedSongIds];
-    idsToDelete.forEach(songId => { void deleteAudioFile(songId); });
+    await deleteAudioFiles(idsToDelete);
     setSongs(currentSongs => currentSongs.filter(song => !idsToDelete.includes(song.id)));
     clearSelectedSongs();
     setBulkDeleteVisible(false);
@@ -526,6 +540,8 @@ const TrackListLibraryScreen = ({ mode }: TrackListLibraryScreenProps) => {
         onAdd={openSelectedSongsPlaylistModal}
         onShare={shareSelectedSongs}
         onDelete={confirmDeleteSelectedSongs}
+        allSelected={allSongsSelected}
+        onToggleSelectAll={toggleSelectAllSongs}
       />
 
       <TrackActionMenu

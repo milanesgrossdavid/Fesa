@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import { deleteAudioFile, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
+import { deleteAudioFile, deleteAudioFiles, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
 import { useMusicPlayerUi } from '../audio/musicPlayer';
 import { useAppSettingsHiddenSongIds, useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import { getTranslation } from '../i18n/translations';
@@ -232,6 +232,11 @@ const GroupedLibraryScreen = ({ mode }: GroupedLibraryScreenProps) => {
           }
         })
         .catch(error => console.warn('No se pudieron cargar las playlists:', error));
+
+      return () => {
+        setSelectedSongIds([]);
+        setSelectionModeActive(false);
+      };
     }, [loading, requestPermissionsAndLoadMusic, songs.length])
   );
 
@@ -264,6 +269,16 @@ const GroupedLibraryScreen = ({ mode }: GroupedLibraryScreenProps) => {
     [selectedSongIds, songs]
   );
   const isSelectionMode = selectedSongIds.length > 0;
+
+  const toggleSelectAllSongs = () => {
+    const songIds = selectedGroup?.songs.map(song => song.id) ?? [];
+    const allSelected = songIds.length > 0 && songIds.every(songId => selectedSongIds.includes(songId));
+
+    setSelectedSongIds(currentIds => allSelected
+      ? currentIds.filter(songId => !songIds.includes(songId))
+      : [...currentIds, ...songIds.filter(songId => !currentIds.includes(songId))]
+    );
+  };
 
   useEffect(() => {
     setSelectionModeActive(isSelectionMode);
@@ -309,6 +324,9 @@ const GroupedLibraryScreen = ({ mode }: GroupedLibraryScreenProps) => {
   };
 
   const closeSelectedGroup = () => {
+    setSelectedSongIds([]);
+    setSelectionModeActive(false);
+
     Animated.timing(groupModalTranslateY, {
       toValue: 1,
       duration: 500,
@@ -353,9 +371,9 @@ const GroupedLibraryScreen = ({ mode }: GroupedLibraryScreenProps) => {
     setBulkDeleteVisible(true);
   };
 
-  const performBulkDelete = () => {
+  const performBulkDelete = async () => {
     const idsToDelete = [...selectedSongIds];
-    idsToDelete.forEach(songId => { void deleteAudioFile(songId); });
+    await deleteAudioFiles(idsToDelete);
     setSongs(currentSongs => currentSongs.filter(song => !idsToDelete.includes(song.id)));
     clearSelectedSongs();
     setBulkDeleteVisible(false);
@@ -523,6 +541,8 @@ const GroupedLibraryScreen = ({ mode }: GroupedLibraryScreenProps) => {
         onAdd={openSelectedSongsPlaylistModal}
         onShare={shareSelectedSongs}
         onDelete={confirmDeleteSelectedSongs}
+        allSelected={Boolean(selectedGroup?.songs.length && selectedGroup.songs.every(song => selectedSongIds.includes(song.id)))}
+        onToggleSelectAll={toggleSelectAllSongs}
       />
     </LibraryGroupDetailModal>
   );
@@ -582,6 +602,8 @@ const GroupedLibraryScreen = ({ mode }: GroupedLibraryScreenProps) => {
         onAdd={openSelectedSongsPlaylistModal}
         onShare={shareSelectedSongs}
         onDelete={confirmDeleteSelectedSongs}
+        allSelected={Boolean(selectedGroup?.songs.length && selectedGroup.songs.every(song => selectedSongIds.includes(song.id)))}
+        onToggleSelectAll={toggleSelectAllSongs}
       />
 
       <TrackActionMenu

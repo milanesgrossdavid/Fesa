@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import { deleteAudioFile, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
+import { deleteAudioFile, deleteAudioFiles, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
 import { musicPlayer, useMusicPlayerUi } from '../audio/musicPlayer';
 import { useAppSettingsHiddenSongIds, useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import AddSongToPlaylistModal from '../components/AddSongToPlaylistModal';
@@ -233,6 +233,12 @@ const PlaylistLibraryScreen = () => {
         void requestPermissionsAndLoadMusic();
       }
       void loadStoredPlaylists();
+
+      return () => {
+        setSelectedSongIds([]);
+        setSelectedPlaylistIds([]);
+        setSelectionModeActive(false);
+      };
     }, [songs.length, loading, requestPermissionsAndLoadMusic])
   );
 
@@ -347,6 +353,16 @@ const PlaylistLibraryScreen = () => {
     [selectedSongIds, songsById]
   );
   const isSelectionMode = selectedSongIds.length > 0;
+
+  const toggleSelectAllSongs = () => {
+    const songIds = selectedGroup?.songs.map(song => song.id) ?? [];
+    const allSelected = songIds.length > 0 && songIds.every(songId => selectedSongIds.includes(songId));
+
+    setSelectedSongIds(currentIds => allSelected
+      ? currentIds.filter(songId => !songIds.includes(songId))
+      : [...currentIds, ...songIds.filter(songId => !currentIds.includes(songId))]
+    );
+  };
 
   useEffect(() => {
     setSelectionModeActive(isSelectionMode || isPlaylistSelectionMode);
@@ -639,13 +655,10 @@ const PlaylistLibraryScreen = () => {
     setBulkDeleteVisible(true);
   };
 
-  const performBulkDelete = () => {
+  const performBulkDelete = async () => {
     const idsToDelete = [...selectedSongIds];
-    idsToDelete.forEach(songId => {
-      void deleteAudioFile(songId).then(deleted => {
-        if (deleted) setSongs(currentSongs => currentSongs.filter(currentSong => currentSong.id !== songId));
-      });
-    });
+    await deleteAudioFiles(idsToDelete);
+    setSongs(currentSongs => currentSongs.filter(currentSong => !idsToDelete.includes(currentSong.id)));
     const nextPlaylists = storedPlaylists.map(playlist => ({ ...playlist, songIds: playlist.songIds.filter(songId => !idsToDelete.includes(songId)), updatedAt: Date.now() }));
     void persistStoredPlaylists(nextPlaylists);
     if (selectedGroup) {
@@ -842,6 +855,8 @@ const PlaylistLibraryScreen = () => {
         onAdd={openSelectedSongsPlaylistModal}
         onShare={shareSelectedSongs}
         onDelete={confirmDeleteSelectedSongs}
+        allSelected={Boolean(selectedGroup?.songs.length && selectedGroup.songs.every(song => selectedSongIds.includes(song.id)))}
+        onToggleSelectAll={toggleSelectAllSongs}
       />
     </LibraryGroupDetailModal>
   );
@@ -924,6 +939,8 @@ const PlaylistLibraryScreen = () => {
         onAdd={openSelectedSongsPlaylistModal}
         onShare={shareSelectedSongs}
         onDelete={confirmDeleteSelectedSongs}
+        allSelected={Boolean(selectedGroup?.songs.length && selectedGroup.songs.every(song => selectedSongIds.includes(song.id)))}
+        onToggleSelectAll={toggleSelectAllSongs}
       />
 
       <TrackActionMenu
@@ -998,6 +1015,15 @@ const PlaylistLibraryScreen = () => {
         onAdd={playlistId => openPlaylistSongSelectorForEdit(playlistId)}
         onEdit={openSelectedPlaylistEditor}
         onDelete={confirmDeleteSelectedPlaylist}
+        allSelected={sortedCustomPlaylists.length > 0 && sortedCustomPlaylists.every(playlist => selectedPlaylistIds.includes(playlist.id))}
+        onToggleSelectAll={() => {
+          const playlistIds = sortedCustomPlaylists.map(playlist => playlist.id);
+          const allSelected = playlistIds.length > 0 && playlistIds.every(playlistId => selectedPlaylistIds.includes(playlistId));
+          setSelectedPlaylistIds(currentIds => allSelected
+            ? currentIds.filter(playlistId => !playlistIds.includes(playlistId))
+            : [...currentIds, ...playlistIds.filter(playlistId => !currentIds.includes(playlistId))]
+          );
+        }}
       />
 
       <SongDetailsModal song={detailsSong} onClose={() => setDetailsSong(null)} />

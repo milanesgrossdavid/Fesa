@@ -289,6 +289,24 @@ class LocalMusicModule : Module() {
       return@AsyncFunction context.contentResolver.delete(uri, null, null) > 0
     }
 
+    AsyncFunction("deleteAudioFiles") { songIds: List<String> ->
+      val context = appContext.reactContext ?: return@AsyncFunction false
+      val activity = appContext.currentActivity ?: return@AsyncFunction false
+      val uris = songIds.map { songId -> audioUri(songId) }
+
+      if (uris.isEmpty()) {
+        return@AsyncFunction false
+      }
+
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        val pendingIntent: PendingIntent = MediaStore.createDeleteRequest(context.contentResolver, uris)
+        activity.startIntentSenderForResult(pendingIntent.intentSender, 4001, null, 0, 0, 0)
+        return@AsyncFunction true
+      }
+
+      uris.all { uri -> context.contentResolver.delete(uri, null, null) > 0 }
+    }
+
     AsyncFunction("updateAudioMetadata") { songId: String, title: String?, artist: String?, album: String?, artworkUri: String? ->
       val context = appContext.reactContext ?: return@AsyncFunction false
       val uri = audioUri(songId)

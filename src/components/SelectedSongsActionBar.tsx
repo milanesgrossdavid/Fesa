@@ -3,6 +3,7 @@ import { getTranslation } from '../i18n/translations';
 import { DeleteIcon, PlayIcon, PlusIcon, ShareIcon } from '../Icons';
 import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import MicroPressable from './MicroPressable';
+import SelectionRadioButton from './SelectionRadioButton';
 
 interface SelectedSongsActionBarProps {
   visible: boolean;
@@ -10,6 +11,8 @@ interface SelectedSongsActionBarProps {
   onAdd: () => void;
   onShare: () => void;
   onDelete: () => void;
+  allSelected: boolean;
+  onToggleSelectAll: () => void;
 }
 
 const SelectedSongsActionBar = ({
@@ -18,6 +21,8 @@ const SelectedSongsActionBar = ({
   onAdd,
   onShare,
   onDelete,
+  allSelected,
+  onToggleSelectAll,
 }: SelectedSongsActionBarProps) => {
   const language = useAppSettingsLanguage();
   const theme = useAppSettingsTheme();
@@ -43,6 +48,11 @@ const SelectedSongsActionBar = ({
       <View className="mb-2 items-center">
         <View className="h-[5px] w-10 rounded-full" style={{ backgroundColor: `${theme.mutedText}55` }} />
       </View>
+      <SelectionRadioButton
+        selected={allSelected}
+        label={allSelected ? t('selection_deselect_all', 'Deselect all') : t('selection_select_all', 'Select all')}
+        onPress={onToggleSelectAll}
+      />
       <View className="flex-row items-center justify-around">
         <MicroPressable
           className="min-w-[64px] items-center gap-1 rounded-[16px] px-2 py-1"

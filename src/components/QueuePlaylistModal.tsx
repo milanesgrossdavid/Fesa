@@ -326,11 +326,11 @@ const QueuePlaylistModal = ({
       }}
     >
       <Pressable
-        className="mx-1 mb-2 flex-row items-center rounded-[26px] border px-3 py-2.5"
+        className="mx-1 mb-2 flex-row items-center rounded-[26px] px-3 py-2.5"
         style={{
           backgroundColor: isActive
-            ? withAlpha(theme.surface, 0.26)
-            : withAlpha(theme.surface, 0.48),
+            ? withAlpha(theme.surface, 0.16)
+            : 'transparent',
           borderColor: isActive ? withAlpha(theme.accent, 0.7) : withAlpha(theme.border, 0.72),
           shadowColor: '#000',
           shadowOpacity: isActive ? 0.16 : 0.08,
@@ -347,25 +347,7 @@ const QueuePlaylistModal = ({
         accessibilityHint={isActive ? currentlyPlayingLabel : playSongLabel}
         accessibilityState={{ selected: isActive }}
       >
-        <LinearGradient
-            pointerEvents="none"
-            colors={[
-              withAlpha(gradientColors[0], 0.28),
-              withAlpha(gradientColors[1], 0.24),
-              withAlpha(gradientColors[2], 0.20),
-            ]}
-            locations={[0, 0.58, 1]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              borderRadius: 24,
-            }}
-          />
+        
 
         <View
           className="mr-2 h-12 w-10 items-center justify-center rounded-xl"
@@ -377,7 +359,7 @@ const QueuePlaylistModal = ({
           accessibilityLabel={`${reorderSongLabel} ${item.title || noTitleLabel}`}
           accessibilityHint={reorderHint}
         >
-          <DragHandleIcon size={22} color={theme.accent} />
+          <DragHandleIcon size={22} color={theme.text} />
         </View>
 
         <LibraryArtwork
@@ -523,15 +505,12 @@ const QueuePlaylistModal = ({
 
           <View className="mb-4 min-h-[52px] flex-row items-center justify-between px-1">
             <View className="flex-1 flex-row items-center pr-3">
-              <View className="mr-3 h-9 w-9 items-center justify-center rounded-[12px]" style={{ backgroundColor: `${theme.accent}18` }}>
-                <Ionicons name="list-outline" size={19} color={theme.accent} />
+              <View className="mr-3 h-9 w-9 items-center justify-center rounded-[12px]" >
+                <Ionicons name="list-outline" size={19} color={theme.text} />
               </View>
               <View className="flex-1">
-                <Text className="text-xl font-bold tracking-[-0.4px]" style={{ color: theme.text }}>
+                <Text className="text-2xl font-bold tracking-[-0.4px]" style={{ color: theme.text }}>
                   {t('player_queue_title', 'Queue')}
-                </Text>
-                <Text className="mt-1 text-xs" style={{ color: theme.text }}>
-                  {t('queue_reorder_hint', 'Drag songs to reorder')}
                 </Text>
               </View>
             </View>
@@ -539,20 +518,21 @@ const QueuePlaylistModal = ({
               className="mr-2 rounded-full px-3 py-1.5"
 
             >
-              <Text className="text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: theme.accent }}>
+              <Text className="text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: theme.text }}>
                 {queueCountLabel}
               </Text>
             </View>
 
             <Pressable
-              className="h-10 w-10 items-center justify-center rounded-full"
+              className="h-8 w-8 items-center justify-center rounded-full"
+              style={{ backgroundColor: withAlpha(theme.surface, 0.16) }}
               onPress={onClose}
               accessibilityRole="button"
               accessibilityLabel={t('close', 'Close')}
 
             >
 
-              <Ionicons name="close" size={20} color={theme.accent} />
+              <Ionicons name="close" size={18} color={theme.text} />
             </Pressable>
           </View>
 

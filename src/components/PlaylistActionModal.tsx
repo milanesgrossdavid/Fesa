@@ -2,6 +2,7 @@ import { Pressable, Text, View } from 'react-native';
 import { getTranslation } from '../i18n/translations';
 import { DeleteIcon, EditIcon, PlayIcon, PlusIcon } from '../Icons';
 import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
+import SelectionRadioButton from './SelectionRadioButton';
 
 type PlaylistActionData = {
   id: string;
@@ -16,6 +17,8 @@ interface PlaylistActionModalProps {
   onAdd: (playlistId: string) => void;
   onEdit: () => void;
   onDelete: () => void;
+  allSelected: boolean;
+  onToggleSelectAll: () => void;
 }
 
 const PlaylistActionModal = ({
@@ -25,6 +28,8 @@ const PlaylistActionModal = ({
   onAdd,
   onEdit,
   onDelete,
+  allSelected,
+  onToggleSelectAll,
 }: PlaylistActionModalProps) => {
   const language = useAppSettingsLanguage();
   const theme = useAppSettingsTheme();
@@ -59,6 +64,11 @@ const PlaylistActionModal = ({
             {selectedCount} {selectedCount === 1 ? t('playlist_selected_one', 'playlist selected') : t('playlist_selected_many', 'playlists selected')}
           </Text>
         </View>
+        <SelectionRadioButton
+          selected={allSelected}
+          label={allSelected ? t('selection_deselect_all', 'Deselect all') : t('selection_select_all', 'Select all')}
+          onPress={onToggleSelectAll}
+        />
         <View className="flex-row items-center justify-around">
           <Pressable className="min-w-[64px] items-center gap-1 rounded-[16px] px-2 py-1" disabled={!singleSelection} onPress={onPlay} accessibilityRole="button" accessibilityLabel={t('play', 'Play')} style={({ pressed }) => ({ opacity: !singleSelection ? 0.4 : pressed ? 0.65 : 1 })}>
             <View className="h-9 w-9 items-center justify-center rounded-full" style={{ backgroundColor: theme.accent + 18}}>

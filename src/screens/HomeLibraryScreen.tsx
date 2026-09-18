@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import { deleteAudioFile, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
+import { deleteAudioFile, deleteAudioFiles, getAudioFilesWithPermission, setAudioAsTone, shareAudioFile, Song, ToneType } from '../../modules/local-music';
 import { musicPlayer, useMusicPlayerUi } from '../audio/musicPlayer';
 import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import { getTranslation, useTranslation } from '../i18n/translations';
@@ -233,6 +233,11 @@ const HomeLibraryScreen = () => {
           }
         })
         .catch(error => console.warn('No se pudieron cargar las playlists:', error));
+
+      return () => {
+        setSelectedSongIds([]);
+        setSelectionModeActive(false);
+      };
     }, [songs.length, loading, requestPermissionsAndLoadMusic])
   );
 
@@ -377,6 +382,16 @@ const HomeLibraryScreen = () => {
   );
   const isSelectionMode = selectedSongIds.length > 0;
 
+  const toggleSelectAllSongs = (scope: Song[]) => {
+    const songIds = scope.map(song => song.id);
+    const allSelected = songIds.length > 0 && songIds.every(songId => selectedSongIds.includes(songId));
+
+    setSelectedSongIds(currentIds => allSelected
+      ? currentIds.filter(songId => !songIds.includes(songId))
+      : [...currentIds, ...songIds.filter(songId => !currentIds.includes(songId))]
+    );
+  };
+
   useEffect(() => {
     setSelectionModeActive(isSelectionMode);
 
@@ -443,9 +458,9 @@ const HomeLibraryScreen = () => {
     setBulkDeleteVisible(true);
   };
 
-  const performBulkDelete = () => {
+  const performBulkDelete = async () => {
     const idsToDelete = [...selectedSongIds];
-    idsToDelete.forEach(songId => { void deleteAudioFile(songId); });
+    await deleteAudioFiles(idsToDelete);
     setSongs(currentSongs => currentSongs.filter(song => !idsToDelete.includes(song.id)));
     setMostPlayedSongs(currentSongs => currentSongs.filter(song => !idsToDelete.includes(song.id)));
     setRecommendedSongs(currentSongs => currentSongs.filter(song => !idsToDelete.includes(song.id)));
@@ -607,6 +622,8 @@ const HomeLibraryScreen = () => {
         onAdd={openSelectedSongsPlaylistModal}
         onShare={shareSelectedSongs}
         onDelete={confirmDeleteSelectedSongs}
+        allSelected={Boolean(selectedGroup?.songs.length && selectedGroup.songs.every(song => selectedSongIds.includes(song.id)))}
+        onToggleSelectAll={() => toggleSelectAllSongs(selectedGroup?.songs ?? [])}
       />
     </LibraryGroupDetailModal>
   );
@@ -702,6 +719,8 @@ const HomeLibraryScreen = () => {
         onAdd={openSelectedSongsPlaylistModal}
         onShare={shareSelectedSongs}
         onDelete={confirmDeleteSelectedSongs}
+        allSelected={recentSongs.length > 0 && recentSongs.every(song => selectedSongIds.includes(song.id))}
+        onToggleSelectAll={() => toggleSelectAllSongs(recentSongs)}
       />
 
       <TrackActionMenu

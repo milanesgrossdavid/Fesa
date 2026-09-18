@@ -2,13 +2,14 @@ import { memo, useCallback } from 'react';
 import { GestureResponderEvent, Pressable, View, Text } from 'react-native';
 import { Song } from '../../modules/local-music';
 import { getTranslation } from '../i18n/translations';
-import { CheckIcon, DotsIcon } from '../Icons';
+import { DotsIcon } from '../Icons';
 import { formatSongDuration } from '../utils/time';
 import AudioWaveBars from './AudioWaveBars';
 import { useAppSettingsLanguage, useAppSettingsTheme } from '../settings/appSettings';
 import MicroPressable from './MicroPressable';
 import LibraryArtwork from './LibraryArtwork';
 import AutoScrollingText from './AutoScrollingText';
+import SelectionRadioButton from './SelectionRadioButton';
 
 interface SongListItemProps {
   item: Song;
@@ -64,15 +65,8 @@ const SongListItem = ({
       delayLongPress={200}
     >
       {showSelectionIndicator ? (
-        <View
-          className="mr-3 h-6 w-6 items-center justify-center rounded-full"
-          style={{
-            borderColor: isSelected ? 'transparent' : theme.mutedText,
-            borderWidth: isSelected ? 0 : 0.5,
-            backgroundColor: isSelected ? theme.accent : 'transparent',
-          }}
-        >
-          {isSelected ? <CheckIcon size={22} color={theme.background} /> : null}
+        <View className="mr-3">
+          <SelectionRadioButton selected={isSelected} />
         </View>
       ) : null}
       <Pressable
